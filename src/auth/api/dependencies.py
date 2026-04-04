@@ -40,7 +40,7 @@ class AuthenticationError(Exception):
 def _get_session_factory() -> sessionmaker[Session]:
     global _session_factory
     if _session_factory is None:
-        engine = get_engine(DEFAULT_DATABASE_URL)
+        engine = get_engine()
         _session_factory = get_session_factory(engine)
     return _session_factory
 
