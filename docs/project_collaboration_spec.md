@@ -256,20 +256,32 @@ Ordered by privilege level (descending):
 
 ---
 
-## 6. Ports (Repository Interfaces)
+## 6. Ports (Driven Interfaces)
 
 ### ProjectRepository (Protocol)
 - `find_by_id(project_id: str) -> Project | None`
 - `save(project: Project) -> None`
-- `find_by_skills(skills: list[SkillTag], status: ProjectStatus | None) -> list[Project]`
+- `search(skills: list[SkillTag] | None, keyword: str | None, status: ProjectStatus | None) -> list[Project]`
 
-### MembershipRepository (Protocol)
-- `find_by_user_and_project(user_id: str, project_id: str) -> Membership | None`
-- `find_active_by_project(project_id: str) -> list[Membership]`
+### UnitOfWork (Protocol)
+Coordinates atomic persistence of domain changes. Application Services manage the UoW lifecycle.
 
-### ApplicationRepository (Protocol)
-- `find_by_id(application_id: str) -> ApplicationForm | None`
-- `find_pending_by_user_and_project(user_id: str, project_id: str) -> ApplicationForm | None`
+- `projects: ProjectRepository`
+- `__enter__() -> UnitOfWork`
+- `__exit__(*args) -> None`
+- `commit() -> None`
+- `rollback() -> None`
+
+**Usage:**
+```python
+with uow:
+    project = uow.projects.find_by_id("p1")
+    project.publish()
+    uow.projects.save(project)
+    uow.commit()
+```
+
+**Note:** `MembershipRepository` and `ApplicationRepository` are not needed as separate ports — all operations go through the Project aggregate root, which manages its own memberships and applications internally.
 
 ---
 
@@ -307,7 +319,7 @@ src/project_collaboration/
         role.py                 # ProjectRole enum
         skill_tag.py            # SkillTag value object
         events.py               # Domain event dataclasses
-        ports.py                # Repository Protocols
+        ports.py                # ProjectRepository, UnitOfWork Protocols
     application/
         __init__.py
         create_project.py       # CreateProjectUseCase
@@ -316,6 +328,7 @@ src/project_collaboration/
         review_application.py   # AcceptApplicationUseCase, RejectApplicationUseCase
         manage_member.py        # ChangeMemberRoleUseCase, RemoveMemberUseCase
         change_project_status.py # Activate, Suspend, Resume, Complete, Cancel
+        search_projects.py      # SearchProjectsUseCase
 
 tests/project_collaboration/
     __init__.py
@@ -327,6 +340,7 @@ tests/project_collaboration/
         test_application_form.py
         test_role.py
         test_skill_tag.py
+        test_events.py
     application/
         __init__.py
         test_create_project.py
@@ -335,9 +349,9 @@ tests/project_collaboration/
         test_review_application.py
         test_manage_member.py
         test_change_project_status.py
+        test_search_projects.py
     fakes/
         __init__.py
-        fake_project_repository.py
-        fake_membership_repository.py
-        fake_application_repository.py
+        fake_unit_of_work.py    # FakeUnitOfWork with in-memory repos
+        test_unit_of_work.py
 ```

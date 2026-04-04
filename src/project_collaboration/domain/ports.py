@@ -14,9 +14,10 @@ class ProjectRepository(Protocol):
 
     def save(self, project: Project) -> None: ...
 
-    def find_by_skills(
+    def search(
         self,
-        skills: list[SkillTag],
+        skills: list[SkillTag] | None = None,
+        keyword: str | None = None,
         status: ProjectStatus | None = None,
     ) -> list[Project]: ...
 

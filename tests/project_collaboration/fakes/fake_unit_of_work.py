@@ -19,19 +19,29 @@ class _FakeProjectRepository:
     def save(self, project: Project) -> None:
         self._storage[project.project_id] = project
 
-    def find_by_skills(
+    def search(
         self,
-        skills: list[SkillTag],
+        skills: list[SkillTag] | None = None,
+        keyword: str | None = None,
         status: ProjectStatus | None = None,
     ) -> list[Project]:
-        skill_values = {s.value for s in skills}
         results: list[Project] = []
         for project in self._storage.values():
             if status is not None and project.status != status:
                 continue
-            project_skill_values = {s.value for s in project.required_skills}
-            if skill_values & project_skill_values:
-                results.append(project)
+            if skills:
+                skill_values = {s.value for s in skills}
+                project_skill_values = {s.value for s in project.required_skills}
+                if not (skill_values & project_skill_values):
+                    continue
+            if keyword:
+                lower_keyword = keyword.lower()
+                if (
+                    lower_keyword not in project.title.lower()
+                    and lower_keyword not in project.description.lower()
+                ):
+                    continue
+            results.append(project)
         return results
 
     def snapshot(self) -> dict[str, Project]:
