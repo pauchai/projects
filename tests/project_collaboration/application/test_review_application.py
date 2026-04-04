@@ -6,39 +6,13 @@ from project_collaboration.application.review_application import (
     AcceptApplicationUseCase,
     RejectApplicationUseCase,
 )
-from project_collaboration.domain.project import Project
 from project_collaboration.domain.application_form import ApplicationStatus
 from project_collaboration.domain.role import ProjectRole
-from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
-
-
-def _project_with_application(
-    uow: FakeUnitOfWork,
-    max_members: int | None = None,
-) -> Project:
-    """Create a recruiting project with one pending application."""
-    p = Project(
-        project_id="p1",
-        title="Test Project",
-        description="Desc.",
-        owner_id="owner1",
-        required_skills=[SkillTag("python")],
-        max_members=max_members,
-    )
-    p.publish()
-    p.apply(
-        application_id="a1",
-        applicant_id="u2",
-        desired_role=ProjectRole.MEMBER,
-        motivation="I want to join.",
-        applicant_skills=[SkillTag("python")],
-    )
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
+from tests.project_collaboration.factories import (
+    make_project_with_application,
+    save_project,
+)
 
 
 # =============================================================================
@@ -51,13 +25,13 @@ class TestAcceptApplicationUseCase:
 
     def test_accepts_application(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = AcceptApplicationUseCase(uow=uow)
 
         use_case.execute(
             project_id="p1",
             application_id="a1",
-            reviewed_by="owner1",
+            caller_id="owner1",
         )
 
         with uow:
@@ -68,13 +42,13 @@ class TestAcceptApplicationUseCase:
 
     def test_creates_membership_for_applicant(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = AcceptApplicationUseCase(uow=uow)
 
         use_case.execute(
             project_id="p1",
             application_id="a1",
-            reviewed_by="owner1",
+            caller_id="owner1",
         )
 
         with uow:
@@ -93,31 +67,31 @@ class TestAcceptApplicationUseCase:
             use_case.execute(
                 project_id="p999",
                 application_id="a1",
-                reviewed_by="owner1",
+                caller_id="owner1",
             )
 
     def test_raises_when_at_max_members(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow, max_members=1)
+        save_project(uow, make_project_with_application(max_members=1))
         use_case = AcceptApplicationUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="max.*member"):
             use_case.execute(
                 project_id="p1",
                 application_id="a1",
-                reviewed_by="owner1",
+                caller_id="owner1",
             )
 
     def test_raises_when_reviewer_lacks_management_rights(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = AcceptApplicationUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="management rights"):
             use_case.execute(
                 project_id="p1",
                 application_id="a1",
-                reviewed_by="intruder",
+                caller_id="intruder",
             )
 
 
@@ -131,13 +105,13 @@ class TestRejectApplicationUseCase:
 
     def test_rejects_application(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = RejectApplicationUseCase(uow=uow)
 
         use_case.execute(
             project_id="p1",
             application_id="a1",
-            reviewed_by="owner1",
+            caller_id="owner1",
         )
 
         with uow:
@@ -154,29 +128,29 @@ class TestRejectApplicationUseCase:
             use_case.execute(
                 project_id="p999",
                 application_id="a1",
-                reviewed_by="owner1",
+                caller_id="owner1",
             )
 
     def test_raises_when_application_not_found(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = RejectApplicationUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
             use_case.execute(
                 project_id="p1",
                 application_id="a999",
-                reviewed_by="owner1",
+                caller_id="owner1",
             )
 
     def test_raises_when_reviewer_lacks_management_rights(self) -> None:
         uow = FakeUnitOfWork()
-        _project_with_application(uow)
+        save_project(uow, make_project_with_application())
         use_case = RejectApplicationUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="management rights"):
             use_case.execute(
                 project_id="p1",
                 application_id="a1",
-                reviewed_by="intruder",
+                caller_id="intruder",
             )

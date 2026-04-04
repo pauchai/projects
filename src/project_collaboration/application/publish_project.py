@@ -1,5 +1,6 @@
 """PublishProject use case."""
 
+from project_collaboration.application._helpers import get_project_or_raise
 from project_collaboration.domain.ports import UnitOfWork
 
 
@@ -11,9 +12,7 @@ class PublishProjectUseCase:
 
     def execute(self, project_id: str, caller_id: str) -> None:
         with self._uow as uow:
-            project = uow.projects.find_by_id(project_id)
-            if project is None:
-                raise LookupError(f"Project {project_id} not found")
+            project = get_project_or_raise(uow, project_id)
             if not project.is_owner(caller_id):
                 raise PermissionError("Only the project owner can publish the project")
             project.publish()

@@ -8,24 +8,11 @@ from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
-
-
-def _recruiting_project(uow: FakeUnitOfWork, **overrides) -> Project:
-    defaults = dict(
-        project_id="p1",
-        title="Test Project",
-        description="Desc.",
-        owner_id="owner1",
-        required_skills=[SkillTag("python")],
-    )
-    defaults.update(overrides)
-    p = Project(**defaults)
-    p.publish()
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
+from tests.project_collaboration.factories import (
+    make_project,
+    make_recruiting_project,
+    save_project,
+)
 
 
 class TestApplyToProjectUseCase:
@@ -33,7 +20,7 @@ class TestApplyToProjectUseCase:
 
     def test_creates_pending_application(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = ApplyToProjectUseCase(uow=uow)
 
         use_case.execute(
@@ -66,16 +53,7 @@ class TestApplyToProjectUseCase:
 
     def test_raises_when_not_recruiting(self) -> None:
         uow = FakeUnitOfWork()
-        p = Project(
-            project_id="p1",
-            title="Draft Project",
-            description="Desc.",
-            owner_id="owner1",
-            required_skills=[],
-        )
-        with uow:
-            uow.projects.save(p)  # still in DRAFT
-            uow.commit()
+        save_project(uow, make_project())  # still Draft
         use_case = ApplyToProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="[Rr]ecruiting"):
@@ -90,7 +68,7 @@ class TestApplyToProjectUseCase:
 
     def test_raises_when_already_member(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, owner_id="u1")
+        save_project(uow, make_recruiting_project(owner_id="u1"))
         use_case = ApplyToProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="already.*member"):

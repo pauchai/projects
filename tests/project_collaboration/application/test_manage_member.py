@@ -6,37 +6,9 @@ from project_collaboration.application.manage_member import (
     ChangeMemberRoleUseCase,
     RemoveMemberUseCase,
 )
-from project_collaboration.domain.project import Project
 from project_collaboration.domain.role import ProjectRole
-from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
-
-
-def _project_with_member(uow: FakeUnitOfWork) -> tuple[Project, str]:
-    """Create a recruiting project with an accepted member. Returns (project, membership_id)."""
-    p = Project(
-        project_id="p1",
-        title="Test Project",
-        description="Desc.",
-        owner_id="owner1",
-        required_skills=[SkillTag("python")],
-    )
-    p.publish()
-    p.apply(
-        application_id="a1",
-        applicant_id="u2",
-        desired_role=ProjectRole.MEMBER,
-        motivation="Hi.",
-        applicant_skills=[],
-    )
-    p.accept_application(application_id="a1", reviewed_by="owner1")
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-
-    member = [m for m in p.memberships if m.user_id == "u2"][0]
-    return p, member.membership_id
+from tests.project_collaboration.factories import make_project_with_member, save_project
 
 
 # =============================================================================
@@ -49,7 +21,8 @@ class TestChangeMemberRoleUseCase:
 
     def test_changes_role(self) -> None:
         uow = FakeUnitOfWork()
-        _, membership_id = _project_with_member(uow)
+        project, membership_id = make_project_with_member()
+        save_project(uow, project)
         use_case = ChangeMemberRoleUseCase(uow=uow)
 
         use_case.execute(
@@ -60,9 +33,9 @@ class TestChangeMemberRoleUseCase:
         )
 
         with uow:
-            project = uow.projects.find_by_id("p1")
-        assert project is not None
-        member = [m for m in project.memberships if m.membership_id == membership_id][0]
+            found = uow.projects.find_by_id("p1")
+        assert found is not None
+        member = [m for m in found.memberships if m.membership_id == membership_id][0]
         assert member.role == ProjectRole.ADMIN
 
     def test_raises_when_project_not_found(self) -> None:
@@ -79,7 +52,8 @@ class TestChangeMemberRoleUseCase:
 
     def test_raises_when_changing_owner_role(self) -> None:
         uow = FakeUnitOfWork()
-        project, _ = _project_with_member(uow)
+        project, _ = make_project_with_member()
+        save_project(uow, project)
         owner_membership = [
             m for m in project.memberships if m.role == ProjectRole.OWNER
         ][0]
@@ -95,7 +69,8 @@ class TestChangeMemberRoleUseCase:
 
     def test_raises_when_caller_lacks_management_rights(self) -> None:
         uow = FakeUnitOfWork()
-        _, membership_id = _project_with_member(uow)
+        project, membership_id = make_project_with_member()
+        save_project(uow, project)
         use_case = ChangeMemberRoleUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="management rights"):
@@ -117,7 +92,8 @@ class TestRemoveMemberUseCase:
 
     def test_removes_member(self) -> None:
         uow = FakeUnitOfWork()
-        _, membership_id = _project_with_member(uow)
+        project, membership_id = make_project_with_member()
+        save_project(uow, project)
         use_case = RemoveMemberUseCase(uow=uow)
 
         use_case.execute(
@@ -125,9 +101,9 @@ class TestRemoveMemberUseCase:
         )
 
         with uow:
-            project = uow.projects.find_by_id("p1")
-        assert project is not None
-        member = [m for m in project.memberships if m.membership_id == membership_id][0]
+            found = uow.projects.find_by_id("p1")
+        assert found is not None
+        member = [m for m in found.memberships if m.membership_id == membership_id][0]
         assert member.is_active is False
 
     def test_raises_when_project_not_found(self) -> None:
@@ -139,7 +115,8 @@ class TestRemoveMemberUseCase:
 
     def test_raises_when_removing_owner(self) -> None:
         uow = FakeUnitOfWork()
-        project, _ = _project_with_member(uow)
+        project, _ = make_project_with_member()
+        save_project(uow, project)
         owner_membership = [
             m for m in project.memberships if m.role == ProjectRole.OWNER
         ][0]
@@ -154,7 +131,8 @@ class TestRemoveMemberUseCase:
 
     def test_raises_when_caller_lacks_management_rights(self) -> None:
         uow = FakeUnitOfWork()
-        _, membership_id = _project_with_member(uow)
+        project, membership_id = make_project_with_member()
+        save_project(uow, project)
         use_case = RemoveMemberUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="management rights"):

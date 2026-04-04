@@ -45,8 +45,8 @@ class _FakeProjectRepository:
         return results
 
     def snapshot(self) -> dict[str, Project]:
-        """Return a shallow copy of the storage for rollback support."""
-        return dict(self._storage)
+        """Return a deep copy of the storage for rollback support."""
+        return copy.deepcopy(self._storage)
 
     def restore(self, snapshot: dict[str, Project]) -> None:
         """Restore storage from a snapshot."""

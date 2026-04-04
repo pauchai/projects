@@ -4,6 +4,7 @@ import pytest
 
 from project_collaboration.domain.ports import UnitOfWork
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
 
@@ -109,6 +110,36 @@ class TestFakeUnitOfWork:
         with uow:
             assert uow.projects.find_by_id("p1") is not None
             assert uow.projects.find_by_id("p2") is None
+
+    def test_rollback_reverts_mutations_to_existing_project(self) -> None:
+        """Regression: snapshot must deep-copy so rollback reverts in-place mutations."""
+        uow = FakeUnitOfWork()
+
+        # Pre-populate with a Draft project
+        with uow:
+            project = Project(
+                project_id="p1",
+                title="Original",
+                description="Desc.",
+                owner_id="u1",
+                required_skills=[],
+            )
+            uow.projects.save(project)
+            uow.commit()
+
+        # Enter UoW, mutate the project in-place, then exit without commit
+        with uow:
+            found = uow.projects.find_by_id("p1")
+            assert found is not None
+            found.publish()  # Draft -> Recruiting (in-place mutation)
+            uow.projects.save(found)
+            # no commit — should rollback
+
+        # After rollback, the project should still be in Draft
+        with uow:
+            restored = uow.projects.find_by_id("p1")
+            assert restored is not None
+            assert restored.status == ProjectStatus.DRAFT
 
     def test_satisfies_unit_of_work_protocol(self) -> None:
         """FakeUnitOfWork is structurally compatible with UnitOfWork Protocol."""

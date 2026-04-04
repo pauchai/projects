@@ -3,34 +3,10 @@
 import pytest
 
 from project_collaboration.application.search_projects import SearchProjectsUseCase
-from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
-
-
-def _recruiting_project(
-    uow: FakeUnitOfWork,
-    project_id: str = "p1",
-    title: str = "Test Project",
-    description: str = "A test project description.",
-    owner_id: str = "owner1",
-    skills: list[SkillTag] | None = None,
-) -> Project:
-    """Create a recruiting project in the UoW."""
-    p = Project(
-        project_id=project_id,
-        title=title,
-        description=description,
-        owner_id=owner_id,
-        required_skills=skills or [SkillTag("python")],
-    )
-    p.publish()
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
+from tests.project_collaboration.factories import make_recruiting_project, save_project
 
 
 class TestSearchProjectsUseCase:
@@ -38,8 +14,18 @@ class TestSearchProjectsUseCase:
 
     def test_search_by_skills_returns_matching_projects(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, project_id="p1", skills=[SkillTag("python")])
-        _recruiting_project(uow, project_id="p2", skills=[SkillTag("rust")])
+        save_project(
+            uow,
+            make_recruiting_project(
+                project_id="p1", required_skills=[SkillTag("python")]
+            ),
+        )
+        save_project(
+            uow,
+            make_recruiting_project(
+                project_id="p2", required_skills=[SkillTag("rust")]
+            ),
+        )
         use_case = SearchProjectsUseCase(uow=uow)
 
         results = use_case.execute(skills=[SkillTag("python")])
@@ -50,15 +36,11 @@ class TestSearchProjectsUseCase:
     def test_defaults_to_recruiting_status(self) -> None:
         """When no status is passed, only Recruiting projects are returned."""
         uow = FakeUnitOfWork()
-        # Create a Recruiting project
-        _recruiting_project(uow, project_id="p1")
-        # Create an Active project (Recruiting -> Active transition)
-        active = _recruiting_project(uow, project_id="p2")
+        save_project(uow, make_recruiting_project(project_id="p1"))
+        active = make_recruiting_project(project_id="p2")
         active.activate()
         active.collect_events()
-        with uow:
-            uow.projects.save(active)
-            uow.commit()
+        save_project(uow, active)
 
         use_case = SearchProjectsUseCase(uow=uow)
         results = use_case.execute()
@@ -68,8 +50,11 @@ class TestSearchProjectsUseCase:
 
     def test_search_by_keyword_matches_title(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, project_id="p1", title="Machine Learning Platform")
-        _recruiting_project(uow, project_id="p2", title="Web Backend")
+        save_project(
+            uow,
+            make_recruiting_project(project_id="p1", title="Machine Learning Platform"),
+        )
+        save_project(uow, make_recruiting_project(project_id="p2", title="Web Backend"))
         use_case = SearchProjectsUseCase(uow=uow)
 
         results = use_case.execute(keyword="machine")
@@ -79,17 +64,21 @@ class TestSearchProjectsUseCase:
 
     def test_search_by_keyword_matches_description(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(
+        save_project(
             uow,
-            project_id="p1",
-            title="Generic Title",
-            description="Build a recommendation engine with collaborative filtering.",
+            make_recruiting_project(
+                project_id="p1",
+                title="Generic Title",
+                description="Build a recommendation engine with collaborative filtering.",
+            ),
         )
-        _recruiting_project(
+        save_project(
             uow,
-            project_id="p2",
-            title="Another Title",
-            description="Simple CRUD application.",
+            make_recruiting_project(
+                project_id="p2",
+                title="Another Title",
+                description="Simple CRUD application.",
+            ),
         )
         use_case = SearchProjectsUseCase(uow=uow)
 
@@ -100,7 +89,12 @@ class TestSearchProjectsUseCase:
 
     def test_search_returns_empty_when_no_match(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, project_id="p1", skills=[SkillTag("python")])
+        save_project(
+            uow,
+            make_recruiting_project(
+                project_id="p1", required_skills=[SkillTag("python")]
+            ),
+        )
         use_case = SearchProjectsUseCase(uow=uow)
 
         results = use_case.execute(skills=[SkillTag("haskell")])
@@ -109,8 +103,18 @@ class TestSearchProjectsUseCase:
 
     def test_search_with_no_filters_returns_all_recruiting(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, project_id="p1", skills=[SkillTag("python")])
-        _recruiting_project(uow, project_id="p2", skills=[SkillTag("rust")])
+        save_project(
+            uow,
+            make_recruiting_project(
+                project_id="p1", required_skills=[SkillTag("python")]
+            ),
+        )
+        save_project(
+            uow,
+            make_recruiting_project(
+                project_id="p2", required_skills=[SkillTag("rust")]
+            ),
+        )
         use_case = SearchProjectsUseCase(uow=uow)
 
         results = use_case.execute()
@@ -122,13 +126,11 @@ class TestSearchProjectsUseCase:
     def test_search_with_explicit_status_override(self) -> None:
         """Passing an explicit status overrides the Recruiting default."""
         uow = FakeUnitOfWork()
-        _recruiting_project(uow, project_id="p1")
-        active = _recruiting_project(uow, project_id="p2")
+        save_project(uow, make_recruiting_project(project_id="p1"))
+        active = make_recruiting_project(project_id="p2")
         active.activate()
         active.collect_events()
-        with uow:
-            uow.projects.save(active)
-            uow.commit()
+        save_project(uow, active)
 
         use_case = SearchProjectsUseCase(uow=uow)
         results = use_case.execute(status=ProjectStatus.ACTIVE)
@@ -138,23 +140,29 @@ class TestSearchProjectsUseCase:
 
     def test_search_combines_skill_and_keyword_filters(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(
+        save_project(
             uow,
-            project_id="p1",
-            title="ML Pipeline",
-            skills=[SkillTag("python")],
+            make_recruiting_project(
+                project_id="p1",
+                title="ML Pipeline",
+                required_skills=[SkillTag("python")],
+            ),
         )
-        _recruiting_project(
+        save_project(
             uow,
-            project_id="p2",
-            title="ML Dashboard",
-            skills=[SkillTag("typescript")],
+            make_recruiting_project(
+                project_id="p2",
+                title="ML Dashboard",
+                required_skills=[SkillTag("typescript")],
+            ),
         )
-        _recruiting_project(
+        save_project(
             uow,
-            project_id="p3",
-            title="Data API",
-            skills=[SkillTag("python")],
+            make_recruiting_project(
+                project_id="p3",
+                title="Data API",
+                required_skills=[SkillTag("python")],
+            ),
         )
         use_case = SearchProjectsUseCase(uow=uow)
 

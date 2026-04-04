@@ -23,259 +23,282 @@ from project_collaboration.domain.events import (
     MemberRemoved,
 )
 from project_collaboration.domain.application_form import ApplicationStatus
-
-
-# --- Helpers ---
-
-
-def _make_project(**overrides) -> Project:
-    """Create a Project with sensible defaults, overridable."""
-    defaults = dict(
-        project_id="p1",
-        title="Test Project",
-        description="A test project description.",
-        owner_id="owner1",
-        required_skills=[SkillTag("python")],
-        max_members=None,
-    )
-    defaults.update(overrides)
-    return Project(**defaults)
-
-
-def _recruiting_project(**overrides) -> Project:
-    """Create a project already in Recruiting status."""
-    p = _make_project(**overrides)
-    p.publish()
-    p.collect_events()  # clear events from setup
-    return p
-
-
-def _active_project(**overrides) -> Project:
-    """Create a project already in Active status."""
-    p = _recruiting_project(**overrides)
-    p.activate()
-    p.collect_events()
-    return p
+from tests.project_collaboration.factories import (
+    make_project,
+    make_recruiting_project,
+    make_active_project,
+)
 
 
 # =============================================================================
-# Creation
+# Project creation
 # =============================================================================
 
 
 class TestProjectCreation:
-    """A new Project starts in Draft with an Owner membership."""
-
-    def test_starts_in_draft_status(self) -> None:
-        p = _make_project()
+    def test_creates_project_in_draft_status(self) -> None:
+        p = make_project()
         assert p.status == ProjectStatus.DRAFT
 
-    def test_stores_identity_and_attributes(self) -> None:
-        skills = [SkillTag("python"), SkillTag("design")]
-        p = _make_project(
-            project_id="p99",
-            title="Alpha",
-            description="Desc",
-            owner_id="u5",
-            required_skills=skills,
-            max_members=10,
+    def test_stores_basic_attributes(self) -> None:
+        p = make_project(
+            project_id="abc",
+            title="My Title",
+            description="My Desc.",
+            owner_id="u1",
         )
-        assert p.project_id == "p99"
-        assert p.title == "Alpha"
-        assert p.description == "Desc"
-        assert p.owner_id == "u5"
+        assert p.project_id == "abc"
+        assert p.title == "My Title"
+        assert p.description == "My Desc."
+        assert p.owner_id == "u1"
+
+    def test_stores_required_skills(self) -> None:
+        skills = [SkillTag("python"), SkillTag("docker")]
+        p = make_project(required_skills=skills)
         assert p.required_skills == skills
-        assert p.max_members == 10
 
-    def test_has_created_at_timestamp(self) -> None:
-        before = datetime.now(timezone.utc)
-        p = _make_project()
-        after = datetime.now(timezone.utc)
-        assert before <= p.created_at <= after
+    def test_default_max_members_is_none(self) -> None:
+        p = make_project()
+        assert p.max_members is None
 
-    def test_owner_membership_is_created(self) -> None:
-        p = _make_project(owner_id="u1")
+    def test_custom_max_members(self) -> None:
+        p = make_project(max_members=5)
+        assert p.max_members == 5
+
+    def test_creates_owner_membership(self) -> None:
+        p = make_project(owner_id="u1")
         assert len(p.memberships) == 1
         m = p.memberships[0]
         assert m.user_id == "u1"
         assert m.role == ProjectRole.OWNER
         assert m.is_active is True
 
+    def test_sets_created_at_timestamp(self) -> None:
+        before = datetime.now(timezone.utc)
+        p = make_project()
+        after = datetime.now(timezone.utc)
+        assert before <= p.created_at <= after
+
     def test_emits_project_created_event(self) -> None:
-        p = _make_project(project_id="p1", owner_id="u1", title="Alpha")
+        p = make_project(project_id="p1", owner_id="u1", title="Alpha")
         events = p.collect_events()
         assert len(events) == 1
-        assert isinstance(events[0], ProjectCreated)
-        assert events[0].project_id == "p1"
-        assert events[0].owner_id == "u1"
-        assert events[0].title == "Alpha"
+        event = events[0]
+        assert isinstance(event, ProjectCreated)
+        assert event.project_id == "p1"
+        assert event.owner_id == "u1"
+        assert event.title == "Alpha"
 
+
+class TestProjectCreationValidation:
     def test_title_too_short_raises(self) -> None:
         with pytest.raises(ValueError, match="3.*200"):
-            _make_project(title="ab")
+            make_project(title="ab")
 
     def test_title_too_long_raises(self) -> None:
         with pytest.raises(ValueError, match="3.*200"):
-            _make_project(title="x" * 201)
+            make_project(title="x" * 201)
+
+    def test_title_at_min_boundary(self) -> None:
+        p = make_project(title="abc")
+        assert p.title == "abc"
+
+    def test_title_at_max_boundary(self) -> None:
+        p = make_project(title="x" * 200)
+        assert len(p.title) == 200
 
     def test_description_too_long_raises(self) -> None:
         with pytest.raises(ValueError, match="5000"):
-            _make_project(description="x" * 5001)
+            make_project(description="x" * 5001)
 
-    def test_applications_list_is_empty(self) -> None:
-        p = _make_project()
-        assert p.applications == []
+    def test_description_at_max_boundary(self) -> None:
+        p = make_project(description="x" * 5000)
+        assert len(p.description) == 5000
 
 
 # =============================================================================
-# Status Transitions (via aggregate methods)
+# Authorization queries
 # =============================================================================
 
 
-class TestProjectPublish:
-    """Publishing transitions Draft -> Recruiting."""
+class TestAuthorizationQueries:
+    def test_is_owner_returns_true_for_owner(self) -> None:
+        p = make_project(owner_id="u1")
+        assert p.is_owner("u1") is True
 
-    def test_publish_changes_status_to_recruiting(self) -> None:
-        p = _make_project()
+    def test_is_owner_returns_false_for_non_owner(self) -> None:
+        p = make_project(owner_id="u1")
+        assert p.is_owner("u2") is False
+
+    def test_find_membership_by_user_id_returns_owner(self) -> None:
+        p = make_project(owner_id="u1")
+        m = p.find_membership_by_user_id("u1")
+        assert m is not None
+        assert m.role == ProjectRole.OWNER
+
+    def test_find_membership_by_user_id_returns_none_for_stranger(self) -> None:
+        p = make_project()
+        assert p.find_membership_by_user_id("stranger") is None
+
+    def test_has_management_rights_true_for_owner(self) -> None:
+        p = make_project(owner_id="u1")
+        assert p.has_management_rights("u1") is True
+
+    def test_has_management_rights_false_for_stranger(self) -> None:
+        p = make_project()
+        assert p.has_management_rights("stranger") is False
+
+
+# =============================================================================
+# Status transitions
+# =============================================================================
+
+
+class TestPublish:
+    def test_transitions_draft_to_recruiting(self) -> None:
+        p = make_project()
         p.publish()
         assert p.status == ProjectStatus.RECRUITING
 
-    def test_publish_emits_project_published(self) -> None:
-        p = _make_project(project_id="p1")
-        p.collect_events()  # discard creation event
+    def test_emits_project_published_event(self) -> None:
+        p = make_project(project_id="p1")
+        p.collect_events()  # clear creation event
         p.publish()
         events = p.collect_events()
         assert len(events) == 1
         assert isinstance(events[0], ProjectPublished)
         assert events[0].project_id == "p1"
 
-    def test_publish_from_recruiting_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_not_in_draft(self) -> None:
+        p = make_recruiting_project()
         with pytest.raises(ValueError, match="transition"):
             p.publish()
 
 
-class TestProjectActivate:
-    """Activating transitions Recruiting -> Active."""
-
-    def test_activate_changes_status_to_active(self) -> None:
-        p = _recruiting_project()
+class TestActivate:
+    def test_transitions_recruiting_to_active(self) -> None:
+        p = make_recruiting_project()
         p.activate()
         assert p.status == ProjectStatus.ACTIVE
 
-    def test_activate_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
+    def test_emits_project_activated_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.activate()
         events = p.collect_events()
         assert len(events) == 1
         assert isinstance(events[0], ProjectActivated)
 
-    def test_activate_from_draft_raises(self) -> None:
-        p = _make_project()
-        p.collect_events()
+    def test_raises_when_not_recruiting(self) -> None:
+        p = make_project()
         with pytest.raises(ValueError, match="transition"):
             p.activate()
 
 
-class TestProjectSuspend:
-    """Suspending remembers the previous status for resume."""
-
-    def test_suspend_from_recruiting(self) -> None:
-        p = _recruiting_project()
+class TestSuspend:
+    def test_suspends_recruiting_project(self) -> None:
+        p = make_recruiting_project()
         p.suspend()
         assert p.status == ProjectStatus.SUSPENDED
 
-    def test_suspend_from_active(self) -> None:
-        p = _active_project()
+    def test_suspends_active_project(self) -> None:
+        p = make_active_project()
         p.suspend()
         assert p.status == ProjectStatus.SUSPENDED
 
-    def test_suspend_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
+    def test_emits_project_suspended_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.suspend()
         events = p.collect_events()
-        assert any(isinstance(e, ProjectSuspended) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectSuspended)
 
-    def test_suspend_from_draft_raises(self) -> None:
-        p = _make_project()
-        p.collect_events()
+    def test_raises_when_in_draft(self) -> None:
+        p = make_project()
         with pytest.raises(ValueError, match="transition"):
             p.suspend()
 
 
-class TestProjectResume:
-    """Resuming restores the status before suspension."""
-
-    def test_resume_from_suspended_recruiting(self) -> None:
-        p = _recruiting_project()
+class TestResume:
+    def test_resumes_to_recruiting(self) -> None:
+        p = make_recruiting_project()
         p.suspend()
         p.resume()
         assert p.status == ProjectStatus.RECRUITING
 
-    def test_resume_from_suspended_active(self) -> None:
-        p = _active_project()
+    def test_resumes_to_active(self) -> None:
+        p = make_active_project()
         p.suspend()
         p.resume()
         assert p.status == ProjectStatus.ACTIVE
 
-    def test_resume_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
+    def test_emits_project_resumed_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.suspend()
         p.collect_events()
         p.resume()
         events = p.collect_events()
-        assert any(isinstance(e, ProjectResumed) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectResumed)
 
-    def test_resume_from_non_suspended_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_not_suspended(self) -> None:
+        p = make_recruiting_project()
         with pytest.raises(ValueError, match="[Ss]uspended"):
             p.resume()
 
 
-class TestProjectComplete:
-    """Completing transitions Active -> Completed (terminal)."""
-
-    def test_complete_changes_status(self) -> None:
-        p = _active_project()
+class TestComplete:
+    def test_transitions_active_to_completed(self) -> None:
+        p = make_active_project()
         p.complete()
         assert p.status == ProjectStatus.COMPLETED
 
-    def test_complete_emits_event(self) -> None:
-        p = _active_project(project_id="p1")
+    def test_emits_project_completed_event(self) -> None:
+        p = make_active_project(project_id="p1")
         p.complete()
         events = p.collect_events()
-        assert any(isinstance(e, ProjectCompleted) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectCompleted)
 
-    def test_complete_from_recruiting_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_not_active(self) -> None:
+        p = make_recruiting_project()
         with pytest.raises(ValueError, match="transition"):
             p.complete()
 
 
-class TestProjectCancel:
-    """Cancelling transitions to Cancelled (terminal)."""
-
-    def test_cancel_from_recruiting(self) -> None:
-        p = _recruiting_project()
+class TestCancel:
+    def test_cancels_recruiting_project(self) -> None:
+        p = make_recruiting_project()
         p.cancel()
         assert p.status == ProjectStatus.CANCELLED
 
-    def test_cancel_from_active(self) -> None:
-        p = _active_project()
+    def test_cancels_active_project(self) -> None:
+        p = make_active_project()
         p.cancel()
         assert p.status == ProjectStatus.CANCELLED
 
-    def test_cancel_emits_event(self) -> None:
-        p = _active_project(project_id="p1")
+    def test_emits_project_cancelled_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.cancel()
         events = p.collect_events()
-        assert any(isinstance(e, ProjectCancelled) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectCancelled)
 
-    def test_cancel_from_draft_raises(self) -> None:
-        p = _make_project()
-        p.collect_events()
+    def test_raises_when_in_draft(self) -> None:
+        p = make_project()
         with pytest.raises(ValueError, match="transition"):
             p.cancel()
+
+    def test_completed_is_terminal(self) -> None:
+        p = make_active_project()
+        p.complete()
+        with pytest.raises(ValueError, match="transition"):
+            p.cancel()
+
+    def test_cancelled_is_terminal(self) -> None:
+        p = make_recruiting_project()
+        p.cancel()
+        with pytest.raises(ValueError, match="transition"):
+            p.publish()
 
 
 # =============================================================================
@@ -283,175 +306,161 @@ class TestProjectCancel:
 # =============================================================================
 
 
-class TestProjectApply:
-    """Submitting an application to a recruiting project."""
-
-    def test_apply_creates_pending_application(self) -> None:
-        p = _recruiting_project()
+class TestApply:
+    def test_adds_pending_application(self) -> None:
+        p = make_recruiting_project()
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="I want to help.",
+            motivation="I want to join.",
             applicant_skills=[SkillTag("python")],
         )
         assert len(p.applications) == 1
-        assert p.applications[0].status == ApplicationStatus.PENDING
+        app = p.applications[0]
+        assert app.application_id == "a1"
+        assert app.applicant_id == "u2"
+        assert app.status == ApplicationStatus.PENDING
 
-    def test_apply_emits_application_submitted(self) -> None:
-        p = _recruiting_project(project_id="p1")
+    def test_emits_application_submitted_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
+            motivation="Motivation.",
             applicant_skills=[],
         )
         events = p.collect_events()
-        assert any(isinstance(e, ApplicationSubmitted) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ApplicationSubmitted)
+        assert events[0].application_id == "a1"
 
-    def test_apply_when_not_recruiting_raises(self) -> None:
-        p = _make_project()
-        p.collect_events()
+    def test_raises_when_not_recruiting(self) -> None:
+        p = make_project()
         with pytest.raises(ValueError, match="[Rr]ecruiting"):
             p.apply(
                 application_id="a1",
                 applicant_id="u2",
                 desired_role=ProjectRole.MEMBER,
-                motivation="Hello.",
+                motivation="Hi.",
                 applicant_skills=[],
             )
 
-    def test_apply_when_already_member_raises(self) -> None:
-        p = _recruiting_project(owner_id="u1")
+    def test_raises_when_already_member(self) -> None:
+        p = make_recruiting_project(owner_id="u1")
         with pytest.raises(ValueError, match="already.*member"):
             p.apply(
                 application_id="a1",
-                applicant_id="u1",  # owner is already a member
+                applicant_id="u1",
                 desired_role=ProjectRole.MEMBER,
-                motivation="Hello.",
+                motivation="Hi.",
                 applicant_skills=[],
             )
 
-    def test_apply_with_pending_application_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_duplicate_pending_application(self) -> None:
+        p = make_recruiting_project()
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
+            motivation="First.",
             applicant_skills=[],
         )
-        with pytest.raises(ValueError, match="pending application"):
+        with pytest.raises(ValueError, match="pending"):
             p.apply(
                 application_id="a2",
                 applicant_id="u2",
                 desired_role=ProjectRole.MEMBER,
-                motivation="Again.",
+                motivation="Second.",
                 applicant_skills=[],
             )
 
 
-# =============================================================================
-# Review Applications
-# =============================================================================
-
-
-class TestProjectAcceptApplication:
-    """Accepting an application creates a membership."""
-
-    def test_accept_creates_membership(self) -> None:
-        p = _recruiting_project()
+class TestAcceptApplication:
+    def _project_with_application(self, **overrides: object) -> Project:
+        p = make_recruiting_project(**overrides)
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
-            applicant_skills=[],
+            motivation="I want to join.",
+            applicant_skills=[SkillTag("python")],
         )
         p.collect_events()
+        return p
+
+    def test_accepts_application(self) -> None:
+        p = self._project_with_application()
         p.accept_application(application_id="a1", reviewed_by="owner1")
-        # Owner + new member
+        app = p.applications[0]
+        assert app.status == ApplicationStatus.ACCEPTED
+
+    def test_creates_membership(self) -> None:
+        p = self._project_with_application()
+        p.accept_application(application_id="a1", reviewed_by="owner1")
         active = [m for m in p.memberships if m.is_active]
         assert len(active) == 2
         new_member = [m for m in active if m.user_id == "u2"][0]
         assert new_member.role == ProjectRole.MEMBER
 
-    def test_accept_emits_accepted_and_joined_events(self) -> None:
-        p = _recruiting_project(project_id="p1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
-            applicant_skills=[],
-        )
-        p.collect_events()
+    def test_emits_accepted_and_joined_events(self) -> None:
+        p = self._project_with_application(project_id="p1")
         p.accept_application(application_id="a1", reviewed_by="owner1")
         events = p.collect_events()
-        types = [type(e) for e in events]
-        assert ApplicationAccepted in types
-        assert MemberJoined in types
+        assert len(events) == 2
+        assert isinstance(events[0], ApplicationAccepted)
+        assert isinstance(events[1], MemberJoined)
 
-    def test_accept_when_at_max_members_raises(self) -> None:
-        p = _recruiting_project(max_members=1)  # owner fills the 1 slot
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
-            applicant_skills=[],
-        )
-        with pytest.raises(ValueError, match="max.*member"):
-            p.accept_application(application_id="a1", reviewed_by="owner1")
-
-    def test_accept_nonexistent_application_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_application_not_found(self) -> None:
+        p = self._project_with_application()
         with pytest.raises(LookupError, match="not found"):
             p.accept_application(application_id="a999", reviewed_by="owner1")
 
+    def test_raises_when_at_max_members(self) -> None:
+        p = self._project_with_application(max_members=1)
+        with pytest.raises(ValueError, match="max.*member"):
+            p.accept_application(application_id="a1", reviewed_by="owner1")
 
-class TestProjectRejectApplication:
-    """Rejecting an application marks it rejected."""
 
-    def test_reject_sets_status(self) -> None:
-        p = _recruiting_project()
+class TestRejectApplication:
+    def test_rejects_application(self) -> None:
+        p = make_recruiting_project()
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
+            motivation="Hi.",
             applicant_skills=[],
         )
+        p.collect_events()
         p.reject_application(application_id="a1", reviewed_by="owner1")
         assert p.applications[0].status == ApplicationStatus.REJECTED
 
-    def test_reject_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
+    def test_emits_application_rejected_event(self) -> None:
+        p = make_recruiting_project(project_id="p1")
         p.apply(
             application_id="a1",
             applicant_id="u2",
             desired_role=ProjectRole.MEMBER,
-            motivation="Hello.",
+            motivation="Hi.",
             applicant_skills=[],
         )
         p.collect_events()
         p.reject_application(application_id="a1", reviewed_by="owner1")
         events = p.collect_events()
-        assert any(isinstance(e, ApplicationRejected) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], ApplicationRejected)
 
 
 # =============================================================================
-# Member Management
+# Member management
 # =============================================================================
 
 
-class TestProjectChangeMemberRole:
-    """Changing a member's role within the project."""
-
-    def test_change_role_updates_membership(self) -> None:
-        p = _recruiting_project()
-        # Add a member
+class TestChangeMemberRole:
+    def _project_with_member(self) -> tuple[Project, str]:
+        p = make_recruiting_project()
         p.apply(
             application_id="a1",
             applicant_id="u2",
@@ -460,53 +469,41 @@ class TestProjectChangeMemberRole:
             applicant_skills=[],
         )
         p.accept_application(application_id="a1", reviewed_by="owner1")
-        member = [m for m in p.memberships if m.user_id == "u2"][0]
         p.collect_events()
+        member = [m for m in p.memberships if m.user_id == "u2"][0]
+        return p, member.membership_id
 
-        p.change_member_role(
-            membership_id=member.membership_id, new_role=ProjectRole.ADMIN
-        )
+    def test_changes_role(self) -> None:
+        p, mid = self._project_with_member()
+        p.change_member_role(membership_id=mid, new_role=ProjectRole.ADMIN)
+        member = [m for m in p.memberships if m.membership_id == mid][0]
         assert member.role == ProjectRole.ADMIN
 
-    def test_change_role_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hi.",
-            applicant_skills=[],
-        )
-        p.accept_application(application_id="a1", reviewed_by="owner1")
-        member = [m for m in p.memberships if m.user_id == "u2"][0]
-        p.collect_events()
-
-        p.change_member_role(
-            membership_id=member.membership_id, new_role=ProjectRole.ADMIN
-        )
+    def test_emits_member_role_changed_event(self) -> None:
+        p, mid = self._project_with_member()
+        p.change_member_role(membership_id=mid, new_role=ProjectRole.ADMIN)
         events = p.collect_events()
-        assert any(isinstance(e, MemberRoleChanged) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], MemberRoleChanged)
+        assert events[0].new_role == ProjectRole.ADMIN
 
-    def test_change_owner_role_raises(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        owner_membership = [m for m in p.memberships if m.role == ProjectRole.OWNER][0]
+    def test_raises_when_changing_owner_role(self) -> None:
+        p, _ = self._project_with_member()
+        owner_m = [m for m in p.memberships if m.role == ProjectRole.OWNER][0]
         with pytest.raises(ValueError, match="[Oo]wner"):
             p.change_member_role(
-                membership_id=owner_membership.membership_id,
-                new_role=ProjectRole.ADMIN,
+                membership_id=owner_m.membership_id, new_role=ProjectRole.ADMIN
             )
 
-    def test_change_role_nonexistent_membership_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_membership_not_found(self) -> None:
+        p, _ = self._project_with_member()
         with pytest.raises(LookupError, match="not found"):
             p.change_member_role(membership_id="m999", new_role=ProjectRole.ADMIN)
 
 
-class TestProjectRemoveMember:
-    """Removing a member deactivates their membership."""
-
-    def test_remove_deactivates_membership(self) -> None:
-        p = _recruiting_project()
+class TestRemoveMember:
+    def _project_with_member(self) -> tuple[Project, str]:
+        p = make_recruiting_project()
         p.apply(
             application_id="a1",
             applicant_id="u2",
@@ -515,134 +512,31 @@ class TestProjectRemoveMember:
             applicant_skills=[],
         )
         p.accept_application(application_id="a1", reviewed_by="owner1")
-        member = [m for m in p.memberships if m.user_id == "u2"][0]
         p.collect_events()
+        member = [m for m in p.memberships if m.user_id == "u2"][0]
+        return p, member.membership_id
 
-        p.remove_member(membership_id=member.membership_id)
+    def test_deactivates_member(self) -> None:
+        p, mid = self._project_with_member()
+        p.remove_member(membership_id=mid)
+        member = [m for m in p.memberships if m.membership_id == mid][0]
         assert member.is_active is False
 
-    def test_remove_emits_event(self) -> None:
-        p = _recruiting_project(project_id="p1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hi.",
-            applicant_skills=[],
-        )
-        p.accept_application(application_id="a1", reviewed_by="owner1")
-        member = [m for m in p.memberships if m.user_id == "u2"][0]
-        p.collect_events()
-
-        p.remove_member(membership_id=member.membership_id)
+    def test_emits_member_removed_event(self) -> None:
+        p, mid = self._project_with_member()
+        p.remove_member(membership_id=mid)
         events = p.collect_events()
-        assert any(isinstance(e, MemberRemoved) for e in events)
+        assert len(events) == 1
+        assert isinstance(events[0], MemberRemoved)
+        assert events[0].user_id == "u2"
 
-    def test_remove_owner_raises(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        owner_membership = [m for m in p.memberships if m.role == ProjectRole.OWNER][0]
+    def test_raises_when_removing_owner(self) -> None:
+        p, _ = self._project_with_member()
+        owner_m = [m for m in p.memberships if m.role == ProjectRole.OWNER][0]
         with pytest.raises(ValueError, match="[Oo]wner"):
-            p.remove_member(membership_id=owner_membership.membership_id)
+            p.remove_member(membership_id=owner_m.membership_id)
 
-    def test_remove_nonexistent_membership_raises(self) -> None:
-        p = _recruiting_project()
+    def test_raises_when_membership_not_found(self) -> None:
+        p, _ = self._project_with_member()
         with pytest.raises(LookupError, match="not found"):
             p.remove_member(membership_id="m999")
-
-
-# =============================================================================
-# Authorization query methods
-# =============================================================================
-
-
-class TestProjectIsOwner:
-    """is_owner() checks whether a user is the project Owner."""
-
-    def test_returns_true_for_owner(self) -> None:
-        p = _make_project(owner_id="u1")
-        assert p.is_owner("u1") is True
-
-    def test_returns_false_for_non_owner(self) -> None:
-        p = _make_project(owner_id="u1")
-        assert p.is_owner("u999") is False
-
-
-class TestProjectFindMembershipByUserId:
-    """find_membership_by_user_id() locates the active membership for a user."""
-
-    def test_returns_membership_for_active_member(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        membership = p.find_membership_by_user_id("u1")
-        assert membership is not None
-        assert membership.user_id == "u1"
-        assert membership.role == ProjectRole.OWNER
-
-    def test_returns_none_for_unknown_user(self) -> None:
-        p = _make_project(owner_id="u1")
-        assert p.find_membership_by_user_id("u999") is None
-
-    def test_returns_none_for_deactivated_member(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hi.",
-            applicant_skills=[],
-        )
-        p.accept_application(application_id="a1", reviewed_by="u1")
-        member = [m for m in p.memberships if m.user_id == "u2"][0]
-        p.remove_member(membership_id=member.membership_id)
-
-        assert p.find_membership_by_user_id("u2") is None
-
-
-class TestProjectHasManagementRights:
-    """has_management_rights() checks Owner or Admin role."""
-
-    def test_owner_has_management_rights(self) -> None:
-        p = _make_project(owner_id="u1")
-        assert p.has_management_rights("u1") is True
-
-    def test_admin_has_management_rights(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.ADMIN,
-            motivation="Hi.",
-            applicant_skills=[],
-        )
-        p.accept_application(application_id="a1", reviewed_by="u1")
-        assert p.has_management_rights("u2") is True
-
-    def test_regular_member_has_no_management_rights(self) -> None:
-        p = _recruiting_project(owner_id="u1")
-        p.apply(
-            application_id="a1",
-            applicant_id="u2",
-            desired_role=ProjectRole.MEMBER,
-            motivation="Hi.",
-            applicant_skills=[],
-        )
-        p.accept_application(application_id="a1", reviewed_by="u1")
-        assert p.has_management_rights("u2") is False
-
-    def test_unknown_user_has_no_management_rights(self) -> None:
-        p = _make_project(owner_id="u1")
-        assert p.has_management_rights("u999") is False
-
-
-# =============================================================================
-# Event collection
-# =============================================================================
-
-
-class TestProjectEventCollection:
-    """collect_events() returns and clears uncommitted events."""
-
-    def test_collect_events_returns_and_clears(self) -> None:
-        p = _make_project()
-        events = p.collect_events()
-        assert len(events) >= 1  # at least ProjectCreated
-        assert p.collect_events() == []  # cleared

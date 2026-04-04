@@ -1,47 +1,47 @@
 """ReviewApplication use cases: accept and reject."""
 
+from abc import ABC, abstractmethod
+
+from project_collaboration.application._helpers import (
+    get_project_or_raise,
+    require_management_rights,
+)
 from project_collaboration.domain.ports import UnitOfWork
+from project_collaboration.domain.project import Project
 
 
-class AcceptApplicationUseCase:
+class _ReviewApplicationUseCase(ABC):
+    """Base class for accepting/rejecting applications.
+
+    Subclasses implement ``_review`` to perform the domain action.
+    """
+
+    def __init__(self, uow: UnitOfWork) -> None:
+        self._uow = uow
+
+    def execute(self, project_id: str, application_id: str, caller_id: str) -> None:
+        with self._uow as uow:
+            project = get_project_or_raise(uow, project_id)
+            require_management_rights(project, caller_id)
+            self._review(project, application_id, caller_id)
+            uow.projects.save(project)
+            uow.commit()
+
+    @abstractmethod
+    def _review(
+        self, project: Project, application_id: str, caller_id: str
+    ) -> None: ...
+
+
+class AcceptApplicationUseCase(_ReviewApplicationUseCase):
     """Accepts a pending application, creating a new membership."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
-        self._uow = uow
-
-    def execute(self, project_id: str, application_id: str, reviewed_by: str) -> None:
-        with self._uow as uow:
-            project = uow.projects.find_by_id(project_id)
-            if project is None:
-                raise LookupError(f"Project {project_id} not found")
-            if not project.has_management_rights(reviewed_by):
-                raise PermissionError(
-                    "Reviewer lacks management rights to review applications"
-                )
-            project.accept_application(
-                application_id=application_id, reviewed_by=reviewed_by
-            )
-            uow.projects.save(project)
-            uow.commit()
+    def _review(self, project: Project, application_id: str, caller_id: str) -> None:
+        project.accept_application(application_id=application_id, reviewed_by=caller_id)
 
 
-class RejectApplicationUseCase:
+class RejectApplicationUseCase(_ReviewApplicationUseCase):
     """Rejects a pending application."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
-        self._uow = uow
-
-    def execute(self, project_id: str, application_id: str, reviewed_by: str) -> None:
-        with self._uow as uow:
-            project = uow.projects.find_by_id(project_id)
-            if project is None:
-                raise LookupError(f"Project {project_id} not found")
-            if not project.has_management_rights(reviewed_by):
-                raise PermissionError(
-                    "Reviewer lacks management rights to review applications"
-                )
-            project.reject_application(
-                application_id=application_id, reviewed_by=reviewed_by
-            )
-            uow.projects.save(project)
-            uow.commit()
+    def _review(self, project: Project, application_id: str, caller_id: str) -> None:
+        project.reject_application(application_id=application_id, reviewed_by=caller_id)

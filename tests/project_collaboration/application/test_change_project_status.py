@@ -9,45 +9,14 @@ from project_collaboration.application.change_project_status import (
     CompleteProjectUseCase,
     CancelProjectUseCase,
 )
-from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
-from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
-
-
-def _draft_project(uow: FakeUnitOfWork) -> Project:
-    p = Project(
-        project_id="p1",
-        title="Test Project",
-        description="Desc.",
-        owner_id="owner1",
-        required_skills=[SkillTag("python")],
-    )
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
-
-
-def _recruiting_project(uow: FakeUnitOfWork) -> Project:
-    p = _draft_project(uow)
-    p.publish()
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
-
-
-def _active_project(uow: FakeUnitOfWork) -> Project:
-    p = _recruiting_project(uow)
-    p.activate()
-    p.collect_events()
-    with uow:
-        uow.projects.save(p)
-        uow.commit()
-    return p
+from tests.project_collaboration.factories import (
+    make_project,
+    make_recruiting_project,
+    make_active_project,
+    save_project,
+)
 
 
 # =============================================================================
@@ -58,7 +27,7 @@ def _active_project(uow: FakeUnitOfWork) -> Project:
 class TestActivateProjectUseCase:
     def test_activates_recruiting_project(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = ActivateProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -76,7 +45,7 @@ class TestActivateProjectUseCase:
 
     def test_raises_when_not_recruiting(self) -> None:
         uow = FakeUnitOfWork()
-        _draft_project(uow)
+        save_project(uow, make_project())
         use_case = ActivateProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
@@ -84,7 +53,7 @@ class TestActivateProjectUseCase:
 
     def test_raises_when_caller_is_not_owner(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = ActivateProjectUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="[Oo]wner"):
@@ -99,7 +68,7 @@ class TestActivateProjectUseCase:
 class TestSuspendProjectUseCase:
     def test_suspends_recruiting_project(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = SuspendProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -110,7 +79,7 @@ class TestSuspendProjectUseCase:
 
     def test_suspends_active_project(self) -> None:
         uow = FakeUnitOfWork()
-        _active_project(uow)
+        save_project(uow, make_active_project())
         use_case = SuspendProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -128,7 +97,7 @@ class TestSuspendProjectUseCase:
 
     def test_raises_when_caller_is_not_owner(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = SuspendProjectUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="[Oo]wner"):
@@ -143,11 +112,10 @@ class TestSuspendProjectUseCase:
 class TestResumeProjectUseCase:
     def test_resumes_to_recruiting(self) -> None:
         uow = FakeUnitOfWork()
-        p = _recruiting_project(uow)
+        p = make_recruiting_project()
         p.suspend()
-        with uow:
-            uow.projects.save(p)
-            uow.commit()
+        p.collect_events()
+        save_project(uow, p)
         use_case = ResumeProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -158,11 +126,10 @@ class TestResumeProjectUseCase:
 
     def test_resumes_to_active(self) -> None:
         uow = FakeUnitOfWork()
-        p = _active_project(uow)
+        p = make_active_project()
         p.suspend()
-        with uow:
-            uow.projects.save(p)
-            uow.commit()
+        p.collect_events()
+        save_project(uow, p)
         use_case = ResumeProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -173,7 +140,7 @@ class TestResumeProjectUseCase:
 
     def test_raises_when_not_suspended(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = ResumeProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="[Ss]uspended"):
@@ -188,11 +155,10 @@ class TestResumeProjectUseCase:
 
     def test_raises_when_caller_is_not_owner(self) -> None:
         uow = FakeUnitOfWork()
-        p = _recruiting_project(uow)
+        p = make_recruiting_project()
         p.suspend()
-        with uow:
-            uow.projects.save(p)
-            uow.commit()
+        p.collect_events()
+        save_project(uow, p)
         use_case = ResumeProjectUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="[Oo]wner"):
@@ -207,7 +173,7 @@ class TestResumeProjectUseCase:
 class TestCompleteProjectUseCase:
     def test_completes_active_project(self) -> None:
         uow = FakeUnitOfWork()
-        _active_project(uow)
+        save_project(uow, make_active_project())
         use_case = CompleteProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -218,7 +184,7 @@ class TestCompleteProjectUseCase:
 
     def test_raises_when_not_active(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = CompleteProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
@@ -233,7 +199,7 @@ class TestCompleteProjectUseCase:
 
     def test_raises_when_caller_is_not_owner(self) -> None:
         uow = FakeUnitOfWork()
-        _active_project(uow)
+        save_project(uow, make_active_project())
         use_case = CompleteProjectUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="[Oo]wner"):
@@ -248,7 +214,7 @@ class TestCompleteProjectUseCase:
 class TestCancelProjectUseCase:
     def test_cancels_recruiting_project(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = CancelProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -259,7 +225,7 @@ class TestCancelProjectUseCase:
 
     def test_cancels_active_project(self) -> None:
         uow = FakeUnitOfWork()
-        _active_project(uow)
+        save_project(uow, make_active_project())
         use_case = CancelProjectUseCase(uow=uow)
 
         use_case.execute(project_id="p1", caller_id="owner1")
@@ -270,7 +236,7 @@ class TestCancelProjectUseCase:
 
     def test_raises_when_in_draft(self) -> None:
         uow = FakeUnitOfWork()
-        _draft_project(uow)
+        save_project(uow, make_project())
         use_case = CancelProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
@@ -285,7 +251,7 @@ class TestCancelProjectUseCase:
 
     def test_raises_when_caller_is_not_owner(self) -> None:
         uow = FakeUnitOfWork()
-        _recruiting_project(uow)
+        save_project(uow, make_recruiting_project())
         use_case = CancelProjectUseCase(uow=uow)
 
         with pytest.raises(PermissionError, match="[Oo]wner"):

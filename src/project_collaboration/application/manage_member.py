@@ -1,5 +1,9 @@
 """ManageMember use cases: change role and remove member."""
 
+from project_collaboration.application._helpers import (
+    get_project_or_raise,
+    require_management_rights,
+)
 from project_collaboration.domain.ports import UnitOfWork
 from project_collaboration.domain.role import ProjectRole
 
@@ -18,13 +22,8 @@ class ChangeMemberRoleUseCase:
         caller_id: str,
     ) -> None:
         with self._uow as uow:
-            project = uow.projects.find_by_id(project_id)
-            if project is None:
-                raise LookupError(f"Project {project_id} not found")
-            if not project.has_management_rights(caller_id):
-                raise PermissionError(
-                    "Caller lacks management rights to change member roles"
-                )
+            project = get_project_or_raise(uow, project_id)
+            require_management_rights(project, caller_id)
             project.change_member_role(membership_id=membership_id, new_role=new_role)
             uow.projects.save(project)
             uow.commit()
@@ -38,13 +37,8 @@ class RemoveMemberUseCase:
 
     def execute(self, project_id: str, membership_id: str, caller_id: str) -> None:
         with self._uow as uow:
-            project = uow.projects.find_by_id(project_id)
-            if project is None:
-                raise LookupError(f"Project {project_id} not found")
-            if not project.has_management_rights(caller_id):
-                raise PermissionError(
-                    "Caller lacks management rights to remove members"
-                )
+            project = get_project_or_raise(uow, project_id)
+            require_management_rights(project, caller_id)
             project.remove_member(membership_id=membership_id)
             uow.projects.save(project)
             uow.commit()
