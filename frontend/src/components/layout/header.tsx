@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth-store"
+import { useLogout } from "@/hooks/use-auth"
 
 export function Header() {
-  const { isAuthenticated, displayName, logout } = useAuthStore()
+  const { isAuthenticated, displayName } = useAuthStore()
+  const logout = useLogout()
   const navigate = useNavigate()
 
   const handleLogout = () => {
