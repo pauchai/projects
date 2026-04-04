@@ -551,6 +551,89 @@ class TestProjectRemoveMember:
 
 
 # =============================================================================
+# Authorization query methods
+# =============================================================================
+
+
+class TestProjectIsOwner:
+    """is_owner() checks whether a user is the project Owner."""
+
+    def test_returns_true_for_owner(self) -> None:
+        p = _make_project(owner_id="u1")
+        assert p.is_owner("u1") is True
+
+    def test_returns_false_for_non_owner(self) -> None:
+        p = _make_project(owner_id="u1")
+        assert p.is_owner("u999") is False
+
+
+class TestProjectFindMembershipByUserId:
+    """find_membership_by_user_id() locates the active membership for a user."""
+
+    def test_returns_membership_for_active_member(self) -> None:
+        p = _recruiting_project(owner_id="u1")
+        membership = p.find_membership_by_user_id("u1")
+        assert membership is not None
+        assert membership.user_id == "u1"
+        assert membership.role == ProjectRole.OWNER
+
+    def test_returns_none_for_unknown_user(self) -> None:
+        p = _make_project(owner_id="u1")
+        assert p.find_membership_by_user_id("u999") is None
+
+    def test_returns_none_for_deactivated_member(self) -> None:
+        p = _recruiting_project(owner_id="u1")
+        p.apply(
+            application_id="a1",
+            applicant_id="u2",
+            desired_role=ProjectRole.MEMBER,
+            motivation="Hi.",
+            applicant_skills=[],
+        )
+        p.accept_application(application_id="a1", reviewed_by="u1")
+        member = [m for m in p.memberships if m.user_id == "u2"][0]
+        p.remove_member(membership_id=member.membership_id)
+
+        assert p.find_membership_by_user_id("u2") is None
+
+
+class TestProjectHasManagementRights:
+    """has_management_rights() checks Owner or Admin role."""
+
+    def test_owner_has_management_rights(self) -> None:
+        p = _make_project(owner_id="u1")
+        assert p.has_management_rights("u1") is True
+
+    def test_admin_has_management_rights(self) -> None:
+        p = _recruiting_project(owner_id="u1")
+        p.apply(
+            application_id="a1",
+            applicant_id="u2",
+            desired_role=ProjectRole.ADMIN,
+            motivation="Hi.",
+            applicant_skills=[],
+        )
+        p.accept_application(application_id="a1", reviewed_by="u1")
+        assert p.has_management_rights("u2") is True
+
+    def test_regular_member_has_no_management_rights(self) -> None:
+        p = _recruiting_project(owner_id="u1")
+        p.apply(
+            application_id="a1",
+            applicant_id="u2",
+            desired_role=ProjectRole.MEMBER,
+            motivation="Hi.",
+            applicant_skills=[],
+        )
+        p.accept_application(application_id="a1", reviewed_by="u1")
+        assert p.has_management_rights("u2") is False
+
+    def test_unknown_user_has_no_management_rights(self) -> None:
+        p = _make_project(owner_id="u1")
+        assert p.has_management_rights("u999") is False
+
+
+# =============================================================================
 # Event collection
 # =============================================================================
 

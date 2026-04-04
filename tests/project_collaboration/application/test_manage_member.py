@@ -56,6 +56,7 @@ class TestChangeMemberRoleUseCase:
             project_id="p1",
             membership_id=membership_id,
             new_role=ProjectRole.ADMIN,
+            caller_id="owner1",
         )
 
         with uow:
@@ -73,6 +74,7 @@ class TestChangeMemberRoleUseCase:
                 project_id="p999",
                 membership_id="m1",
                 new_role=ProjectRole.ADMIN,
+                caller_id="owner1",
             )
 
     def test_raises_when_changing_owner_role(self) -> None:
@@ -88,6 +90,20 @@ class TestChangeMemberRoleUseCase:
                 project_id="p1",
                 membership_id=owner_membership.membership_id,
                 new_role=ProjectRole.ADMIN,
+                caller_id="owner1",
+            )
+
+    def test_raises_when_caller_lacks_management_rights(self) -> None:
+        uow = FakeUnitOfWork()
+        _, membership_id = _project_with_member(uow)
+        use_case = ChangeMemberRoleUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="management rights"):
+            use_case.execute(
+                project_id="p1",
+                membership_id=membership_id,
+                new_role=ProjectRole.ADMIN,
+                caller_id="u2",  # u2 is a regular Member, not Owner/Admin
             )
 
 
@@ -104,7 +120,9 @@ class TestRemoveMemberUseCase:
         _, membership_id = _project_with_member(uow)
         use_case = RemoveMemberUseCase(uow=uow)
 
-        use_case.execute(project_id="p1", membership_id=membership_id)
+        use_case.execute(
+            project_id="p1", membership_id=membership_id, caller_id="owner1"
+        )
 
         with uow:
             project = uow.projects.find_by_id("p1")
@@ -117,7 +135,7 @@ class TestRemoveMemberUseCase:
         use_case = RemoveMemberUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999", membership_id="m1")
+            use_case.execute(project_id="p999", membership_id="m1", caller_id="owner1")
 
     def test_raises_when_removing_owner(self) -> None:
         uow = FakeUnitOfWork()
@@ -131,4 +149,17 @@ class TestRemoveMemberUseCase:
             use_case.execute(
                 project_id="p1",
                 membership_id=owner_membership.membership_id,
+                caller_id="owner1",
+            )
+
+    def test_raises_when_caller_lacks_management_rights(self) -> None:
+        uow = FakeUnitOfWork()
+        _, membership_id = _project_with_member(uow)
+        use_case = RemoveMemberUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="management rights"):
+            use_case.execute(
+                project_id="p1",
+                membership_id=membership_id,
+                caller_id="u2",  # u2 is a regular Member
             )

@@ -61,7 +61,7 @@ class TestActivateProjectUseCase:
         _recruiting_project(uow)
         use_case = ActivateProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -72,7 +72,7 @@ class TestActivateProjectUseCase:
         use_case = ActivateProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="owner1")
 
     def test_raises_when_not_recruiting(self) -> None:
         uow = FakeUnitOfWork()
@@ -80,7 +80,15 @@ class TestActivateProjectUseCase:
         use_case = ActivateProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
-            use_case.execute(project_id="p1")
+            use_case.execute(project_id="p1", caller_id="owner1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        _recruiting_project(uow)
+        use_case = ActivateProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")
 
 
 # =============================================================================
@@ -94,7 +102,7 @@ class TestSuspendProjectUseCase:
         _recruiting_project(uow)
         use_case = SuspendProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -105,7 +113,7 @@ class TestSuspendProjectUseCase:
         _active_project(uow)
         use_case = SuspendProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -116,7 +124,15 @@ class TestSuspendProjectUseCase:
         use_case = SuspendProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="owner1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        _recruiting_project(uow)
+        use_case = SuspendProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")
 
 
 # =============================================================================
@@ -134,7 +150,7 @@ class TestResumeProjectUseCase:
             uow.commit()
         use_case = ResumeProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -149,7 +165,7 @@ class TestResumeProjectUseCase:
             uow.commit()
         use_case = ResumeProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -161,14 +177,26 @@ class TestResumeProjectUseCase:
         use_case = ResumeProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="[Ss]uspended"):
-            use_case.execute(project_id="p1")
+            use_case.execute(project_id="p1", caller_id="owner1")
 
     def test_raises_when_project_not_found(self) -> None:
         uow = FakeUnitOfWork()
         use_case = ResumeProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="owner1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        p = _recruiting_project(uow)
+        p.suspend()
+        with uow:
+            uow.projects.save(p)
+            uow.commit()
+        use_case = ResumeProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")
 
 
 # =============================================================================
@@ -182,7 +210,7 @@ class TestCompleteProjectUseCase:
         _active_project(uow)
         use_case = CompleteProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -194,14 +222,22 @@ class TestCompleteProjectUseCase:
         use_case = CompleteProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
-            use_case.execute(project_id="p1")
+            use_case.execute(project_id="p1", caller_id="owner1")
 
     def test_raises_when_project_not_found(self) -> None:
         uow = FakeUnitOfWork()
         use_case = CompleteProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="owner1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        _active_project(uow)
+        use_case = CompleteProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")
 
 
 # =============================================================================
@@ -215,7 +251,7 @@ class TestCancelProjectUseCase:
         _recruiting_project(uow)
         use_case = CancelProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -226,7 +262,7 @@ class TestCancelProjectUseCase:
         _active_project(uow)
         use_case = CancelProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="owner1")
 
         project = uow.projects.find_by_id("p1")
         assert project is not None
@@ -238,11 +274,19 @@ class TestCancelProjectUseCase:
         use_case = CancelProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
-            use_case.execute(project_id="p1")
+            use_case.execute(project_id="p1", caller_id="owner1")
 
     def test_raises_when_project_not_found(self) -> None:
         uow = FakeUnitOfWork()
         use_case = CancelProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="owner1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        _recruiting_project(uow)
+        use_case = CancelProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")

@@ -14,6 +14,10 @@ class AcceptApplicationUseCase:
             project = uow.projects.find_by_id(project_id)
             if project is None:
                 raise LookupError(f"Project {project_id} not found")
+            if not project.has_management_rights(reviewed_by):
+                raise PermissionError(
+                    "Reviewer lacks management rights to review applications"
+                )
             project.accept_application(
                 application_id=application_id, reviewed_by=reviewed_by
             )
@@ -32,6 +36,10 @@ class RejectApplicationUseCase:
             project = uow.projects.find_by_id(project_id)
             if project is None:
                 raise LookupError(f"Project {project_id} not found")
+            if not project.has_management_rights(reviewed_by):
+                raise PermissionError(
+                    "Reviewer lacks management rights to review applications"
+                )
             project.reject_application(
                 application_id=application_id, reviewed_by=reviewed_by
             )

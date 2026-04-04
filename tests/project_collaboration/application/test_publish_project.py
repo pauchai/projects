@@ -32,7 +32,7 @@ class TestPublishProjectUseCase:
         _saved_draft_project(uow)
         use_case = PublishProjectUseCase(uow=uow)
 
-        use_case.execute(project_id="p1")
+        use_case.execute(project_id="p1", caller_id="u1")
 
         with uow:
             project = uow.projects.find_by_id("p1")
@@ -44,7 +44,7 @@ class TestPublishProjectUseCase:
         use_case = PublishProjectUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(project_id="p999")
+            use_case.execute(project_id="p999", caller_id="u1")
 
     def test_raises_when_not_in_draft(self) -> None:
         uow = FakeUnitOfWork()
@@ -56,4 +56,12 @@ class TestPublishProjectUseCase:
         use_case = PublishProjectUseCase(uow=uow)
 
         with pytest.raises(ValueError, match="transition"):
-            use_case.execute(project_id="p1")
+            use_case.execute(project_id="p1", caller_id="u1")
+
+    def test_raises_when_caller_is_not_owner(self) -> None:
+        uow = FakeUnitOfWork()
+        _saved_draft_project(uow)
+        use_case = PublishProjectUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="[Oo]wner"):
+            use_case.execute(project_id="p1", caller_id="intruder")

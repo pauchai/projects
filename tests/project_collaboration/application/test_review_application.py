@@ -108,6 +108,18 @@ class TestAcceptApplicationUseCase:
                 reviewed_by="owner1",
             )
 
+    def test_raises_when_reviewer_lacks_management_rights(self) -> None:
+        uow = FakeUnitOfWork()
+        _project_with_application(uow)
+        use_case = AcceptApplicationUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="management rights"):
+            use_case.execute(
+                project_id="p1",
+                application_id="a1",
+                reviewed_by="intruder",
+            )
+
 
 # =============================================================================
 # RejectApplicationUseCase
@@ -155,4 +167,16 @@ class TestRejectApplicationUseCase:
                 project_id="p1",
                 application_id="a999",
                 reviewed_by="owner1",
+            )
+
+    def test_raises_when_reviewer_lacks_management_rights(self) -> None:
+        uow = FakeUnitOfWork()
+        _project_with_application(uow)
+        use_case = RejectApplicationUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="management rights"):
+            use_case.execute(
+                project_id="p1",
+                application_id="a1",
+                reviewed_by="intruder",
             )

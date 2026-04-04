@@ -11,12 +11,20 @@ class ChangeMemberRoleUseCase:
         self._uow = uow
 
     def execute(
-        self, project_id: str, membership_id: str, new_role: ProjectRole
+        self,
+        project_id: str,
+        membership_id: str,
+        new_role: ProjectRole,
+        caller_id: str,
     ) -> None:
         with self._uow as uow:
             project = uow.projects.find_by_id(project_id)
             if project is None:
                 raise LookupError(f"Project {project_id} not found")
+            if not project.has_management_rights(caller_id):
+                raise PermissionError(
+                    "Caller lacks management rights to change member roles"
+                )
             project.change_member_role(membership_id=membership_id, new_role=new_role)
             uow.projects.save(project)
             uow.commit()
@@ -28,11 +36,15 @@ class RemoveMemberUseCase:
     def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
-    def execute(self, project_id: str, membership_id: str) -> None:
+    def execute(self, project_id: str, membership_id: str, caller_id: str) -> None:
         with self._uow as uow:
             project = uow.projects.find_by_id(project_id)
             if project is None:
                 raise LookupError(f"Project {project_id} not found")
+            if not project.has_management_rights(caller_id):
+                raise PermissionError(
+                    "Caller lacks management rights to remove members"
+                )
             project.remove_member(membership_id=membership_id)
             uow.projects.save(project)
             uow.commit()

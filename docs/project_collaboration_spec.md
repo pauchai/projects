@@ -305,7 +305,35 @@ with uow:
 
 ---
 
-## 8. Directory Structure
+## 8. Authorization
+
+Authorization is enforced at the **Application Layer** (use case level). Each use case verifies the caller's identity against the project before performing the operation.
+
+**Design decisions:**
+- Inline checks in `execute()` — no decorators, no separate domain service.
+- Three query methods on the Project aggregate support authorization: `is_owner(user_id)`, `find_membership_by_user_id(user_id)`, `has_management_rights(user_id)`.
+- `PermissionError` (Python built-in) is raised for authorization failures, distinct from `ValueError` (business rule violations) and `LookupError` (entity not found).
+- `caller_id: str` parameter is added to use cases that need it. Where an existing parameter already carries the caller's identity (e.g., `reviewed_by`), it is reused.
+
+| Use Case | Required Role | Parameter | Check |
+|----------|--------------|-----------|-------|
+| CreateProject | Any authenticated user | `owner_id` | No project-level auth (project doesn't exist yet) |
+| PublishProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| ApplyToProject | Any authenticated user | `applicant_id` | No project-level auth |
+| AcceptApplication | Owner or Admin | `reviewed_by` | `project.has_management_rights(reviewed_by)` |
+| RejectApplication | Owner or Admin | `reviewed_by` | `project.has_management_rights(reviewed_by)` |
+| ChangeMemberRole | Owner or Admin | `caller_id` | `project.has_management_rights(caller_id)` |
+| RemoveMember | Owner or Admin | `caller_id` | `project.has_management_rights(caller_id)` |
+| ActivateProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| SuspendProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| ResumeProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| CompleteProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| CancelProject | Owner | `caller_id` | `project.is_owner(caller_id)` |
+| SearchProjects | Any authenticated user | — | No auth needed |
+
+---
+
+## 9. Directory Structure
 
 ```
 src/project_collaboration/

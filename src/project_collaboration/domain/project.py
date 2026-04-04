@@ -101,6 +101,26 @@ class Project:
         self._events.append(event)
 
     # -------------------------------------------------------------------------
+    # Authorization queries
+    # -------------------------------------------------------------------------
+
+    def is_owner(self, user_id: str) -> bool:
+        """Return True if the user is the project Owner."""
+        return self.owner_id == user_id
+
+    def find_membership_by_user_id(self, user_id: str) -> Membership | None:
+        """Return the active membership for a user, or None."""
+        for m in self.memberships:
+            if m.user_id == user_id and m.is_active:
+                return m
+        return None
+
+    def has_management_rights(self, user_id: str) -> bool:
+        """Return True if the user has an active membership with management rights."""
+        membership = self.find_membership_by_user_id(user_id)
+        return membership is not None and membership.role.has_management_rights()
+
+    # -------------------------------------------------------------------------
     # Status transitions
     # -------------------------------------------------------------------------
 
