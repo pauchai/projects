@@ -7,6 +7,7 @@ routes with the auth routes (mounted from the auth bounded context).
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,11 @@ from auth.api.dependencies import AuthenticationError as AuthAuthenticationError
 from auth.api.routes.auth import router as auth_router
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.projects import router as projects_router
+from project_collaboration.infrastructure.database import get_engine
+from project_collaboration.infrastructure.database import (
+    create_tables as create_project_tables,
+)
+from auth.infrastructure.database import create_tables as create_auth_tables
 
 # CORS origins: allow frontend dev server and any custom origins.
 _DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://localhost:3000"
@@ -26,9 +32,22 @@ CORS_ORIGINS: list[str] = [
 ]
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create database tables on startup (idempotent)."""
+    engine = get_engine()
+    create_project_tables(engine)
+    create_auth_tables(engine)
+    yield
+
+
 def create_app() -> FastAPI:
     """Application factory: creates and configures the FastAPI app."""
-    app = FastAPI(title="Project Collaboration API", version="0.1.0")
+    app = FastAPI(
+        title="Project Collaboration API",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
 
     # ----- CORS middleware -----
 

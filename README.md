@@ -215,14 +215,35 @@ cd frontend
 npm run build
 ```
 
-## Docker
+## Docker (Full Stack)
 
-### Development setup (recommended)
+### One-command launch
 
-Run databases in Docker, backend and frontend on the host:
+Start the entire stack with a single command:
 
 ```bash
-# Start databases
+docker compose up --build -d
+```
+
+This builds and starts all services:
+
+| Service    | Port  | Description                                    |
+|------------|-------|------------------------------------------------|
+| `postgres` | 5434  | PostgreSQL 16 — main database                  |
+| `postgres-test` | 5433 | PostgreSQL 16 — test database |
+| `backend`  | 8000  | FastAPI application (uvicorn, auto-reload)     |
+| `frontend` | 3001  | nginx serving React SPA                        |
+
+Wait a few seconds for services to initialize, then open:
+- **Frontend:** http://localhost:3001
+- **API Docs:** http://localhost:8000/docs
+
+### Manual setup (development)
+
+For development with hot reload on code changes:
+
+```bash
+# Start databases only
 docker compose up -d postgres postgres-test
 
 # Backend (in project root)
@@ -232,21 +253,24 @@ poetry run uvicorn project_collaboration.api.app:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
-### Frontend container
+The backend uses `--reload` — any code changes trigger automatic restart.
 
-The frontend can also be built and served via Docker:
+### Environment
 
-```bash
-docker compose up -d frontend
+The Docker setup passes these environment variables to services:
+
+```yaml
+# backend
+DATABASE_URL: postgresql://collab:collab@postgres:5432/project_collaboration
+CORS_ORIGINS: http://frontend:80,http://localhost:5173,http://localhost:3001
+PYTHONPATH: /app/src
 ```
 
-This builds the React app and serves it via nginx on `http://localhost:3000`.
+### Troubleshooting
 
-> **Known limitation:** The nginx config inside the frontend container proxies
-> API requests to `http://backend:8000`, but there is no `backend` service in
-> `docker-compose.yml`. The frontend container currently works for serving
-> static assets only. For full-stack Docker deployment, a backend service needs
-> to be added to `docker-compose.yml`.
+If ports are already in use on the host, edit `docker-compose.yml` to change the
+port mappings (e.g., `8001:8000` for backend, `3002:80` for frontend), then
+re-run `docker compose up -d`.
 
 ## Interactive API Docs
 
