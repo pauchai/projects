@@ -6,7 +6,7 @@ import type { ProjectSummaryResponse } from "@/api/types"
 /** Human-readable status labels and color variants */
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   draft: { label: "Draft", variant: "secondary" },
-  published: { label: "Published", variant: "outline" },
+  recruiting: { label: "Recruiting", variant: "outline" },
   active: { label: "Active", variant: "default" },
   suspended: { label: "Suspended", variant: "destructive" },
   completed: { label: "Completed", variant: "secondary" },

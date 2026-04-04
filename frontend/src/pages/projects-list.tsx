@@ -6,8 +6,8 @@ import { useSearchProjects } from "@/hooks/use-projects"
 import type { SearchProjectsParams } from "@/api/types"
 
 const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "published", label: "Published" },
+  { value: "", label: "All" },
+  { value: "recruiting", label: "Recruiting" },
   { value: "active", label: "Active" },
   { value: "completed", label: "Completed" },
 ]
