@@ -1,10 +1,15 @@
-"""Auth routes: REST endpoints for user registration and authentication."""
+"""Auth routes: REST endpoints for user registration, authentication, and profile."""
 
 import uuid
 
 from fastapi import APIRouter, Depends
 
-from auth.api.dependencies import get_auth_uow, get_password_hasher, get_token_service
+from auth.api.dependencies import (
+    get_auth_uow,
+    get_current_user_id,
+    get_password_hasher,
+    get_token_service,
+)
 from auth.api.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from auth.application.authenticate import AuthenticateUseCase
 from auth.application.register_user import RegisterUserUseCase
@@ -53,3 +58,20 @@ def login(
     use_case = AuthenticateUseCase(uow, password_hasher, token_service)
     access_token = use_case.execute(email=body.email, password=body.password)
     return TokenResponse(access_token=access_token)
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> UserResponse:
+    """Return the currently authenticated user's profile info."""
+    with uow:
+        user = uow.users.find_by_id(caller_id)
+        if user is None:
+            raise LookupError(f"User {caller_id} not found")
+        return UserResponse(
+            user_id=user.user_id,
+            email=user.email,
+            display_name=user.display_name,
+        )

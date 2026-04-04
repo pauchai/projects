@@ -7,6 +7,7 @@ will be mounted into the main project_collaboration app (Phase 5).
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from auth.api.dependencies import AuthenticationError
 from auth.api.routes.auth import router as auth_router
 
 
@@ -15,6 +16,12 @@ def create_auth_app() -> FastAPI:
     app = FastAPI(title="Auth API", version="0.1.0")
 
     # ----- Exception handlers -----
+
+    @app.exception_handler(AuthenticationError)
+    def handle_authentication_error(
+        request: Request, exc: AuthenticationError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=401, content={"detail": str(exc)})
 
     @app.exception_handler(ValueError)
     def handle_value_error(request: Request, exc: ValueError) -> JSONResponse:

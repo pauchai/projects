@@ -130,6 +130,20 @@ def _login(
     return resp.json()
 
 
+def _register_and_get_token(
+    client: TestClient,
+    email: str = "alice@example.com",
+    password: str = "StrongPass123!",
+    display_name: str = "Alice",
+) -> tuple[dict, str]:
+    """Register a user, login, and return (user_data, access_token)."""
+    user_data = _register_user(
+        client, email=email, password=password, display_name=display_name
+    )
+    login_data = _login(client, email=email, password=password)
+    return user_data, login_data["access_token"]
+
+
 # ---------------------------------------------------------------------------
 # Tests: Register
 # ---------------------------------------------------------------------------
@@ -265,3 +279,46 @@ class TestLogin:
         )
         assert resp.status_code == 200
         assert "access_token" in resp.json()
+
+
+# ---------------------------------------------------------------------------
+# Tests: GET /auth/me
+# ---------------------------------------------------------------------------
+
+
+class TestGetMe:
+    def test_me_returns_current_user_info(self, auth_api_client: TestClient) -> None:
+        user_data, token = _register_and_get_token(
+            auth_api_client, email="me@example.com", display_name="MeUser"
+        )
+        resp = auth_api_client.get(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["user_id"] == user_data["user_id"]
+        assert data["email"] == "me@example.com"
+        assert data["display_name"] == "MeUser"
+
+    def test_me_without_token_returns_401(self, auth_api_client: TestClient) -> None:
+        resp = auth_api_client.get("/auth/me")
+        assert resp.status_code == 401
+
+    def test_me_with_invalid_token_returns_401(
+        self, auth_api_client: TestClient
+    ) -> None:
+        resp = auth_api_client.get(
+            "/auth/me",
+            headers={"Authorization": "Bearer invalid-garbage-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_me_with_malformed_header_returns_401(
+        self, auth_api_client: TestClient
+    ) -> None:
+        resp = auth_api_client.get(
+            "/auth/me",
+            headers={"Authorization": "Token abc123"},
+        )
+        assert resp.status_code == 401
