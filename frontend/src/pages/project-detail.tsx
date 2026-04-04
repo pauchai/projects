@@ -85,6 +85,9 @@ export function ProjectDetailPage() {
   }
 
   const isOwner = userId === project.owner_id
+  const isManager = project.memberships.some(
+    (m) => m.user_id === userId && m.is_active && (m.role === "owner" || m.role === "admin"),
+  )
   const isMember = project.memberships.some((m) => m.user_id === userId && m.is_active)
   const hasApplied = project.applications.some((a) => a.applicant_id === userId)
   const canApply =
@@ -141,24 +144,30 @@ export function ProjectDetailPage() {
       {/* Members */}
       <MembersSection project={project} />
 
-      {/* Applications (owner only) */}
-      {isOwner && project.applications.length > 0 && (
+      {/* Applications & management link (owner / admin) */}
+      {isManager && (
         <>
           <Separator />
           <div>
-            <h2 className="mb-3 text-lg font-semibold">
-              Applications ({project.applications.length})
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Manage applications on the{" "}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">
+                Applications ({project.applications.length})
+              </h2>
               <Link
                 to={`/projects/${project.project_id}/applications`}
-                className="text-primary underline hover:no-underline"
+                className="text-sm text-primary underline hover:no-underline"
               >
-                applications page
+                Manage project &rarr;
               </Link>
-              .
-            </p>
+            </div>
+            {project.applications.filter((a) => a.status === "pending").length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {project.applications.filter((a) => a.status === "pending").length} pending
+                application(s) awaiting review.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No pending applications.</p>
+            )}
           </div>
         </>
       )}
