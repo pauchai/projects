@@ -127,13 +127,15 @@ def search_projects(
     keyword: str | None = None,
     status: str | None = None,
     skills: str | None = None,
+    owner_id: str | None = None,
+    member_user_id: str | None = None,
     uow: SqlAlchemyUnitOfWork = Depends(get_uow),
 ) -> list[ProjectSummaryResponse]:
     """Search projects with optional filters."""
     use_case = SearchProjectsUseCase(uow)
 
     parsed_status: ProjectStatus | None = None
-    if status is not None:
+    if status is not None and status != "all":
         parsed_status = ProjectStatus(status)
 
     parsed_skills: list[SkillTag] | None = None
@@ -144,6 +146,8 @@ def search_projects(
         keyword=keyword,
         status=parsed_status,
         skills=parsed_skills,
+        owner_id=owner_id,
+        member_user_id=member_user_id,
     )
     return [_project_to_summary(p) for p in results]
 

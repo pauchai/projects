@@ -21,10 +21,14 @@ class SearchProjectsUseCase:
         skills: list[SkillTag] | None = None,
         keyword: str | None = None,
         status: ProjectStatus | None = ProjectStatus.RECRUITING,
+        owner_id: str | None = None,
+        member_user_id: str | None = None,
     ) -> list[Project]:
         with self._uow as uow:
             return uow.projects.search(
                 skills=skills,
                 keyword=keyword,
                 status=status,
+                owner_id=owner_id,
+                member_user_id=member_user_id,
             )

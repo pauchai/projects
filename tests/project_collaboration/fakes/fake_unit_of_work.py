@@ -24,6 +24,8 @@ class _FakeProjectRepository:
         skills: list[SkillTag] | None = None,
         keyword: str | None = None,
         status: ProjectStatus | None = None,
+        owner_id: str | None = None,
+        member_user_id: str | None = None,
     ) -> list[Project]:
         results: list[Project] = []
         for project in self._storage.values():
@@ -40,6 +42,15 @@ class _FakeProjectRepository:
                     lower_keyword not in project.title.lower()
                     and lower_keyword not in project.description.lower()
                 ):
+                    continue
+            if owner_id is not None and project.owner_id != owner_id:
+                continue
+            if member_user_id is not None:
+                has_active_membership = any(
+                    m.user_id == member_user_id and m.is_active
+                    for m in project.memberships
+                )
+                if not has_active_membership:
                     continue
             results.append(project)
         return results

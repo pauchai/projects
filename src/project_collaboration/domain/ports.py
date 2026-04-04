@@ -19,6 +19,8 @@ class ProjectRepository(Protocol):
         skills: list[SkillTag] | None = None,
         keyword: str | None = None,
         status: ProjectStatus | None = None,
+        owner_id: str | None = None,
+        member_user_id: str | None = None,
     ) -> list[Project]: ...
 
 

@@ -166,6 +166,8 @@ class SqlAlchemyProjectRepository:
         skills: list[SkillTag] | None = None,
         keyword: str | None = None,
         status: ProjectStatus | None = None,
+        owner_id: str | None = None,
+        member_user_id: str | None = None,
     ) -> list[Project]:
         """Search projects with optional filters."""
         conn = self._session.connection()
@@ -192,6 +194,21 @@ class SqlAlchemyProjectRepository:
                 .subquery()
             )
             query = query.where(projects_table.c.project_id.in_(select(skill_subq)))
+
+        if owner_id is not None:
+            query = query.where(projects_table.c.owner_id == owner_id)
+
+        if member_user_id is not None:
+            member_subq = (
+                select(memberships_table.c.project_id)
+                .where(
+                    memberships_table.c.user_id == member_user_id,
+                    memberships_table.c.is_active.is_(True),
+                )
+                .distinct()
+                .subquery()
+            )
+            query = query.where(projects_table.c.project_id.in_(select(member_subq)))
 
         project_rows = conn.execute(query).fetchall()
 

@@ -28,6 +28,8 @@ export function searchProjects(
   if (params?.keyword) queryParams.keyword = params.keyword
   if (params?.status) queryParams.status = params.status
   if (params?.skills) queryParams.skills = params.skills
+  if (params?.owner_id) queryParams.owner_id = params.owner_id
+  if (params?.member_user_id) queryParams.member_user_id = params.member_user_id
   return get<ProjectSummaryResponse[]>("/projects/search", queryParams)
 }
 

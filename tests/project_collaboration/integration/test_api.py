@@ -476,6 +476,38 @@ class TestSearchProjects:
         assert len(data) == 1
         assert data[0]["project_id"] == "p1"
 
+    def test_search_by_owner_id(self, api_client: TestClient) -> None:
+        _create_project(api_client, project_id="p1", title="Alice Project")
+        # Create a project owned by a different user
+        other_headers = _auth_headers("other-user")
+        api_client.post(
+            "/projects",
+            json={"project_id": "p2", "title": "Bob Project"},
+            headers=other_headers,
+        )
+        # Publish Bob's project so it appears in search
+        api_client.post("/projects/p2/publish", headers=other_headers)
+
+        resp = api_client.get("/projects/search", params={"owner_id": OWNER})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["project_id"] == "p1"
+
+    def test_search_with_status_all_returns_all_statuses(
+        self, api_client: TestClient
+    ) -> None:
+        """Passing status=all bypasses the default recruiting filter."""
+        _create_project(api_client, project_id="p1", title="Draft Project")
+        _create_project(api_client, project_id="p2", title="Recruiting Project")
+        _publish_project(api_client, "p2")
+
+        resp = api_client.get("/projects/search", params={"status": "all"})
+        assert resp.status_code == 200
+        data = resp.json()
+        ids = {p["project_id"] for p in data}
+        assert ids == {"p1", "p2"}
+
 
 # ---------------------------------------------------------------------------
 # Tests: Error Handling

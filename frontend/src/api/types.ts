@@ -55,6 +55,8 @@ export interface SearchProjectsParams {
   keyword?: string
   status?: string
   skills?: string
+  owner_id?: string
+  member_user_id?: string
 }
 
 /** Membership within a project */
