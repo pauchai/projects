@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "project-collaboration"
+version = "0.1.0"
+description = "Project collaboration platform — users create projects and attract participants"
+authors = []
+packages = [{include = "project_collaboration", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
