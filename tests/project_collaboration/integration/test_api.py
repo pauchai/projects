@@ -2,6 +2,9 @@
 
 Uses ``httpx`` sync TestClient + the test database (port 5433).
 Each test runs inside a rolled-back transaction for isolation.
+
+Authentication is handled via JWT Bearer tokens using a test JwtTokenService.
+The ``get_token_service`` dependency is overridden with a fast test instance.
 """
 
 from __future__ import annotations
@@ -11,6 +14,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
+from auth.api.dependencies import get_auth_uow, get_password_hasher, get_token_service
+from auth.infrastructure.jwt_token_service import JwtTokenService
 from project_collaboration.api.app import create_app
 from project_collaboration.api.dependencies import get_uow
 from project_collaboration.infrastructure.database import (
@@ -22,6 +27,22 @@ from project_collaboration.infrastructure.database import (
 from project_collaboration.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
+
+
+# ---------------------------------------------------------------------------
+# JWT helpers
+# ---------------------------------------------------------------------------
+
+TEST_JWT_SECRET = "test-secret-for-project-collab"
+_test_token_service = JwtTokenService(
+    secret=TEST_JWT_SECRET, algorithm="HS256", expire_minutes=60
+)
+
+
+def _auth_headers(user_id: str) -> dict[str, str]:
+    """Create Authorization headers with a valid JWT for the given user_id."""
+    token = _test_token_service.create_access_token(user_id)
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -44,8 +65,8 @@ def api_client(api_engine: Engine):
     """Create a TestClient whose UoW is bound to a rolled-back transaction.
 
     A single session is shared across all requests within one test.
-    ``session.close()`` is replaced with ``session.expire_all()`` so the
-    UoW ``__exit__`` (which calls close) does not terminate the session.
+    ``session.close()`` is replaced with a no-op so the UoW ``__exit__``
+    (which calls close) does not terminate the session.
     The real close happens in fixture teardown.
     """
     connection = api_engine.connect()
@@ -76,11 +97,23 @@ def api_client(api_engine: Engine):
 
     app = create_app()
 
+    # Override project collaboration UoW
     def _test_uow():
         uow = SqlAlchemyUnitOfWork(factory)  # type: ignore[arg-type]
         yield uow
 
     app.dependency_overrides[get_uow] = _test_uow
+
+    # Override token service (used by get_current_user_id dependency)
+    app.dependency_overrides[get_token_service] = lambda: _test_token_service
+
+    # Override auth-specific dependencies with no-ops (auth routes are mounted
+    # but not exercised in these tests; they have their own test suite).
+    def _noop_auth_uow():
+        yield None
+
+    app.dependency_overrides[get_auth_uow] = _noop_auth_uow
+    app.dependency_overrides[get_password_hasher] = lambda: None
 
     client = TestClient(app)
     yield client
@@ -92,7 +125,7 @@ def api_client(api_engine: Engine):
 
 
 OWNER = "owner1"
-HEADERS = {"X-Caller-Id": OWNER}
+OWNER_HEADERS = _auth_headers(OWNER)
 
 
 # ---------------------------------------------------------------------------
@@ -110,13 +143,13 @@ def _create_project(client: TestClient, **overrides) -> dict:
         "max_members": None,
     }
     body.update(overrides)
-    resp = client.post("/projects", json=body, headers=HEADERS)
+    resp = client.post("/projects", json=body, headers=OWNER_HEADERS)
     assert resp.status_code == 201, resp.text
     return resp.json()
 
 
 def _publish_project(client: TestClient, project_id: str = "p1") -> None:
-    resp = client.post(f"/projects/{project_id}/publish", headers=HEADERS)
+    resp = client.post(f"/projects/{project_id}/publish", headers=OWNER_HEADERS)
     assert resp.status_code == 200, resp.text
 
 
@@ -135,15 +168,25 @@ class TestCreateProject:
         assert len(data["memberships"]) == 1
         assert data["memberships"][0]["role"] == "owner"
 
-    def test_create_project_without_caller_id_returns_422(
+    def test_create_project_without_token_returns_401(
         self, api_client: TestClient
     ) -> None:
         resp = api_client.post(
             "/projects",
             json={"project_id": "p1", "title": "Test Project"},
-            # no X-Caller-Id header
+            # no Authorization header
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 401
+
+    def test_create_project_with_invalid_token_returns_401(
+        self, api_client: TestClient
+    ) -> None:
+        resp = api_client.post(
+            "/projects",
+            json={"project_id": "p1", "title": "Test Project"},
+            headers={"Authorization": "Bearer invalid-token"},
+        )
+        assert resp.status_code == 401
 
     def test_create_project_with_short_title_returns_422(
         self, api_client: TestClient
@@ -151,7 +194,7 @@ class TestCreateProject:
         resp = api_client.post(
             "/projects",
             json={"project_id": "p1", "title": "ab"},
-            headers=HEADERS,
+            headers=OWNER_HEADERS,
         )
         assert resp.status_code == 422
 
@@ -181,7 +224,7 @@ class TestGetProject:
 class TestPublishProject:
     def test_publish_project(self, api_client: TestClient) -> None:
         _create_project(api_client)
-        resp = api_client.post("/projects/p1/publish", headers=HEADERS)
+        resp = api_client.post("/projects/p1/publish", headers=OWNER_HEADERS)
         assert resp.status_code == 200
 
         project = api_client.get("/projects/p1").json()
@@ -190,13 +233,13 @@ class TestPublishProject:
     def test_publish_nonexistent_project_returns_404(
         self, api_client: TestClient
     ) -> None:
-        resp = api_client.post("/projects/nonexistent/publish", headers=HEADERS)
+        resp = api_client.post("/projects/nonexistent/publish", headers=OWNER_HEADERS)
         assert resp.status_code == 404
 
     def test_publish_by_non_owner_returns_403(self, api_client: TestClient) -> None:
         _create_project(api_client)
         resp = api_client.post(
-            "/projects/p1/publish", headers={"X-Caller-Id": "stranger"}
+            "/projects/p1/publish", headers=_auth_headers("stranger")
         )
         assert resp.status_code == 403
 
@@ -204,6 +247,8 @@ class TestPublishProject:
 # ---------------------------------------------------------------------------
 # Tests: Apply to Project
 # ---------------------------------------------------------------------------
+
+U2_HEADERS = _auth_headers("u2")
 
 
 class TestApplyToProject:
@@ -218,7 +263,7 @@ class TestApplyToProject:
                 "motivation": "I want to join.",
                 "applicant_skills": ["python"],
             },
-            headers={"X-Caller-Id": "u2"},
+            headers=U2_HEADERS,
         )
         assert resp.status_code == 201
 
@@ -235,7 +280,7 @@ class TestApplyToProject:
                 "motivation": "I want to join.",
                 "applicant_skills": [],
             },
-            headers={"X-Caller-Id": "u2"},
+            headers=U2_HEADERS,
         )
         assert resp.status_code == 422
 
@@ -257,9 +302,11 @@ class TestReviewApplication:
                 "motivation": "I want to join.",
                 "applicant_skills": ["python"],
             },
-            headers={"X-Caller-Id": "u2"},
+            headers=U2_HEADERS,
         )
-        resp = api_client.post("/projects/p1/applications/a1/accept", headers=HEADERS)
+        resp = api_client.post(
+            "/projects/p1/applications/a1/accept", headers=OWNER_HEADERS
+        )
         assert resp.status_code == 200
 
         project = api_client.get("/projects/p1").json()
@@ -280,9 +327,11 @@ class TestReviewApplication:
                 "motivation": "I want to join.",
                 "applicant_skills": ["python"],
             },
-            headers={"X-Caller-Id": "u2"},
+            headers=U2_HEADERS,
         )
-        resp = api_client.post("/projects/p1/applications/a1/reject", headers=HEADERS)
+        resp = api_client.post(
+            "/projects/p1/applications/a1/reject", headers=OWNER_HEADERS
+        )
         assert resp.status_code == 200
 
         project = api_client.get("/projects/p1").json()
@@ -308,9 +357,9 @@ class TestMemberManagement:
                 "motivation": "I want to join.",
                 "applicant_skills": ["python"],
             },
-            headers={"X-Caller-Id": "u2"},
+            headers=U2_HEADERS,
         )
-        client.post("/projects/p1/applications/a1/accept", headers=HEADERS)
+        client.post("/projects/p1/applications/a1/accept", headers=OWNER_HEADERS)
         project = client.get("/projects/p1").json()
         u2_m = [m for m in project["memberships"] if m["user_id"] == "u2"][0]
         return u2_m["membership_id"]
@@ -320,7 +369,7 @@ class TestMemberManagement:
         resp = api_client.patch(
             f"/projects/p1/members/{mid}/role",
             json={"new_role": "admin"},
-            headers=HEADERS,
+            headers=OWNER_HEADERS,
         )
         assert resp.status_code == 200
 
@@ -330,7 +379,7 @@ class TestMemberManagement:
 
     def test_remove_member(self, api_client: TestClient) -> None:
         mid = self._create_project_with_member(api_client)
-        resp = api_client.delete(f"/projects/p1/members/{mid}", headers=HEADERS)
+        resp = api_client.delete(f"/projects/p1/members/{mid}", headers=OWNER_HEADERS)
         assert resp.status_code == 200
 
         project = api_client.get("/projects/p1").json()
@@ -347,29 +396,29 @@ class TestStatusTransitions:
     def test_activate_project(self, api_client: TestClient) -> None:
         _create_project(api_client)
         _publish_project(api_client)
-        resp = api_client.post("/projects/p1/activate", headers=HEADERS)
+        resp = api_client.post("/projects/p1/activate", headers=OWNER_HEADERS)
         assert resp.status_code == 200
         assert api_client.get("/projects/p1").json()["status"] == "active"
 
     def test_suspend_and_resume(self, api_client: TestClient) -> None:
         _create_project(api_client)
         _publish_project(api_client)
-        api_client.post("/projects/p1/activate", headers=HEADERS)
+        api_client.post("/projects/p1/activate", headers=OWNER_HEADERS)
 
-        resp = api_client.post("/projects/p1/suspend", headers=HEADERS)
+        resp = api_client.post("/projects/p1/suspend", headers=OWNER_HEADERS)
         assert resp.status_code == 200
         assert api_client.get("/projects/p1").json()["status"] == "suspended"
 
-        resp = api_client.post("/projects/p1/resume", headers=HEADERS)
+        resp = api_client.post("/projects/p1/resume", headers=OWNER_HEADERS)
         assert resp.status_code == 200
         assert api_client.get("/projects/p1").json()["status"] == "active"
 
     def test_complete_project(self, api_client: TestClient) -> None:
         _create_project(api_client)
         _publish_project(api_client)
-        api_client.post("/projects/p1/activate", headers=HEADERS)
+        api_client.post("/projects/p1/activate", headers=OWNER_HEADERS)
 
-        resp = api_client.post("/projects/p1/complete", headers=HEADERS)
+        resp = api_client.post("/projects/p1/complete", headers=OWNER_HEADERS)
         assert resp.status_code == 200
         assert api_client.get("/projects/p1").json()["status"] == "completed"
 
@@ -377,7 +426,7 @@ class TestStatusTransitions:
         _create_project(api_client)
         _publish_project(api_client)
 
-        resp = api_client.post("/projects/p1/cancel", headers=HEADERS)
+        resp = api_client.post("/projects/p1/cancel", headers=OWNER_HEADERS)
         assert resp.status_code == 200
         assert api_client.get("/projects/p1").json()["status"] == "cancelled"
 
@@ -434,6 +483,23 @@ class TestSearchProjects:
 
 
 class TestErrorHandling:
+    def test_missing_token_returns_401(self, api_client: TestClient) -> None:
+        resp = api_client.post(
+            "/projects",
+            json={"project_id": "p1", "title": "Test"},
+        )
+        assert resp.status_code == 401
+        assert "detail" in resp.json()
+
+    def test_invalid_token_returns_401(self, api_client: TestClient) -> None:
+        resp = api_client.post(
+            "/projects",
+            json={"project_id": "p1", "title": "Test"},
+            headers={"Authorization": "Bearer garbage"},
+        )
+        assert resp.status_code == 401
+        assert "detail" in resp.json()
+
     def test_lookup_error_returns_404(self, api_client: TestClient) -> None:
         resp = api_client.get("/projects/nonexistent")
         assert resp.status_code == 404
@@ -442,14 +508,14 @@ class TestErrorHandling:
     def test_permission_error_returns_403(self, api_client: TestClient) -> None:
         _create_project(api_client)
         resp = api_client.post(
-            "/projects/p1/publish", headers={"X-Caller-Id": "stranger"}
+            "/projects/p1/publish", headers=_auth_headers("stranger")
         )
         assert resp.status_code == 403
         assert "detail" in resp.json()
 
     def test_value_error_returns_422(self, api_client: TestClient) -> None:
         _create_project(api_client)
-        # Try to publish a Draft project, then activate (can't activate from draft)
-        resp = api_client.post("/projects/p1/activate", headers=HEADERS)
+        # Try to activate from draft (can't activate from draft)
+        resp = api_client.post("/projects/p1/activate", headers=OWNER_HEADERS)
         assert resp.status_code == 422
         assert "detail" in resp.json()
