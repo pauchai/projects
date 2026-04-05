@@ -20,8 +20,9 @@ class SqlAlchemyUnitOfWork:
         self.users = SqlAlchemyUserRepository(self._session)
         return self
 
-    def __exit__(self, *args: object) -> None:
-        self._session.rollback()
+    def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:
+        if exc_type is not None:
+            self._session.rollback()
         self._session.close()
 
     def commit(self) -> None:

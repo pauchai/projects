@@ -1,8 +1,14 @@
-"""SQLAlchemy table definitions for the Auth bounded context (Core only).
+"""SQLAlchemy ORM mapping for the Auth bounded context (Imperative Mapping).
 
-Mirrors the approach in project_collaboration: pure Core tables, no ORM mapping.
-Domain classes stay free of SQLAlchemy imports. Repositories handle persistence
-and reconstitution using Core queries + object.__new__.
+Domain classes remain free of SQLAlchemy imports. Table definitions are kept
+here alongside the mapping configuration. The mapper is triggered on module
+import — any module that imports from ``orm`` will activate the mappings.
+
+Key design decisions:
+- Domain classes (User, Credential) have no SQLAlchemy dependencies.
+- Credential is mapped as a child of User via relationship + cascade.
+- ORM bypasses ``__init__`` on load (uses ``__new__`` + attribute population),
+  so validation in ``__init__`` does not re-run for data from the DB.
 """
 
 from sqlalchemy import (
@@ -15,8 +21,16 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
 )
+from sqlalchemy.orm import registry, relationship
 
-metadata = MetaData()
+from auth.domain.user import Credential, User
+
+# ---------------------------------------------------------------------------
+# Registry (manages MetaData + class ↔ table mappings)
+# ---------------------------------------------------------------------------
+
+mapper_registry = registry()
+metadata: MetaData = mapper_registry.metadata
 
 # ---------------------------------------------------------------------------
 # Table definitions
@@ -47,4 +61,22 @@ credentials_table = Table(
     Column("hashed_secret", String(512), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     UniqueConstraint("user_id", "provider", name="uq_user_provider"),
+)
+
+# ---------------------------------------------------------------------------
+# Imperative mappings
+# ---------------------------------------------------------------------------
+
+mapper_registry.map_imperatively(Credential, credentials_table)
+
+mapper_registry.map_imperatively(
+    User,
+    users_table,
+    properties={
+        "credentials": relationship(
+            Credential,
+            cascade="all, delete-orphan",
+            passive_deletes=True,
+        ),
+    },
 )
