@@ -1,16 +1,23 @@
-"""SQLAlchemy table definitions (Core only, no ORM mapping).
+"""SQLAlchemy ORM mapping via Imperative Mapping (registry.map_imperatively).
 
-The repository handles all persistence and reconstitution of domain objects
-using SQLAlchemy Core queries. This keeps domain classes completely free of
-SQLAlchemy concerns: no ``__init__`` conflicts, no transient-field issues,
-no value-object mapping headaches.
+Domain classes remain free of SQLAlchemy imports. Table definitions are kept
+here alongside the mapping configuration. The mapper is triggered on module
+import — any module that imports from ``orm`` will activate the mappings.
 
 Key design decisions:
 - ``previous_status`` is persisted as a nullable column (needed for resume).
-- ``_events`` is NOT persisted (transient domain events).
-- ``required_skills`` uses a separate association table ``project_skill_tags``.
-- ``applicant_skills`` on ApplicationForm is stored as a JSON array of strings.
+- ``_events`` is NOT persisted (transient, initialised in the repository).
+- ``required_skills`` uses a separate association table ``project_skill_tags``
+  and is loaded/saved manually in the repository (SkillTag is a frozen
+  dataclass value object, not an ORM-mapped entity).
+- ``applicant_skills`` on ApplicationForm is stored as a JSON column and
+  converted automatically via ``SkillTagListType`` (TypeDecorator).
 """
+
+from __future__ import annotations
+
+import json
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -25,12 +32,52 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.orm import registry, relationship
+from sqlalchemy.types import TypeDecorator
 
-from project_collaboration.domain.application_form import ApplicationStatus
+from project_collaboration.domain.application_form import (
+    ApplicationForm,
+    ApplicationStatus,
+)
+from project_collaboration.domain.membership import Membership
+from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
+from project_collaboration.domain.skill_tag import SkillTag
 
-metadata = MetaData()
+# ---------------------------------------------------------------------------
+# Registry (manages MetaData + class ↔ table mappings)
+# ---------------------------------------------------------------------------
+
+mapper_registry = registry()
+metadata: MetaData = mapper_registry.metadata
+
+# ---------------------------------------------------------------------------
+# Custom type: JSON list[str] ↔ list[SkillTag]
+# ---------------------------------------------------------------------------
+
+
+class SkillTagListType(TypeDecorator):
+    """Transparently convert between ``list[SkillTag]`` and a JSON string list.
+
+    The underlying column type is ``JSON`` (PostgreSQL jsonb).
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:  # noqa: ANN401
+        """Python → DB: list[SkillTag] → list[str]."""
+        if value is None:
+            return []
+        return [tag.value for tag in value]
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any:  # noqa: ANN401
+        """DB → Python: list[str] → list[SkillTag]."""
+        if value is None:
+            return []
+        return [SkillTag(v) for v in value]
+
 
 # ---------------------------------------------------------------------------
 # Table definitions
@@ -107,7 +154,7 @@ applications_table = Table(
         nullable=False,
     ),
     Column("motivation", Text, nullable=False, default=""),
-    Column("applicant_skills", JSON, nullable=False, default=[]),
+    Column("applicant_skills", SkillTagListType(), nullable=False, default=[]),
     Column(
         "status",
         Enum(
@@ -119,4 +166,29 @@ applications_table = Table(
     ),
     Column("reviewed_by", String(255), nullable=True),
     Column("submitted_at", DateTime(timezone=True), nullable=False),
+)
+
+# ---------------------------------------------------------------------------
+# Imperative mappings
+# ---------------------------------------------------------------------------
+
+mapper_registry.map_imperatively(Membership, memberships_table)
+
+mapper_registry.map_imperatively(ApplicationForm, applications_table)
+
+mapper_registry.map_imperatively(
+    Project,
+    projects_table,
+    properties={
+        "memberships": relationship(
+            Membership,
+            cascade="all, delete-orphan",
+            passive_deletes=True,
+        ),
+        "applications": relationship(
+            ApplicationForm,
+            cascade="all, delete-orphan",
+            passive_deletes=True,
+        ),
+    },
 )

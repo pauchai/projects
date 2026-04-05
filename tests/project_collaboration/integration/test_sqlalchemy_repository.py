@@ -4,7 +4,7 @@ These tests verify the real PostgreSQL persistence layer:
 - Round-trip save/load of full Project aggregates
 - Persistence of all child entities (memberships, applications)
 - Persistence of value objects (SkillTag via association table, applicant_skills via JSON)
-- Persistence of private state (_previous_status for suspend/resume)
+- Persistence of previous_status for suspend/resume
 - Search with filters (status, keyword, skills)
 - UoW commit/rollback semantics
 - Nonexistent project returns None
@@ -130,7 +130,7 @@ class TestFindById:
     def test_persists_previous_status_after_suspend(
         self, integration_session: Session
     ) -> None:
-        """_previous_status is private but must survive a DB round-trip for resume."""
+        """previous_status must survive a DB round-trip for resume."""
         repo = SqlAlchemyProjectRepository(integration_session)
         project = _make_project()
         project.publish()
@@ -143,7 +143,7 @@ class TestFindById:
 
         assert loaded is not None
         assert loaded.status == ProjectStatus.SUSPENDED
-        assert loaded._previous_status == ProjectStatus.ACTIVE
+        assert loaded.previous_status == ProjectStatus.ACTIVE
 
     def test_persists_max_members(self, integration_session: Session) -> None:
         repo = SqlAlchemyProjectRepository(integration_session)
@@ -498,7 +498,7 @@ class TestReconstitution:
         loaded = repo.find_by_id("p1")
 
         assert loaded is not None
-        assert loaded._previous_status is None
+        assert loaded.previous_status is None
 
 
 # ---------------------------------------------------------------------------

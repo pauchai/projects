@@ -64,7 +64,7 @@ class Project:
         self.max_members = max_members
         self.status = ProjectStatus.DRAFT
         self.created_at: datetime = datetime.now(timezone.utc)
-        self._previous_status: ProjectStatus | None = None
+        self.previous_status: ProjectStatus | None = None
 
         self.memberships: list[Membership] = []
         self.applications: list[ApplicationForm] = []
@@ -145,17 +145,17 @@ class Project:
         """Recruiting/Active -> Suspended. Remembers previous status."""
         previous = self.status
         self._transition_to(ProjectStatus.SUSPENDED)
-        self._previous_status = previous
+        self.previous_status = previous
         self._emit(ProjectSuspended(project_id=self.project_id))
 
     def resume(self) -> None:
         """Suspended -> previous status (Recruiting or Active)."""
         if self.status != ProjectStatus.SUSPENDED:
             raise ValueError("Can only resume from Suspended status")
-        if self._previous_status is None:
+        if self.previous_status is None:
             raise ValueError("No previous status to resume to")
-        self._transition_to(self._previous_status)
-        self._previous_status = None
+        self._transition_to(self.previous_status)
+        self.previous_status = None
         self._emit(ProjectResumed(project_id=self.project_id))
 
     def complete(self) -> None:
