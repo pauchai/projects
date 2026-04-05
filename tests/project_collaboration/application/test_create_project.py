@@ -7,7 +7,18 @@ from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
 from project_collaboration.domain.events import ProjectCreated
+from shared_kernel.events import DomainEvent
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
+
+
+class _SpyEventBus:
+    """Spy event bus that records all published events."""
+
+    def __init__(self) -> None:
+        self.published: list[DomainEvent] = []
+
+    def publish(self, events: list[DomainEvent]) -> None:
+        self.published.extend(events)
 
 
 class TestCreateProjectUseCase:
@@ -75,10 +86,11 @@ class TestCreateProjectUseCase:
         assert project.memberships[0].user_id == "u1"
 
     def test_emits_project_created_event(self) -> None:
-        uow = FakeUnitOfWork()
+        spy_bus = _SpyEventBus()
+        uow = FakeUnitOfWork(event_bus=spy_bus)
         use_case = CreateProjectUseCase(uow=uow)
 
-        project = use_case.execute(
+        use_case.execute(
             project_id="p1",
             title="Alpha",
             description="Desc.",
@@ -86,9 +98,9 @@ class TestCreateProjectUseCase:
             required_skills=[],
         )
 
-        events = project.collect_events()
-        assert len(events) == 1
-        assert isinstance(events[0], ProjectCreated)
+        assert len(spy_bus.published) == 1
+        assert isinstance(spy_bus.published[0], ProjectCreated)
+        assert spy_bus.published[0].project_id == "p1"
 
     def test_with_max_members(self) -> None:
         uow = FakeUnitOfWork()

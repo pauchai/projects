@@ -3,11 +3,7 @@
 from dataclasses import dataclass
 
 from project_collaboration.domain.role import ProjectRole
-
-
-@dataclass(frozen=True)
-class DomainEvent:
-    """Base class for all domain events."""
+from shared_kernel.events import DomainEvent
 
 
 # --- Project lifecycle events ---

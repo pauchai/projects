@@ -26,8 +26,9 @@ from project_collaboration.infrastructure.orm import (
 class SqlAlchemyProjectRepository:
     """Implements ProjectRepository Protocol using SQLAlchemy ORM."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, uow: object | None = None) -> None:
         self._session = session
+        self._uow = uow
 
     # ------------------------------------------------------------------
     # Public interface (matches ProjectRepository Protocol)
@@ -51,13 +52,22 @@ class SqlAlchemyProjectRepository:
         return project
 
     def save(self, project: Project) -> None:
-        """Persist a Project aggregate (project + skills + memberships + applications)."""
-        # 1. Merge the aggregate (project + relationships handled by ORM)
+        """Persist a Project aggregate (project + skills + memberships + applications).
+
+        Collects domain events from the aggregate and passes them to the UoW
+        for publishing after commit.
+        """
+        # 1. Collect domain events before merge (merge may return a different object)
+        events = project.collect_events()
+        if events and self._uow is not None and hasattr(self._uow, "collect_events"):
+            self._uow.collect_events(events)
+
+        # 2. Merge the aggregate (project + relationships handled by ORM)
         self._session.merge(project)
         # Flush to ensure project row exists before writing skill tags
         self._session.flush()
 
-        # 2. Save required_skills to the association table
+        # 3. Save required_skills to the association table
         self._save_required_skills(project)
 
     def search(

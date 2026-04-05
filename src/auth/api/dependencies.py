@@ -21,11 +21,13 @@ from auth.infrastructure.database import (
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
+from shared_kernel.events import EventBus
 
 # Module-level singletons, initialized lazily.
 _session_factory: sessionmaker[Session] | None = None
 _password_hasher: BcryptPasswordHasher | None = None
 _token_service: JwtTokenService | None = None
+_event_bus: EventBus | None = None
 
 # JWT configuration via env vars with sensible defaults.
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
@@ -49,9 +51,9 @@ def get_auth_uow() -> Generator[SqlAlchemyUnitOfWork, None, None]:
     """FastAPI dependency that yields a SqlAlchemyUnitOfWork for auth.
 
     Use cases manage the UoW lifecycle themselves (``with uow:``),
-    so we just need to construct it with the session factory.
+    so we just need to construct it with the session factory and event bus.
     """
-    uow = SqlAlchemyUnitOfWork(_get_session_factory())
+    uow = SqlAlchemyUnitOfWork(_get_session_factory(), event_bus=_event_bus)
     yield uow
 
 
@@ -125,3 +127,13 @@ def override_session_factory(factory: sessionmaker[Session]) -> None:
     """Override the module-level session factory (used in tests)."""
     global _session_factory
     _session_factory = factory
+
+
+def set_event_bus(bus: EventBus | None) -> None:
+    """Set the module-level event bus.
+
+    Called once at application startup to wire up domain event handlers.
+    Pass ``None`` to disable event publishing.
+    """
+    global _event_bus
+    _event_bus = bus

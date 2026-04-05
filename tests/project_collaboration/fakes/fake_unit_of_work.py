@@ -5,18 +5,22 @@ import copy
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
+from shared_kernel.events import DomainEvent, EventBus
 
 
 class _FakeProjectRepository:
     """In-memory ProjectRepository used within FakeUnitOfWork."""
 
-    def __init__(self) -> None:
+    def __init__(self, uow: "FakeUnitOfWork") -> None:
         self._storage: dict[str, Project] = {}
+        self._uow = uow
 
     def find_by_id(self, project_id: str) -> Project | None:
         return self._storage.get(project_id)
 
     def save(self, project: Project) -> None:
+        events = project.collect_events()
+        self._uow.collect_events(events)
         self._storage[project.project_id] = project
 
     def search(
@@ -69,12 +73,15 @@ class FakeUnitOfWork:
 
     On __enter__, snapshots current state. On commit(), keeps changes.
     On rollback() or __exit__ without commit, restores the snapshot.
+    Supports optional event bus for verifying event publication.
     """
 
-    def __init__(self) -> None:
-        self.projects = _FakeProjectRepository()
+    def __init__(self, event_bus: EventBus | None = None) -> None:
+        self.projects = _FakeProjectRepository(self)
         self.committed = False
         self._snapshot: dict[str, Project] | None = None
+        self._event_bus = event_bus
+        self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
@@ -88,6 +95,10 @@ class FakeUnitOfWork:
 
     def commit(self) -> None:
         self.committed = True
+        # Publish events after "commit"
+        if self._event_bus and self._pending_events:
+            self._event_bus.publish(self._pending_events)
+        self._pending_events.clear()
         # Snapshot is discarded — changes are kept
         self._snapshot = None
 
@@ -95,3 +106,8 @@ class FakeUnitOfWork:
         if self._snapshot is not None:
             self.projects.restore(self._snapshot)
             self._snapshot = None
+        self._pending_events.clear()
+
+    def collect_events(self, events: list[DomainEvent]) -> None:
+        """Accumulate domain events for publishing after commit."""
+        self._pending_events.extend(events)

@@ -8,6 +8,7 @@ These tests verify the real PostgreSQL persistence layer:
 - Search with filters (status, keyword, skills)
 - UoW commit/rollback semantics
 - Nonexistent project returns None
+- Domain event publishing through EventBus after commit
 
 Requires ``docker compose up -d postgres-test`` (port 5433).
 """
@@ -17,7 +18,11 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from shared_kernel.events import DomainEvent
+from shared_kernel.in_process_event_bus import InProcessEventBus
+
 from project_collaboration.domain.application_form import ApplicationStatus
+from project_collaboration.domain.events import ProjectCreated
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
@@ -556,3 +561,163 @@ class TestUnitOfWork:
         with uow:
             loaded = uow.projects.find_by_id("p1")
             assert loaded is None
+
+
+# ---------------------------------------------------------------------------
+# Unit of Work: domain event publishing
+# ---------------------------------------------------------------------------
+
+
+class _SpyHandler:
+    """Spy handler that records all events for assertion."""
+
+    def __init__(self) -> None:
+        self.handled: list[DomainEvent] = []
+
+    def handle(self, event: DomainEvent) -> None:
+        self.handled.append(event)
+
+
+class TestUnitOfWorkEventPublishing:
+    """Integration tests for domain event publishing through UoW + EventBus.
+
+    Verifies:
+    - Events ARE published after a successful commit().
+    - Events are NOT published after rollback().
+    - Events are NOT published when __exit__ is called without commit (exception path).
+    - Without event bus, commit works normally (backward compatibility).
+    - Events are cleared after commit (no double publishing on second commit).
+    """
+
+    def test_events_published_after_commit(
+        self,
+        integration_session_factory: sessionmaker[Session],
+    ) -> None:
+        """Domain events collected during save() are published after commit()."""
+        bus = InProcessEventBus()
+        handler = _SpyHandler()
+        bus.subscribe(ProjectCreated, handler)
+
+        # _make_project() clears creation events; create a fresh project with events
+        project = Project(
+            project_id="evt1",
+            title="Event Test",
+            description="Testing event publishing",
+            owner_id="owner1",
+            required_skills=[],
+        )
+        uow = SqlAlchemyUnitOfWork(integration_session_factory, event_bus=bus)
+
+        with uow:
+            uow.projects.save(project)
+            # Before commit — handler should NOT have received anything
+            assert handler.handled == []
+
+            uow.commit()
+
+        # After commit — handler should have the ProjectCreated event
+        assert len(handler.handled) == 1
+        event = handler.handled[0]
+        assert isinstance(event, ProjectCreated)
+        assert event.project_id == "evt1"
+        assert event.owner_id == "owner1"
+        assert event.title == "Event Test"
+
+    def test_events_not_published_after_rollback(
+        self,
+        integration_session_factory: sessionmaker[Session],
+    ) -> None:
+        """Events collected during save() are discarded on rollback()."""
+        bus = InProcessEventBus()
+        handler = _SpyHandler()
+        bus.subscribe(ProjectCreated, handler)
+
+        project = Project(
+            project_id="evt2",
+            title="Rollback Test",
+            description="Testing rollback discards events",
+            owner_id="owner1",
+            required_skills=[],
+        )
+        uow = SqlAlchemyUnitOfWork(integration_session_factory, event_bus=bus)
+
+        with uow:
+            uow.projects.save(project)
+            uow.rollback()
+
+        assert handler.handled == []
+
+    def test_events_not_published_on_exception_exit(
+        self,
+        integration_session_factory: sessionmaker[Session],
+    ) -> None:
+        """Events are discarded when __exit__ fires due to an exception."""
+        bus = InProcessEventBus()
+        handler = _SpyHandler()
+        bus.subscribe(ProjectCreated, handler)
+
+        project = Project(
+            project_id="evt3",
+            title="Exception Test",
+            description="Testing exception path",
+            owner_id="owner1",
+            required_skills=[],
+        )
+        uow = SqlAlchemyUnitOfWork(integration_session_factory, event_bus=bus)
+
+        with pytest.raises(RuntimeError, match="forced"):
+            with uow:
+                uow.projects.save(project)
+                raise RuntimeError("forced")
+
+        assert handler.handled == []
+
+    def test_commit_without_event_bus_works(
+        self,
+        integration_session_factory: sessionmaker[Session],
+    ) -> None:
+        """Backward compatibility: UoW without event_bus commits normally."""
+        project = Project(
+            project_id="evt4",
+            title="No Bus Test",
+            description="Testing without event bus",
+            owner_id="owner1",
+            required_skills=[],
+        )
+        uow = SqlAlchemyUnitOfWork(integration_session_factory)  # no event_bus
+
+        with uow:
+            uow.projects.save(project)
+            uow.commit()
+
+        # Data should be persisted
+        with uow:
+            loaded = uow.projects.find_by_id("evt4")
+            assert loaded is not None
+            assert loaded.project_id == "evt4"
+
+    def test_events_cleared_after_commit_no_double_publish(
+        self,
+        integration_session_factory: sessionmaker[Session],
+    ) -> None:
+        """After commit, pending events are cleared — second commit does not re-publish."""
+        bus = InProcessEventBus()
+        handler = _SpyHandler()
+        bus.subscribe(ProjectCreated, handler)
+
+        project = Project(
+            project_id="evt5",
+            title="Double Commit Test",
+            description="Testing no double publish",
+            owner_id="owner1",
+            required_skills=[],
+        )
+        uow = SqlAlchemyUnitOfWork(integration_session_factory, event_bus=bus)
+
+        with uow:
+            uow.projects.save(project)
+            uow.commit()
+            # Second commit with no new changes — should not re-publish
+            uow.commit()
+
+        assert len(handler.handled) == 1

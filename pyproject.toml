@@ -6,6 +6,7 @@ authors = []
 packages = [
     {include = "project_collaboration", from = "src"},
     {include = "auth", from = "src"},
+    {include = "shared_kernel", from = "src"},
 ]
 
 [tool.poetry.dependencies]

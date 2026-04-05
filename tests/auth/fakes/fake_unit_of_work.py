@@ -3,6 +3,7 @@
 import copy
 
 from auth.domain.user import User, Credential
+from shared_kernel.events import DomainEvent, EventBus
 
 
 class FakeUserRepository:
@@ -36,10 +37,12 @@ class FakeUserRepository:
 class FakeUnitOfWork:
     """Fake UoW for auth testing: in-memory with commit/rollback semantics."""
 
-    def __init__(self) -> None:
+    def __init__(self, event_bus: EventBus | None = None) -> None:
         self.users = FakeUserRepository()
         self.committed = False
         self._snapshot: dict[str, User] | None = None
+        self._event_bus = event_bus
+        self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
@@ -53,12 +56,20 @@ class FakeUnitOfWork:
 
     def commit(self) -> None:
         self.committed = True
+        if self._event_bus and self._pending_events:
+            self._event_bus.publish(self._pending_events)
+        self._pending_events.clear()
         self._snapshot = None
 
     def rollback(self) -> None:
         if self._snapshot is not None:
             self.users.restore(self._snapshot)
             self._snapshot = None
+        self._pending_events.clear()
+
+    def collect_events(self, events: list[DomainEvent]) -> None:
+        """Accumulate domain events for publishing after commit."""
+        self._pending_events.extend(events)
 
 
 class FakePasswordHasher:
