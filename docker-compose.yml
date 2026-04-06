@@ -38,14 +38,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
     environment:
+      # Docker-specific overrides (hostname differs from local dev)
       - DATABASE_URL=postgresql://collab:collab@postgres:5432/project_collaboration
       - CORS_ORIGINS=http://frontend:80,http://localhost:5173,http://localhost:3001
       - PYTHONPATH=/app/src
-      # Google OAuth (optional — leave empty to disable Google sign-in)
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      # All other variables (JWT_*, OAUTH_*) are read from .env
 
   frontend:
     build:

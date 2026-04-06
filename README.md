@@ -8,7 +8,8 @@ Domain-Driven Design (DDD), Hexagonal Architecture, and Test-Driven Development
 
 | Layer    | Technology                                                        |
 |----------|-------------------------------------------------------------------|
-| Backend  | Python 3.12, FastAPI, SQLAlchemy (Core), PostgreSQL 16, PyJWT     |
+| Backend  | Python 3.12, FastAPI, SQLAlchemy (ORM), PostgreSQL 16, PyJWT, httpx |
+| Auth     | JWT (email/password), Google OAuth 2.0 (popup flow)               |
 | Frontend | React 19, TypeScript 5.9, Vite 8, Tailwind CSS 4, shadcn/ui      |
 | State    | Zustand (auth), TanStack Query (server state)                     |
 | Infra    | Docker Compose, nginx                                             |
@@ -29,17 +30,17 @@ graph TB
 
     subgraph Backend ["Backend (FastAPI)"]
         subgraph Auth ["Auth Context"]
-            AuthAPI["API Layer<br/>/auth/register, /auth/login, /auth/me"]
-            AuthApp["Application Layer<br/>RegisterUser, Authenticate"]
+            AuthAPI["API Layer<br/>/auth/register, /auth/login, /auth/me<br/>/auth/oauth/google/*"]
+            AuthApp["Application Layer<br/>RegisterUser, Authenticate,<br/>AuthenticateWithOAuth"]
             AuthDomain["Domain Layer<br/>User, Credential, Protocols"]
-            AuthInfra["Infrastructure Layer<br/>Bcrypt, JWT, SQLAlchemy"]
+            AuthInfra["Infrastructure Layer<br/>Bcrypt, JWT, SQLAlchemy ORM,<br/>GoogleOAuthClient"]
         end
 
         subgraph ProjectCollab ["Project Collaboration Context"]
             ProjAPI["API Layer<br/>/projects/*, 14 endpoints"]
             ProjApp["Application Layer<br/>13 Use Cases"]
             ProjDomain["Domain Layer<br/>Project, Membership,<br/>ApplicationForm, SkillTag"]
-            ProjInfra["Infrastructure Layer<br/>SQLAlchemy Core Repository"]
+            ProjInfra["Infrastructure Layer<br/>SQLAlchemy ORM Repository"]
         end
     end
 
@@ -75,13 +76,13 @@ domain objects and calls Ports.
 ├── src/
 │   ├── auth/                          # Auth Bounded Context
 │   │   ├── domain/                    #   User, Credential, Protocols
-│   │   ├── application/               #   RegisterUser, Authenticate
-│   │   ├── infrastructure/            #   Bcrypt, JWT, SQLAlchemy
+│   │   ├── application/               #   RegisterUser, Authenticate, OAuth
+│   │   ├── infrastructure/            #   Bcrypt, JWT, SQLAlchemy ORM, Google OAuth
 │   │   └── api/                       #   FastAPI routes + dependencies
 │   └── project_collaboration/         # Project Collaboration Context
 │       ├── domain/                    #   Project aggregate, events, Protocols
 │       ├── application/               #   13 use cases
-│       ├── infrastructure/            #   SQLAlchemy Core repo, UoW
+│       ├── infrastructure/            #   SQLAlchemy ORM repo, UoW
 │       └── api/                       #   FastAPI routes + dependencies
 ├── tests/
 │   ├── auth/                          # Auth tests (unit + integration)
@@ -101,6 +102,7 @@ domain objects and calls Ports.
 │   ├── Dockerfile                     # Multi-stage: node build -> nginx
 │   └── nginx.conf                     # SPA fallback + API reverse proxy
 ├── docker-compose.yml                 # PostgreSQL (dev + test) + frontend
+├── .env.example                       # Environment variable template
 ├── pyproject.toml                     # Poetry config
 └── AGENTS.md                          # Coding conventions for AI agents
 ```
@@ -126,13 +128,23 @@ This starts two PostgreSQL instances:
 | `postgres`      | 5434 | `project_collaboration`        | `collab`      |
 | `postgres-test` | 5433 | `project_collaboration_test`   | `collab_test` |
 
-### 2. Install backend dependencies
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+All variables have sensible defaults for local development — no edits required to
+get started. See [Environment Variables](#environment-variables) for details and
+[OAuth Setup](#oauth-setup-optional) if you want Google Sign-In.
+
+### 3. Install backend dependencies
 
 ```bash
 poetry install
 ```
 
-### 3. Create database tables
+### 4. Create database tables
 
 No migrations (Alembic) yet — tables are created programmatically:
 
@@ -147,7 +159,7 @@ print('Tables created.')
 "
 ```
 
-### 4. Run the backend
+### 5. Run the backend
 
 ```bash
 poetry run uvicorn project_collaboration.api.app:app --reload --port 8000
@@ -156,14 +168,14 @@ poetry run uvicorn project_collaboration.api.app:app --reload --port 8000
 The API is now available at `http://localhost:8000`. Interactive docs (Swagger UI)
 at `http://localhost:8000/docs`.
 
-### 5. Install frontend dependencies
+### 6. Install frontend dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 6. Run the frontend dev server
+### 7. Run the frontend dev server
 
 ```bash
 npm run dev
@@ -174,23 +186,71 @@ requests to the backend at `localhost:8000`.
 
 ## Environment Variables
 
-All variables have sensible defaults for local development. Override them as
-needed for other environments.
+Copy the template and adjust as needed:
+
+```bash
+cp .env.example .env
+```
+
+All variables have sensible defaults for local development. See `.env.example`
+for the full list with comments.
+
+### Core Variables
 
 | Variable             | Default                                                                  | Description                          |
 |----------------------|--------------------------------------------------------------------------|--------------------------------------|
 | `DATABASE_URL`       | `postgresql://collab:collab@localhost:5434/project_collaboration`         | PostgreSQL connection string         |
-| `JWT_SECRET`         | `dev-secret-change-me`                                                   | Secret key for signing JWT tokens    |
+| `JWT_SECRET`         | `dev-secret-change-me-in-production`                                     | Secret key for signing JWT tokens    |
 | `JWT_ALGORITHM`      | `HS256`                                                                  | JWT signing algorithm                |
 | `JWT_EXPIRE_MINUTES` | `60`                                                                     | Token expiration time in minutes     |
-| `CORS_ORIGINS`       | `http://localhost:5173,http://localhost:3000`                             | Comma-separated allowed CORS origins |
+| `CORS_ORIGINS`       | `http://localhost:5173,http://localhost:3000,http://localhost:3001`       | Comma-separated allowed CORS origins |
 
-> **Production warning:** Always set `JWT_SECRET` to a strong, unique value.
-> Never use the default in production.
+> **Production warning:** Always set `JWT_SECRET` to a strong, unique value of
+> at least 32 characters. Never use the default in production.
+
+### OAuth Providers (Optional)
+
+OAuth credentials follow the naming convention `OAUTH_<PROVIDER>_<CREDENTIAL>`.
+Leave empty to disable a provider — the UI will hide its sign-in button.
+
+| Variable                       | Default | Description                      |
+|--------------------------------|---------|----------------------------------|
+| `OAUTH_GOOGLE_CLIENT_ID`      | *(empty)* | Google OAuth 2.0 client ID    |
+| `OAUTH_GOOGLE_CLIENT_SECRET`  | *(empty)* | Google OAuth 2.0 client secret|
+| `OAUTH_GOOGLE_REDIRECT_URI`   | *(empty)* | OAuth callback URL            |
+
+Additional providers (GitHub, Microsoft, Discord) will follow the same pattern.
+See [OAuth Setup](#oauth-setup-optional) for configuration instructions.
+
+## OAuth Setup (Optional)
+
+The platform supports social login via OAuth 2.0. Each provider is optional —
+if credentials are not configured, the corresponding sign-in button is hidden.
+
+### Google Sign-In
+
+1. Go to [Google Cloud Console — Credentials](https://console.cloud.google.com/apis/credentials).
+2. Create an **OAuth 2.0 Client ID** (application type: "Web application").
+3. Add authorized redirect URIs:
+   - Development: `http://localhost:5173/oauth/callback`
+   - Production: `https://yourdomain.com/oauth/callback`
+4. Copy the client ID and client secret into your `.env`:
+   ```
+   OAUTH_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   OAUTH_GOOGLE_CLIENT_SECRET=your-client-secret
+   OAUTH_GOOGLE_REDIRECT_URI=http://localhost:5173/oauth/callback
+   ```
+5. Restart the backend. The "Sign in with Google" button will appear on the
+   login and registration pages.
+
+**How it works:** The frontend opens a popup window for Google authorization.
+After the user consents, Google redirects back with an authorization code. The
+backend exchanges this code for user info and either creates a new account or
+links the Google credential to an existing account with the same email.
 
 ## Running Tests
 
-### Backend (375 tests)
+### Backend (433 tests)
 
 ```bash
 # Full suite
@@ -257,14 +317,18 @@ The backend uses `--reload` — any code changes trigger automatic restart.
 
 ### Environment
 
-The Docker setup passes these environment variables to services:
+The backend service reads variables from your `.env` file automatically via
+`env_file` in `docker-compose.yml`. Docker-specific overrides (hostnames that
+differ inside the container network) are set directly in the compose file:
 
-```yaml
-# backend
-DATABASE_URL: postgresql://collab:collab@postgres:5432/project_collaboration
-CORS_ORIGINS: http://frontend:80,http://localhost:5173,http://localhost:3001
-PYTHONPATH: /app/src
-```
+| Variable        | Docker Override                                                          | Reason                                  |
+|-----------------|--------------------------------------------------------------------------|-----------------------------------------|
+| `DATABASE_URL`  | `postgresql://collab:collab@postgres:5432/project_collaboration`         | Container hostname `postgres`, not `localhost` |
+| `CORS_ORIGINS`  | `http://frontend:80,http://localhost:5173,http://localhost:3001`          | Include container-to-container origin   |
+| `PYTHONPATH`    | `/app/src`                                                               | Module resolution inside container      |
+
+All other variables (`JWT_*`, `OAUTH_*`) are read from `.env` unchanged.
+If `.env` is absent, the backend starts with defaults (OAuth disabled).
 
 ### Troubleshooting
 
