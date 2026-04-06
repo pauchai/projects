@@ -45,6 +45,26 @@ class UserResponse(BaseModel):
     display_name: str
 
 
+class OAuthCallbackRequest(BaseModel):
+    """POST /auth/oauth/google/callback"""
+
+    code: str = Field(min_length=1)
+    state: str = Field(min_length=1)
+
+
+class OAuthAuthorizeResponse(BaseModel):
+    """Response with the OAuth authorization URL."""
+
+    authorization_url: str
+    state: str
+
+
+class OAuthAvailableResponse(BaseModel):
+    """Response indicating whether Google OAuth is configured."""
+
+    available: bool
+
+
 class MessageResponse(BaseModel):
     """Generic success/info response."""
 

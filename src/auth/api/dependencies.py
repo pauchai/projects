@@ -20,6 +20,7 @@ from auth.infrastructure.database import (
     get_session_factory,
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
+from auth.infrastructure.providers.google_oauth_client import GoogleOAuthClient
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 from shared_kernel.events import EventBus
 
@@ -28,11 +29,17 @@ _session_factory: sessionmaker[Session] | None = None
 _password_hasher: BcryptPasswordHasher | None = None
 _token_service: JwtTokenService | None = None
 _event_bus: EventBus | None = None
+_google_oauth_client: GoogleOAuthClient | None = None
 
 # JWT configuration via env vars with sensible defaults.
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "60"))
+
+# Google OAuth configuration via env vars (all optional — graceful degradation).
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 
 
 class AuthenticationError(Exception):
@@ -137,3 +144,23 @@ def set_event_bus(bus: EventBus | None) -> None:
     """
     global _event_bus
     _event_bus = bus
+
+
+def get_google_oauth_client() -> GoogleOAuthClient | None:
+    """FastAPI dependency: returns a GoogleOAuthClient if configured, else None.
+
+    Google OAuth is optional (graceful degradation). If the env vars
+    ``GOOGLE_CLIENT_ID``, ``GOOGLE_CLIENT_SECRET``, and ``GOOGLE_REDIRECT_URI``
+    are not all set, returns ``None`` and the OAuth endpoints will respond
+    with appropriate error/unavailable responses.
+    """
+    global _google_oauth_client
+    if not all([GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI]):
+        return None
+    if _google_oauth_client is None:
+        _google_oauth_client = GoogleOAuthClient(
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            redirect_uri=GOOGLE_REDIRECT_URI,
+        )
+    return _google_oauth_client

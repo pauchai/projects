@@ -38,6 +38,27 @@ export interface TokenResponse {
 }
 
 // ---------------------------------------------------------------------------
+// OAuth
+// ---------------------------------------------------------------------------
+
+/** GET /auth/oauth/google/available — response */
+export interface OAuthAvailableResponse {
+  available: boolean
+}
+
+/** GET /auth/oauth/google/authorize — response */
+export interface OAuthAuthorizeResponse {
+  authorization_url: string
+  state: string
+}
+
+/** POST /auth/oauth/google/callback — request body */
+export interface OAuthCallbackRequest {
+  code: string
+  state: string
+}
+
+// ---------------------------------------------------------------------------
 // Project Collaboration
 // ---------------------------------------------------------------------------
 

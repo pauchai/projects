@@ -2,6 +2,7 @@
 
 import copy
 
+from auth.domain.oauth import OAuthError, OAuthUserInfo
 from auth.domain.user import User, Credential
 from shared_kernel.events import DomainEvent, EventBus
 
@@ -94,3 +95,36 @@ class FakeTokenService:
         if not token.startswith(prefix):
             raise ValueError("Invalid token")
         return token[len(prefix) :]
+
+
+class FakeOAuthClient:
+    """Fake OAuthClient for testing OAuth use cases.
+
+    Configurable: set ``user_info`` to control what ``get_user_info`` returns,
+    or set ``error`` to make ``exchange_code`` / ``get_user_info`` raise.
+    """
+
+    def __init__(
+        self,
+        user_info: OAuthUserInfo | None = None,
+        error: OAuthError | None = None,
+    ) -> None:
+        self._user_info = user_info
+        self._error = error
+        self.exchanged_codes: list[str] = []
+
+    def build_authorization_url(self, state: str) -> str:
+        return f"https://fake-oauth.example.com/authorize?state={state}"
+
+    def exchange_code(self, code: str) -> str:
+        if self._error is not None:
+            raise self._error
+        self.exchanged_codes.append(code)
+        return "fake-access-token"
+
+    def get_user_info(self, access_token: str) -> OAuthUserInfo:
+        if self._error is not None:
+            raise self._error
+        if self._user_info is None:
+            raise OAuthError("No user info configured in FakeOAuthClient")
+        return self._user_info

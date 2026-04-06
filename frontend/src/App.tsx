@@ -9,6 +9,7 @@ import { ManageApplicationsPage } from "@/pages/manage-applications"
 import { ProfilePage } from "@/pages/profile"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
+import { OAuthCallbackPage } from "@/pages/oauth-callback"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/" element={<ProjectsListPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
               <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
               <Route
                 path="/projects/new"

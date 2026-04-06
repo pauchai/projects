@@ -6,6 +6,7 @@ Domain never depends on infrastructure — only on these abstractions (DIP).
 
 from typing import Protocol
 
+from auth.domain.oauth import OAuthUserInfo
 from auth.domain.user import User
 
 
@@ -24,6 +25,37 @@ class TokenService(Protocol):
 
     def decode_token(self, token: str) -> str:
         """Decode a token and return the user_id. Raises ValueError if invalid."""
+        ...
+
+
+class OAuthClient(Protocol):
+    """Port for communicating with an OAuth provider.
+
+    The domain defines *what* data it needs; infrastructure implements
+    *how* to get it from a specific provider (Google, GitHub, etc.).
+
+    The flow:
+    1. ``build_authorization_url`` — generate the URL to redirect the user to.
+    2. ``exchange_code`` — exchange the authorization code for an access token.
+    3. ``get_user_info`` — fetch user profile data using the access token.
+    """
+
+    def build_authorization_url(self, state: str) -> str:
+        """Return the provider's authorization URL with the given state parameter."""
+        ...
+
+    def exchange_code(self, code: str) -> str:
+        """Exchange an authorization code for an access token.
+
+        Raises ``OAuthError`` on failure (network, invalid code, etc.).
+        """
+        ...
+
+    def get_user_info(self, access_token: str) -> OAuthUserInfo:
+        """Fetch user profile from the provider using the access token.
+
+        Raises ``OAuthError`` on failure.
+        """
         ...
 
 

@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useRegister } from "@/hooks/use-auth"
+import { Separator } from "@/components/ui/separator"
+import { useRegister, useGoogleOAuthAvailable, useGoogleLogin } from "@/hooks/use-auth"
 import { ApiError } from "@/api/client"
 
 interface FormErrors {
@@ -52,6 +53,8 @@ function validate(
 export function RegisterPage() {
   const navigate = useNavigate()
   const registerMutation = useRegister()
+  const googleLoginMutation = useGoogleLogin()
+  const { data: oauthAvailable } = useGoogleOAuthAvailable()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -88,7 +91,20 @@ export function RegisterPage() {
       ? registerMutation.error.detail
       : registerMutation.error
         ? "Registration failed. Please try again."
-        : null
+        : googleLoginMutation.error
+          ? googleLoginMutation.error.message
+          : null
+
+  const isAnyPending = registerMutation.isPending || googleLoginMutation.isPending
+  const isGoogleAvailable = oauthAvailable?.available === true
+
+  const handleGoogleSignUp = () => {
+    googleLoginMutation.mutate(undefined, {
+      onSuccess: () => {
+        navigate("/")
+      },
+    })
+  }
 
   return (
     <div className="flex justify-center pt-12">
@@ -97,11 +113,34 @@ export function RegisterPage() {
           <CardTitle>Create an account</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
-            )}
+          {serverError && (
+            <p className="mb-4 text-sm text-destructive">{serverError}</p>
+          )}
 
+          {isGoogleAvailable && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isAnyPending}
+                onClick={handleGoogleSignUp}
+              >
+                {googleLoginMutation.isPending
+                  ? "Signing up..."
+                  : "Sign up with Google"}
+              </Button>
+
+              <div className="relative my-6">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or
+                </span>
+              </div>
+            </>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName">Display name</Label>
               <Input
@@ -165,7 +204,7 @@ export function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={registerMutation.isPending}
+              disabled={isAnyPending}
             >
               {registerMutation.isPending ? "Creating account..." : "Sign up"}
             </Button>

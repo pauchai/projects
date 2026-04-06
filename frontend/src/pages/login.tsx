@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useLogin } from "@/hooks/use-auth"
+import { Separator } from "@/components/ui/separator"
+import { useLogin, useGoogleOAuthAvailable, useGoogleLogin } from "@/hooks/use-auth"
 import { ApiError } from "@/api/client"
 
 interface FormErrors {
@@ -30,6 +31,8 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const loginMutation = useLogin()
+  const googleLoginMutation = useGoogleLogin()
+  const { data: oauthAvailable } = useGoogleOAuthAvailable()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -63,7 +66,20 @@ export function LoginPage() {
       ? loginMutation.error.detail
       : loginMutation.error
         ? "Login failed. Please try again."
-        : null
+        : googleLoginMutation.error
+          ? googleLoginMutation.error.message
+          : null
+
+  const isAnyPending = loginMutation.isPending || googleLoginMutation.isPending
+  const isGoogleAvailable = oauthAvailable?.available === true
+
+  const handleGoogleLogin = () => {
+    googleLoginMutation.mutate(undefined, {
+      onSuccess: () => {
+        navigate(from, { replace: true })
+      },
+    })
+  }
 
   return (
     <div className="flex justify-center pt-12">
@@ -72,11 +88,34 @@ export function LoginPage() {
           <CardTitle>Log in</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
-            )}
+          {serverError && (
+            <p className="mb-4 text-sm text-destructive">{serverError}</p>
+          )}
 
+          {isGoogleAvailable && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isAnyPending}
+                onClick={handleGoogleLogin}
+              >
+                {googleLoginMutation.isPending
+                  ? "Signing in..."
+                  : "Sign in with Google"}
+              </Button>
+
+              <div className="relative my-6">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or
+                </span>
+              </div>
+            </>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -110,7 +149,7 @@ export function LoginPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loginMutation.isPending}
+              disabled={isAnyPending}
             >
               {loginMutation.isPending ? "Logging in..." : "Log in"}
             </Button>

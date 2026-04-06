@@ -13,6 +13,9 @@ import type { LoginRequest, RegisterRequest } from "@/api/types"
 /** Query key for current user profile */
 export const ME_QUERY_KEY = ["auth", "me"] as const
 
+/** Query key for Google OAuth availability */
+export const GOOGLE_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "google", "available"] as const
+
 /**
  * Fetch current user profile (GET /auth/me).
  * Only enabled when the user is authenticated.
@@ -90,4 +93,127 @@ export function useLogout() {
     queryClient.removeQueries({ queryKey: ME_QUERY_KEY })
     queryClient.clear()
   }
+}
+
+// ---------------------------------------------------------------------------
+// Google OAuth
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether Google OAuth is available (backend has credentials configured).
+ * Cached for 10 minutes; fires once on mount.
+ */
+export function useGoogleOAuthAvailable() {
+  return useQuery({
+    queryKey: GOOGLE_OAUTH_AVAILABLE_KEY,
+    queryFn: authApi.getGoogleOAuthAvailable,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  })
+}
+
+/**
+ * Popup-based Google OAuth login.
+ *
+ * Flow:
+ * 1. Call GET /authorize → get authorization_url + state
+ * 2. Open authorization_url in a popup window
+ * 3. Wait for popup to redirect to our callback page with ?code=...&state=...
+ * 4. POST code + state to /callback → receive JWT
+ * 5. Fetch user profile (GET /auth/me) and store auth
+ */
+export function useGoogleLogin() {
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      // Step 1: Get authorization URL from backend
+      const { authorization_url, state } = await authApi.getGoogleOAuthAuthorize()
+
+      // Step 2: Open popup and wait for the authorization code
+      const code = await openOAuthPopup(authorization_url)
+
+      // Step 3: Exchange code for JWT
+      const tokenResp = await authApi.googleOAuthCallback({ code, state })
+
+      // Step 4: Temporarily store token so getMe() can use it
+      useAuthStore.getState().setAuth(tokenResp.access_token, "", "", "")
+      const user = await authApi.getMe()
+
+      return { user, token: tokenResp.access_token }
+    },
+    onSuccess: ({ user, token }) => {
+      setAuth(token, user.user_id, user.email, user.display_name)
+      queryClient.setQueryData(ME_QUERY_KEY, user)
+    },
+    onError: () => {
+      // If login fails after partial state update, clear auth
+      useAuthStore.getState().logout()
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Open a popup window for OAuth authorization and return the authorization code.
+ *
+ * The popup navigates to the OAuth provider. After consent, the provider
+ * redirects back to our origin at /oauth/callback?code=...&state=...
+ * We detect this by polling the popup location.
+ *
+ * @returns The authorization code extracted from the popup's final URL.
+ * @throws Error if the popup is blocked or closed without completing OAuth.
+ */
+function openOAuthPopup(authorizationUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const width = 500
+    const height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+
+    const popup = window.open(
+      authorizationUrl,
+      "google-oauth",
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`,
+    )
+
+    if (!popup) {
+      reject(new Error("Popup was blocked. Please allow popups for this site."))
+      return
+    }
+
+    const pollInterval = setInterval(() => {
+      try {
+        if (popup.closed) {
+          clearInterval(pollInterval)
+          reject(new Error("OAuth popup was closed before completing sign-in."))
+          return
+        }
+
+        // Check if the popup navigated back to our origin
+        if (popup.location.origin === window.location.origin) {
+          const params = new URLSearchParams(popup.location.search)
+          const code = params.get("code")
+          const error = params.get("error")
+
+          clearInterval(pollInterval)
+          popup.close()
+
+          if (error) {
+            reject(new Error(`OAuth error: ${error}`))
+          } else if (code) {
+            resolve(code)
+          } else {
+            reject(new Error("No authorization code received from OAuth provider."))
+          }
+        }
+      } catch {
+        // Cross-origin access — popup is still on the OAuth provider's domain.
+        // This is expected; keep polling.
+      }
+    }, 200)
+  })
 }

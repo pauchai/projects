@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 
 from auth.api.dependencies import AuthenticationError as AuthAuthenticationError
 from auth.api.routes.auth import router as auth_router
+from auth.api.routes.oauth import router as oauth_router
+from auth.domain.oauth import OAuthError
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.projects import router as projects_router
 from project_collaboration.infrastructure.database import get_engine
@@ -73,6 +75,10 @@ def create_app() -> FastAPI:
     ) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": str(exc)})
 
+    @app.exception_handler(OAuthError)
+    def handle_oauth_error(request: Request, exc: OAuthError) -> JSONResponse:
+        return JSONResponse(status_code=401, content={"detail": str(exc)})
+
     @app.exception_handler(LookupError)
     def handle_lookup_error(request: Request, exc: LookupError) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
@@ -88,6 +94,7 @@ def create_app() -> FastAPI:
     # ----- Routes -----
 
     app.include_router(auth_router)
+    app.include_router(oauth_router)
     app.include_router(projects_router)
 
     return app

@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 
 from auth.api.dependencies import AuthenticationError
 from auth.api.routes.auth import router as auth_router
+from auth.api.routes.oauth import router as oauth_router
+from auth.domain.oauth import OAuthError
 
 
 def create_auth_app() -> FastAPI:
@@ -23,6 +25,10 @@ def create_auth_app() -> FastAPI:
     ) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": str(exc)})
 
+    @app.exception_handler(OAuthError)
+    def handle_oauth_error(request: Request, exc: OAuthError) -> JSONResponse:
+        return JSONResponse(status_code=401, content={"detail": str(exc)})
+
     @app.exception_handler(ValueError)
     def handle_value_error(request: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
@@ -34,5 +40,6 @@ def create_auth_app() -> FastAPI:
     # ----- Routes -----
 
     app.include_router(auth_router)
+    app.include_router(oauth_router)
 
     return app
