@@ -1,6 +1,30 @@
 """Auth domain entities: User aggregate root and Credential entity."""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
+
+# Display names for known auth providers.
+_PROVIDER_DISPLAY_NAMES: dict[str, str] = {
+    "local": "Email & Password",
+    "google": "Google",
+    "telegram": "Telegram",
+}
+
+
+@dataclass(frozen=True)
+class CredentialSummary:
+    """Read-only value object for displaying a credential in the UI.
+
+    Contains only the data needed for presentation — no secrets,
+    no mutable state. ``is_removable`` reflects the current business
+    rules (cannot remove the sole credential).
+    """
+
+    credential_id: str
+    provider: str
+    provider_display_name: str
+    provider_user_id: str
+    is_removable: bool
 
 
 class Credential:
@@ -95,3 +119,31 @@ class User:
         if self.is_active:
             raise ValueError("User is already active")
         self.is_active = True
+
+    # -- Credential summary & inspection --------------------------------
+
+    def list_credential_summaries(self) -> list[CredentialSummary]:
+        """Return a read-only summary of every credential for UI display."""
+        return [
+            CredentialSummary(
+                credential_id=cred.credential_id,
+                provider=cred.provider,
+                provider_display_name=_PROVIDER_DISPLAY_NAMES.get(
+                    cred.provider, cred.provider.title()
+                ),
+                provider_user_id=cred.provider_user_id,
+                is_removable=self.can_remove_credential(cred.provider),
+            )
+            for cred in self.credentials
+        ]
+
+    def can_remove_credential(self, provider: str) -> bool:
+        """Check whether the credential for *provider* can be safely removed.
+
+        Rules (Simple):
+        - The provider must exist in the user's credentials.
+        - The user must have at least two credentials (cannot remove the last one).
+        """
+        if not self.has_credential_for_provider(provider):
+            return False
+        return len(self.credentials) > 1

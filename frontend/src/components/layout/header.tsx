@@ -42,6 +42,12 @@ export function Header() {
               >
                 {displayName ?? "Profile"}
               </Link>
+              <Link
+                to="/settings/security"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Security
+              </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 Log out
               </Button>

@@ -7,6 +7,7 @@ import { ProjectDetailPage } from "@/pages/project-detail"
 import { CreateProjectPage } from "@/pages/create-project"
 import { ManageApplicationsPage } from "@/pages/manage-applications"
 import { ProfilePage } from "@/pages/profile"
+import { SecuritySettingsPage } from "@/pages/settings/security"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
 import { OAuthCallbackPage } from "@/pages/oauth-callback"
@@ -54,6 +55,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/security"
+                element={
+                  <ProtectedRoute>
+                    <SecuritySettingsPage />
                   </ProtectedRoute>
                 }
               />

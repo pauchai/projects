@@ -156,3 +156,25 @@ export interface MessageResponse {
 export interface ApiErrorResponse {
   detail: string
 }
+
+// ---------------------------------------------------------------------------
+// Credentials management
+// ---------------------------------------------------------------------------
+
+/** A single credential (sign-in method) */
+export interface CredentialResponse {
+  credential_id: string
+  provider: string
+  provider_display_name: string
+  provider_user_id: string
+  is_removable: boolean
+}
+
+/** GET /auth/credentials — all sign-in methods for the current user */
+export interface CredentialsListResponse {
+  user_email: string
+  user_display_name: string
+  credentials: CredentialResponse[]
+  total_count: number
+  has_local_credential: boolean
+}

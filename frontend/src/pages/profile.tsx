@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import { Separator } from "@/components/ui/separator"
 import { useAuthStore } from "@/stores/auth-store"
 import { useSearchProjects } from "@/hooks/use-projects"
@@ -31,6 +32,12 @@ export function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold">{displayName ?? "User"}</h1>
         <p className="text-sm text-muted-foreground">{email}</p>
+        <Link
+          to="/settings/security"
+          className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
+        >
+          Security Settings &rarr;
+        </Link>
       </div>
 
       <Separator />

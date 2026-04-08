@@ -92,3 +92,28 @@ class MessageResponse(BaseModel):
     """Generic success/info response."""
 
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Credentials management
+# ---------------------------------------------------------------------------
+
+
+class CredentialSchema(BaseModel):
+    """A single credential summary for UI display."""
+
+    credential_id: str
+    provider: str
+    provider_display_name: str
+    provider_user_id: str
+    is_removable: bool
+
+
+class CredentialsListResponse(BaseModel):
+    """GET /auth/credentials — all credentials for the authenticated user."""
+
+    user_email: str
+    user_display_name: str
+    credentials: list[CredentialSchema]
+    total_count: int
+    has_local_credential: bool
