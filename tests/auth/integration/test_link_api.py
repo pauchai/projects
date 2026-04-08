@@ -22,13 +22,12 @@ from auth.domain.oauth import OAuthUserInfo
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.database import (
     TEST_DATABASE_URL,
-    create_tables,
-    drop_tables,
     get_engine,
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 from tests.auth.fakes.fake_unit_of_work import FakeOAuthClient
+from shared_kernel.migration import run_migrations
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -47,10 +46,8 @@ GOOGLE_LINK_USER_INFO = OAuthUserInfo(
 @pytest.fixture(scope="module")
 def link_api_engine() -> Engine:
     engine = get_engine(TEST_DATABASE_URL)
-    drop_tables(engine)
-    create_tables(engine)
+    run_migrations(engine)
     yield engine
-    drop_tables(engine)
     engine.dispose()
 
 

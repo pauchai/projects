@@ -19,20 +19,19 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from auth.infrastructure.database import (
     TEST_DATABASE_URL,
-    create_tables,
-    drop_tables,
     get_engine,
 )
+from shared_kernel.migration import downgrade_migrations, run_migrations
 
 
 @pytest.fixture(scope="session")
 def auth_engine() -> Generator[Engine, None, None]:
-    """Create an engine for the test database, create auth tables, yield, drop."""
+    """Create an engine for the test database, run migrations, yield, downgrade."""
     engine = get_engine(TEST_DATABASE_URL)
-    drop_tables(engine)
-    create_tables(engine)
+    downgrade_migrations(engine)
+    run_migrations(engine)
     yield engine
-    drop_tables(engine)
+    downgrade_migrations(engine)
     engine.dispose()
 
 

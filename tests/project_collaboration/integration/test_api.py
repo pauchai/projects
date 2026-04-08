@@ -20,13 +20,12 @@ from project_collaboration.api.app import create_app
 from project_collaboration.api.dependencies import get_uow
 from project_collaboration.infrastructure.database import (
     TEST_DATABASE_URL,
-    create_tables,
-    drop_tables,
     get_engine,
 )
 from project_collaboration.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
+from shared_kernel.migration import run_migrations
 
 
 # ---------------------------------------------------------------------------
@@ -53,10 +52,8 @@ def _auth_headers(user_id: str) -> dict[str, str]:
 @pytest.fixture(scope="module")
 def api_engine() -> Engine:
     engine = get_engine(TEST_DATABASE_URL)
-    drop_tables(engine)
-    create_tables(engine)
+    run_migrations(engine)
     yield engine
-    drop_tables(engine)
     engine.dispose()
 
 

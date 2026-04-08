@@ -23,10 +23,7 @@ from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
 from project_collaboration.api.routes.projects import router as projects_router
 from project_collaboration.infrastructure.database import get_engine
-from project_collaboration.infrastructure.database import (
-    create_tables as create_project_tables,
-)
-from auth.infrastructure.database import create_tables as create_auth_tables
+from shared_kernel.migration import run_migrations
 
 # CORS origins: allow frontend dev server and any custom origins.
 _DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://localhost:3000"
@@ -39,10 +36,9 @@ CORS_ORIGINS: list[str] = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create database tables on startup (idempotent)."""
+    """Run Alembic migrations on startup (idempotent)."""
     engine = get_engine()
-    create_project_tables(engine)
-    create_auth_tables(engine)
+    run_migrations(engine)
     yield
 
 

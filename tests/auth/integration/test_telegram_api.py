@@ -23,8 +23,6 @@ from auth.api.dependencies import (
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.database import (
     TEST_DATABASE_URL,
-    create_tables,
-    drop_tables,
     get_engine,
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
@@ -33,6 +31,7 @@ from auth.infrastructure.redis_telegram_auth_request_repository import (
     RedisTelegramAuthRequestRepository,
 )
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
+from shared_kernel.migration import run_migrations
 
 fakeredis = pytest.importorskip("fakeredis")
 
@@ -47,10 +46,8 @@ JWT_SECRET = "test-secret-telegram"
 @pytest.fixture(scope="module")
 def telegram_api_engine() -> Engine:
     engine = get_engine(TEST_DATABASE_URL)
-    drop_tables(engine)
-    create_tables(engine)
+    run_migrations(engine)
     yield engine
-    drop_tables(engine)
     engine.dispose()
 
 
