@@ -58,6 +58,12 @@ export interface OAuthCallbackRequest {
   state: string
 }
 
+/** GET /auth/oauth/telegram/authorize — response */
+export interface TelegramAuthorizeResponse {
+  telegram_url: string
+  state: string
+}
+
 // ---------------------------------------------------------------------------
 // Project Collaboration
 // ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ Domain never depends on infrastructure — only on these abstractions (DIP).
 from typing import Protocol
 
 from auth.domain.oauth import OAuthUserInfo
+from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User
 
 
@@ -69,6 +70,18 @@ class UserRepository(Protocol):
     def save(self, user: User) -> None: ...
 
 
+class TelegramAuthRequestRepository(Protocol):
+    """Port for persisting and querying TelegramAuthRequests."""
+
+    def find_by_auth_code(self, auth_code: str) -> TelegramAuthRequest | None: ...
+
+    def find_by_authorization_code(
+        self, authorization_code: str
+    ) -> TelegramAuthRequest | None: ...
+
+    def save(self, request: TelegramAuthRequest) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence for the Auth context.
 
@@ -86,6 +99,7 @@ class UnitOfWork(Protocol):
     """
 
     users: UserRepository
+    telegram_auth_requests: TelegramAuthRequestRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

@@ -9,6 +9,7 @@ import type {
   OAuthAuthorizeResponse,
   OAuthCallbackRequest,
   RegisterRequest,
+  TelegramAuthorizeResponse,
   TokenResponse,
   UserResponse,
 } from "./types"
@@ -45,4 +46,23 @@ export function getGoogleOAuthAuthorize(): Promise<OAuthAuthorizeResponse> {
 /** POST /auth/oauth/google/callback — exchange authorization code for JWT */
 export function googleOAuthCallback(data: OAuthCallbackRequest): Promise<TokenResponse> {
   return post<TokenResponse>("/auth/oauth/google/callback", data)
+}
+
+// ---------------------------------------------------------------------------
+// Telegram OAuth
+// ---------------------------------------------------------------------------
+
+/** GET /auth/oauth/telegram/available — check if Telegram OAuth is configured */
+export function getTelegramOAuthAvailable(): Promise<OAuthAvailableResponse> {
+  return get<OAuthAvailableResponse>("/auth/oauth/telegram/available")
+}
+
+/** GET /auth/oauth/telegram/authorize — get Telegram deep link URL and state */
+export function getTelegramOAuthAuthorize(): Promise<TelegramAuthorizeResponse> {
+  return get<TelegramAuthorizeResponse>("/auth/oauth/telegram/authorize")
+}
+
+/** POST /auth/oauth/telegram/callback — exchange authorization code for JWT */
+export function telegramOAuthCallback(data: OAuthCallbackRequest): Promise<TokenResponse> {
+  return post<TokenResponse>("/auth/oauth/telegram/callback", data)
 }

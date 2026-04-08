@@ -16,6 +16,9 @@ export const ME_QUERY_KEY = ["auth", "me"] as const
 /** Query key for Google OAuth availability */
 export const GOOGLE_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "google", "available"] as const
 
+/** Query key for Telegram OAuth availability */
+export const TELEGRAM_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "telegram", "available"] as const
+
 /**
  * Fetch current user profile (GET /auth/me).
  * Only enabled when the user is authenticated.
@@ -149,6 +152,82 @@ export function useGoogleLogin() {
     onError: () => {
       // If login fails after partial state update, clear auth
       useAuthStore.getState().logout()
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Telegram OAuth
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether Telegram OAuth is available (backend has bot configured).
+ * Cached for 10 minutes; fires once on mount.
+ */
+export function useTelegramOAuthAvailable() {
+  return useQuery({
+    queryKey: TELEGRAM_OAUTH_AVAILABLE_KEY,
+    queryFn: authApi.getTelegramOAuthAvailable,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  })
+}
+
+/**
+ * Redirect-based Telegram OAuth login.
+ *
+ * Flow:
+ * 1. Call GET /authorize → get telegram_url + state
+ * 2. Store state in sessionStorage for later validation
+ * 3. Redirect user to Telegram deep link (opens Telegram app/web)
+ * 4. User interacts with bot → bot sends auth link back
+ * 5. User clicks auth link → /oauth/callback page handles code exchange
+ */
+export function useTelegramLogin() {
+  return useMutation({
+    mutationFn: async () => {
+      // Step 1: Get Telegram deep link from backend
+      const { telegram_url, state } = await authApi.getTelegramOAuthAuthorize()
+
+      // Step 2: Store state for validation when the user returns
+      sessionStorage.setItem("telegram_oauth_state", state)
+
+      // Step 3: Redirect to Telegram (opens Telegram app)
+      window.location.href = telegram_url
+    },
+  })
+}
+
+/**
+ * Exchange a Telegram authorization code + state for a JWT.
+ *
+ * Called by the OAuth callback page when it detects Telegram state
+ * in sessionStorage. This completes the auth flow after the user
+ * clicks the link sent by the bot.
+ */
+export function useTelegramCallback() {
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ code, state }: { code: string; state: string }) => {
+      // Exchange code + state for JWT
+      const tokenResp = await authApi.telegramOAuthCallback({ code, state })
+
+      // Temporarily store token so getMe() can use it
+      useAuthStore.getState().setAuth(tokenResp.access_token, "", "", "")
+      const user = await authApi.getMe()
+
+      return { user, token: tokenResp.access_token }
+    },
+    onSuccess: ({ user, token }) => {
+      setAuth(token, user.user_id, user.email, user.display_name)
+      queryClient.setQueryData(ME_QUERY_KEY, user)
+      // Clean up sessionStorage
+      sessionStorage.removeItem("telegram_oauth_state")
+    },
+    onError: () => {
+      useAuthStore.getState().logout()
+      sessionStorage.removeItem("telegram_oauth_state")
     },
   })
 }

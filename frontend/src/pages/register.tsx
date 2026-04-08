@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { useRegister, useGoogleOAuthAvailable, useGoogleLogin } from "@/hooks/use-auth"
+import { useRegister, useGoogleOAuthAvailable, useGoogleLogin, useTelegramOAuthAvailable, useTelegramLogin } from "@/hooks/use-auth"
 import { ApiError } from "@/api/client"
 
 interface FormErrors {
@@ -54,7 +54,9 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const registerMutation = useRegister()
   const googleLoginMutation = useGoogleLogin()
+  const telegramLoginMutation = useTelegramLogin()
   const { data: oauthAvailable } = useGoogleOAuthAvailable()
+  const { data: telegramAvailable } = useTelegramOAuthAvailable()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -93,10 +95,14 @@ export function RegisterPage() {
         ? "Registration failed. Please try again."
         : googleLoginMutation.error
           ? googleLoginMutation.error.message
-          : null
+          : telegramLoginMutation.error
+            ? telegramLoginMutation.error.message
+            : null
 
-  const isAnyPending = registerMutation.isPending || googleLoginMutation.isPending
+  const isAnyPending = registerMutation.isPending || googleLoginMutation.isPending || telegramLoginMutation.isPending
   const isGoogleAvailable = oauthAvailable?.available === true
+  const isTelegramAvailable = telegramAvailable?.available === true
+  const isAnyOAuthAvailable = isGoogleAvailable || isTelegramAvailable
 
   const handleGoogleSignUp = () => {
     googleLoginMutation.mutate(undefined, {
@@ -117,19 +123,35 @@ export function RegisterPage() {
             <p className="mb-4 text-sm text-destructive">{serverError}</p>
           )}
 
-          {isGoogleAvailable && (
+          {isAnyOAuthAvailable && (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={isAnyPending}
-                onClick={handleGoogleSignUp}
-              >
-                {googleLoginMutation.isPending
-                  ? "Signing up..."
-                  : "Sign up with Google"}
-              </Button>
+              {isGoogleAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isAnyPending}
+                  onClick={handleGoogleSignUp}
+                >
+                  {googleLoginMutation.isPending
+                    ? "Signing up..."
+                    : "Sign up with Google"}
+                </Button>
+              )}
+
+              {isTelegramAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full"
+                  disabled={isAnyPending}
+                  onClick={() => telegramLoginMutation.mutate()}
+                >
+                  {telegramLoginMutation.isPending
+                    ? "Opening Telegram..."
+                    : "Sign up with Telegram"}
+                </Button>
+              )}
 
               <div className="relative my-6">
                 <Separator />

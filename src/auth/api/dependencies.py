@@ -21,6 +21,7 @@ from auth.infrastructure.database import (
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.google_oauth_client import GoogleOAuthClient
+from auth.infrastructure.providers.telegram_oauth_client import TelegramOAuthClient
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 from shared_kernel.events import EventBus
 
@@ -30,6 +31,7 @@ _password_hasher: BcryptPasswordHasher | None = None
 _token_service: JwtTokenService | None = None
 _event_bus: EventBus | None = None
 _google_oauth_client: GoogleOAuthClient | None = None
+_telegram_oauth_client: TelegramOAuthClient | None = None
 
 # JWT configuration via env vars with sensible defaults.
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
@@ -40,6 +42,10 @@ JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "60"))
 OAUTH_GOOGLE_CLIENT_ID = os.environ.get("OAUTH_GOOGLE_CLIENT_ID", "")
 OAUTH_GOOGLE_CLIENT_SECRET = os.environ.get("OAUTH_GOOGLE_CLIENT_SECRET", "")
 OAUTH_GOOGLE_REDIRECT_URI = os.environ.get("OAUTH_GOOGLE_REDIRECT_URI", "")
+
+# Telegram OAuth configuration via env vars (all optional — graceful degradation).
+OAUTH_TELEGRAM_BOT_TOKEN = os.environ.get("OAUTH_TELEGRAM_BOT_TOKEN", "")
+OAUTH_TELEGRAM_BOT_USERNAME = os.environ.get("OAUTH_TELEGRAM_BOT_USERNAME", "")
 
 
 class AuthenticationError(Exception):
@@ -167,3 +173,20 @@ def get_google_oauth_client() -> GoogleOAuthClient | None:
             redirect_uri=OAUTH_GOOGLE_REDIRECT_URI,
         )
     return _google_oauth_client
+
+
+def get_telegram_oauth_client() -> TelegramOAuthClient | None:
+    """FastAPI dependency: returns a TelegramOAuthClient if configured, else None.
+
+    Telegram OAuth is optional (graceful degradation). If the env vars
+    ``OAUTH_TELEGRAM_BOT_TOKEN`` and ``OAUTH_TELEGRAM_BOT_USERNAME`` are
+    not both set, returns ``None``.
+    """
+    global _telegram_oauth_client
+    if not all([OAUTH_TELEGRAM_BOT_TOKEN, OAUTH_TELEGRAM_BOT_USERNAME]):
+        return None
+    if _telegram_oauth_client is None:
+        _telegram_oauth_client = TelegramOAuthClient(
+            bot_username=OAUTH_TELEGRAM_BOT_USERNAME,
+        )
+    return _telegram_oauth_client

@@ -23,6 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import registry, relationship
 
+from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import Credential, User
 
 # ---------------------------------------------------------------------------
@@ -63,11 +64,26 @@ credentials_table = Table(
     UniqueConstraint("user_id", "provider", name="uq_user_provider"),
 )
 
+telegram_auth_requests_table = Table(
+    "telegram_auth_requests",
+    metadata,
+    Column("auth_code", String(255), primary_key=True),
+    Column("state", String(255), nullable=False),
+    Column("authorization_code", String(255), nullable=True, unique=True),
+    Column("telegram_user_id", String(255), nullable=True),
+    Column("telegram_username", String(255), nullable=True),
+    Column("telegram_first_name", String(255), nullable=True),
+    Column("is_used", Boolean, nullable=False, default=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
 
 mapper_registry.map_imperatively(Credential, credentials_table)
+
+mapper_registry.map_imperatively(TelegramAuthRequest, telegram_auth_requests_table)
 
 mapper_registry.map_imperatively(
     User,

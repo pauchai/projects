@@ -19,6 +19,7 @@ pydantic = "^2.12.5"
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 pyjwt = "^2.12.1"
 httpx = "^0.28.1"
+aiogram = {version = "^3.20", python = ">=3.12,<3.15"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0"

@@ -60,9 +60,32 @@ class OAuthAuthorizeResponse(BaseModel):
 
 
 class OAuthAvailableResponse(BaseModel):
-    """Response indicating whether Google OAuth is configured."""
+    """Response indicating whether an OAuth provider is configured."""
 
     available: bool
+
+
+class TelegramAuthorizeResponse(BaseModel):
+    """Response with the Telegram deep link URL and state."""
+
+    telegram_url: str
+    state: str
+
+
+class TelegramBotCallbackRequest(BaseModel):
+    """POST /auth/oauth/telegram/bot-callback — sent by the Telegram bot."""
+
+    auth_code: str = Field(min_length=1)
+    telegram_user_id: str = Field(min_length=1)
+    telegram_username: str | None = None
+    telegram_first_name: str = Field(min_length=1)
+
+
+class TelegramBotCallbackResponse(BaseModel):
+    """Response to the bot after successful bot-callback."""
+
+    authorization_code: str
+    state: str
 
 
 class MessageResponse(BaseModel):

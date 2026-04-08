@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from shared_kernel.events import DomainEvent, EventBus
 from auth.infrastructure.sqlalchemy_repository import SqlAlchemyUserRepository
+from auth.infrastructure.sqlalchemy_telegram_auth_request_repository import (
+    SqlAlchemyTelegramAuthRequestRepository,
+)
 
 
 class SqlAlchemyUnitOfWork:
@@ -37,6 +40,9 @@ class SqlAlchemyUnitOfWork:
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.users = SqlAlchemyUserRepository(self._session)
+        self.telegram_auth_requests = SqlAlchemyTelegramAuthRequestRepository(
+            self._session
+        )
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

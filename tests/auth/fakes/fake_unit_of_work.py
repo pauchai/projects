@@ -3,6 +3,7 @@
 import copy
 
 from auth.domain.oauth import OAuthError, OAuthUserInfo
+from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User, Credential
 from shared_kernel.events import DomainEvent, EventBus
 
@@ -35,37 +36,74 @@ class FakeUserRepository:
         self._storage = snapshot
 
 
+class FakeTelegramAuthRequestRepository:
+    """In-memory TelegramAuthRequestRepository for testing."""
+
+    def __init__(self) -> None:
+        self._storage: dict[str, TelegramAuthRequest] = {}
+
+    def find_by_auth_code(self, auth_code: str) -> TelegramAuthRequest | None:
+        return self._storage.get(auth_code)
+
+    def find_by_authorization_code(
+        self, authorization_code: str
+    ) -> TelegramAuthRequest | None:
+        for req in self._storage.values():
+            if req.authorization_code == authorization_code:
+                return req
+        return None
+
+    def save(self, request: TelegramAuthRequest) -> None:
+        self._storage[request.auth_code] = request
+
+    def snapshot(self) -> dict[str, TelegramAuthRequest]:
+        """Return a deep copy of the storage for rollback support."""
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, TelegramAuthRequest]) -> None:
+        """Restore storage from a snapshot."""
+        self._storage = snapshot
+
+
 class FakeUnitOfWork:
     """Fake UoW for auth testing: in-memory with commit/rollback semantics."""
 
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.users = FakeUserRepository()
+        self.telegram_auth_requests = FakeTelegramAuthRequestRepository()
         self.committed = False
-        self._snapshot: dict[str, User] | None = None
+        self._user_snapshot: dict[str, User] | None = None
+        self._telegram_snapshot: dict[str, TelegramAuthRequest] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
-        self._snapshot = self.users.snapshot()
+        self._user_snapshot = self.users.snapshot()
+        self._telegram_snapshot = self.telegram_auth_requests.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
         if not self.committed:
             self.rollback()
-        self._snapshot = None
+        self._user_snapshot = None
+        self._telegram_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
         if self._event_bus and self._pending_events:
             self._event_bus.publish(self._pending_events)
         self._pending_events.clear()
-        self._snapshot = None
+        self._user_snapshot = None
+        self._telegram_snapshot = None
 
     def rollback(self) -> None:
-        if self._snapshot is not None:
-            self.users.restore(self._snapshot)
-            self._snapshot = None
+        if self._user_snapshot is not None:
+            self.users.restore(self._user_snapshot)
+            self._user_snapshot = None
+        if self._telegram_snapshot is not None:
+            self.telegram_auth_requests.restore(self._telegram_snapshot)
+            self._telegram_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:
