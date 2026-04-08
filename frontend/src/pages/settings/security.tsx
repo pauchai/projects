@@ -1,16 +1,20 @@
 /**
- * Security Settings page — displays connected sign-in methods.
+ * Security Settings page — displays connected sign-in methods
+ * and allows linking new OAuth providers (Google, Telegram).
  *
  * Shows a list of credential cards (Email & Password, Google, Telegram)
- * for the currently authenticated user. Read-only for now; the architecture
- * supports adding/removing methods in a future iteration.
+ * for the currently authenticated user. Users can add new sign-in methods
+ * via OAuth linking buttons that appear for providers not yet connected.
  */
 
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { useUserCredentials } from "@/hooks/use-credentials"
+import { useUserCredentials, useLinkGoogleAccount, useLinkTelegramInitiate } from "@/hooks/use-credentials"
+import { useGoogleOAuthAvailable, useTelegramOAuthAvailable } from "@/hooks/use-auth"
+import { ApiError } from "@/api/client"
 import type { CredentialResponse } from "@/api/types"
 
 /** Map provider identifiers to descriptive icons / labels for the UI. */
@@ -47,8 +51,47 @@ function CredentialCard({ credential }: { credential: CredentialResponse }) {
   )
 }
 
+/** Extract a user-friendly error message from a linking mutation error. */
+function getLinkingErrorMessage(error: Error | null): string | null {
+  if (!error) return null
+  if (error instanceof ApiError) {
+    if (error.status === 409) {
+      return "This account is already connected to another user."
+    }
+    return error.detail
+  }
+  return error.message
+}
+
 export function SecuritySettingsPage() {
   const { data, isLoading, isError, error } = useUserCredentials()
+  const { data: googleAvailable } = useGoogleOAuthAvailable()
+  const { data: telegramAvailable } = useTelegramOAuthAvailable()
+
+  const linkGoogleMutation = useLinkGoogleAccount()
+  const linkTelegramMutation = useLinkTelegramInitiate()
+
+  const isGoogleAvailable = googleAvailable?.available === true
+  const isTelegramAvailable = telegramAvailable?.available === true
+
+  // Determine which providers the user already has connected
+  const connectedProviders = new Set(
+    data?.credentials.map((c) => c.provider) ?? [],
+  )
+  const hasGoogle = connectedProviders.has("google")
+  const hasTelegram = connectedProviders.has("telegram")
+
+  // Show "Add provider" section if at least one linkable provider is available
+  // and not yet connected
+  const canLinkGoogle = isGoogleAvailable && !hasGoogle
+  const canLinkTelegram = isTelegramAvailable && !hasTelegram
+  const hasLinkableProviders = canLinkGoogle || canLinkTelegram
+
+  const isLinkingInProgress = linkGoogleMutation.isPending || linkTelegramMutation.isPending
+
+  const linkingError =
+    getLinkingErrorMessage(linkGoogleMutation.error) ??
+    getLinkingErrorMessage(linkTelegramMutation.error)
 
   return (
     <div className="space-y-6">
@@ -101,6 +144,52 @@ export function SecuritySettingsPage() {
           </>
         )}
       </section>
+
+      {data && hasLinkableProviders && (
+        <>
+          <Separator />
+
+          <section>
+            <h2 className="mb-4 text-lg font-semibold">Add Sign-in Method</h2>
+
+            {linkingError && (
+              <p className="mb-3 text-sm text-destructive">{linkingError}</p>
+            )}
+
+            {linkGoogleMutation.isSuccess && (
+              <p className="mb-3 text-sm text-green-600">
+                Google account linked successfully.
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              {canLinkGoogle && (
+                <Button
+                  variant="outline"
+                  disabled={isLinkingInProgress}
+                  onClick={() => linkGoogleMutation.mutate()}
+                >
+                  {linkGoogleMutation.isPending
+                    ? "Linking Google..."
+                    : "Link Google Account"}
+                </Button>
+              )}
+
+              {canLinkTelegram && (
+                <Button
+                  variant="outline"
+                  disabled={isLinkingInProgress}
+                  onClick={() => linkTelegramMutation.mutate()}
+                >
+                  {linkTelegramMutation.isPending
+                    ? "Opening Telegram..."
+                    : "Link Telegram Account"}
+                </Button>
+              )}
+            </div>
+          </section>
+        </>
+      )}
 
       <Separator />
 

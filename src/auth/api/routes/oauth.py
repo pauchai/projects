@@ -1,4 +1,4 @@
-"""OAuth routes: REST endpoints for Google OAuth authentication."""
+"""OAuth routes: REST endpoints for Google OAuth authentication and linking."""
 
 import secrets
 
@@ -6,16 +6,19 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth.api.dependencies import (
     get_auth_uow,
+    get_current_user_id,
     get_google_oauth_client,
     get_token_service,
 )
 from auth.api.schemas import (
+    MessageResponse,
     OAuthAuthorizeResponse,
     OAuthAvailableResponse,
     OAuthCallbackRequest,
     TokenResponse,
 )
 from auth.application.authenticate_with_oauth import AuthenticateWithOAuthUseCase
+from auth.application.link_oauth_provider import LinkOAuthProviderUseCase
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.google_oauth_client import GoogleOAuthClient
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
@@ -70,3 +73,28 @@ def google_oauth_callback(
     )
     access_token = use_case.execute(code=body.code)
     return TokenResponse(access_token=access_token)
+
+
+@router.post("/link", response_model=MessageResponse)
+def google_oauth_link(
+    body: OAuthCallbackRequest,
+    caller_id: str = Depends(get_current_user_id),
+    oauth_client: GoogleOAuthClient | None = Depends(get_google_oauth_client),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> MessageResponse:
+    """Link a Google account to the authenticated user.
+
+    Uses the same authorization code flow as login, but instead of
+    creating/logging in a user, it attaches the Google credential to
+    the currently authenticated user.
+
+    Raises:
+        409: If the Google account is already linked to another user.
+        422: If the user already has a Google credential.
+    """
+    if oauth_client is None:
+        raise HTTPException(status_code=501, detail="Google OAuth is not configured")
+
+    use_case = LinkOAuthProviderUseCase(uow=uow, oauth_client=oauth_client)
+    use_case.execute(user_id=caller_id, code=body.code)
+    return MessageResponse(message="Google account linked successfully")

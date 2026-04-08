@@ -153,6 +153,97 @@ class TestSqlAlchemyUserRepositoryUpdate:
         assert providers == {"local", "google"}
 
 
+class TestSqlAlchemyUserRepositoryFindByOAuthProviderUserId:
+    """Tests for find_by_oauth_provider_user_id — looks up user by OAuth credential."""
+
+    def test_finds_user_by_google_credential(self, auth_session: Session) -> None:
+        repo = SqlAlchemyUserRepository(auth_session)
+        user = _make_user()
+        google_cred = Credential(
+            credential_id="cred-google",
+            user_id="user-1",
+            provider="google",
+            provider_user_id="google-sub-999",
+            hashed_secret=None,
+        )
+        user.add_credential(google_cred)
+        repo.save(user)
+        auth_session.commit()
+
+        found = repo.find_by_oauth_provider_user_id("google", "google-sub-999")
+        assert found is not None
+        assert found.user_id == "user-1"
+
+    def test_returns_none_when_no_match(self, auth_session: Session) -> None:
+        repo = SqlAlchemyUserRepository(auth_session)
+        user = _make_user()
+        repo.save(user)
+        auth_session.commit()
+
+        found = repo.find_by_oauth_provider_user_id("google", "nonexistent-sub")
+        assert found is None
+
+    def test_does_not_match_wrong_provider(self, auth_session: Session) -> None:
+        repo = SqlAlchemyUserRepository(auth_session)
+        user = _make_user()
+        google_cred = Credential(
+            credential_id="cred-google",
+            user_id="user-1",
+            provider="google",
+            provider_user_id="google-sub-999",
+            hashed_secret=None,
+        )
+        user.add_credential(google_cred)
+        repo.save(user)
+        auth_session.commit()
+
+        # Same provider_user_id but different provider
+        found = repo.find_by_oauth_provider_user_id("telegram", "google-sub-999")
+        assert found is None
+
+    def test_includes_all_credentials_on_found_user(
+        self, auth_session: Session
+    ) -> None:
+        repo = SqlAlchemyUserRepository(auth_session)
+        user = _make_user()
+        google_cred = Credential(
+            credential_id="cred-google",
+            user_id="user-1",
+            provider="google",
+            provider_user_id="google-sub-999",
+            hashed_secret=None,
+        )
+        user.add_credential(google_cred)
+        repo.save(user)
+        auth_session.commit()
+
+        found = repo.find_by_oauth_provider_user_id("google", "google-sub-999")
+        assert found is not None
+        assert len(found.credentials) == 2
+        providers = {c.provider for c in found.credentials}
+        assert providers == {"local", "google"}
+
+    def test_returns_correct_user_among_multiple(self, auth_session: Session) -> None:
+        repo = SqlAlchemyUserRepository(auth_session)
+        user1 = _make_user(user_id="u1", email="a@test.com", display_name="A")
+        user2 = _make_user(user_id="u2", email="b@test.com", display_name="B")
+        google_cred = Credential(
+            credential_id="cred-google-u2",
+            user_id="u2",
+            provider="google",
+            provider_user_id="google-sub-u2",
+            hashed_secret=None,
+        )
+        user2.add_credential(google_cred)
+        repo.save(user1)
+        repo.save(user2)
+        auth_session.commit()
+
+        found = repo.find_by_oauth_provider_user_id("google", "google-sub-u2")
+        assert found is not None
+        assert found.user_id == "u2"
+
+
 class TestSqlAlchemyUserRepositoryMultipleUsers:
     def test_multiple_users_are_independent(self, auth_session: Session) -> None:
         repo = SqlAlchemyUserRepository(auth_session)

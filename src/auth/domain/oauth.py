@@ -32,3 +32,18 @@ class OAuthError(Exception):
     Covers: invalid authorization code, network errors communicating
     with the provider, missing/invalid user info, etc.
     """
+
+
+class OAuthAccountAlreadyLinkedError(Exception):
+    """Raised when an OAuth account is already linked to a different user.
+
+    This happens when a user tries to link a Google/Telegram account
+    that is already associated with another user in the system.
+    """
+
+    def __init__(self, provider: str, owner_user_id: str) -> None:
+        self.provider = provider
+        self.owner_user_id = owner_user_id
+        super().__init__(
+            f"This {provider} account is already connected to another user"
+        )

@@ -246,7 +246,7 @@ export function useTelegramCallback() {
  * @returns The authorization code extracted from the popup's final URL.
  * @throws Error if the popup is blocked or closed without completing OAuth.
  */
-function openOAuthPopup(authorizationUrl: string): Promise<string> {
+export function openOAuthPopup(authorizationUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const width = 500
     const height = 600

@@ -18,7 +18,7 @@ from auth.api.routes.auth import router as auth_router
 from auth.api.routes.credentials import router as credentials_router
 from auth.api.routes.oauth import router as oauth_router
 from auth.api.routes.telegram import router as telegram_router
-from auth.domain.oauth import OAuthError
+from auth.domain.oauth import OAuthAccountAlreadyLinkedError, OAuthError
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.projects import router as projects_router
 from project_collaboration.infrastructure.database import get_engine
@@ -80,6 +80,12 @@ def create_app() -> FastAPI:
     @app.exception_handler(OAuthError)
     def handle_oauth_error(request: Request, exc: OAuthError) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+    @app.exception_handler(OAuthAccountAlreadyLinkedError)
+    def handle_oauth_account_already_linked(
+        request: Request, exc: OAuthAccountAlreadyLinkedError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(LookupError)
     def handle_lookup_error(request: Request, exc: LookupError) -> JSONResponse:

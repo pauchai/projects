@@ -67,6 +67,12 @@ class UserRepository(Protocol):
 
     def find_by_email(self, email: str) -> User | None: ...
 
+    def find_by_oauth_provider_user_id(
+        self, provider: str, provider_user_id: str
+    ) -> User | None:
+        """Find a user who has a credential for the given provider + external ID."""
+        ...
+
     def save(self, user: User) -> None: ...
 
 

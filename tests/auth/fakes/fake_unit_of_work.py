@@ -24,6 +24,19 @@ class FakeUserRepository:
                 return user
         return None
 
+    def find_by_oauth_provider_user_id(
+        self, provider: str, provider_user_id: str
+    ) -> User | None:
+        """Find a user who has a credential matching provider + provider_user_id."""
+        for user in self._storage.values():
+            for cred in user.credentials:
+                if (
+                    cred.provider == provider
+                    and cred.provider_user_id == provider_user_id
+                ):
+                    return user
+        return None
+
     def save(self, user: User) -> None:
         self._storage[user.user_id] = user
 

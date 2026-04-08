@@ -4,6 +4,7 @@ Flow:
 1. GET /authorize — generates auth_code + state, stores in DB, returns Telegram deep link.
 2. POST /bot-callback — bot sends telegram user data + auth_code (internal API).
 3. POST /callback — frontend exchanges authorization_code + state for JWT.
+4. POST /link — links Telegram account to the authenticated user.
 """
 
 import secrets
@@ -12,10 +13,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth.api.dependencies import (
     get_auth_uow,
+    get_current_user_id,
     get_telegram_oauth_client,
     get_token_service,
 )
 from auth.api.schemas import (
+    MessageResponse,
     OAuthAvailableResponse,
     OAuthCallbackRequest,
     TelegramAuthorizeResponse,
@@ -24,6 +27,7 @@ from auth.api.schemas import (
     TokenResponse,
 )
 from auth.application.authenticate_with_oauth import AuthenticateWithOAuthUseCase
+from auth.application.link_oauth_provider import LinkOAuthProviderUseCase
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.telegram_oauth_client import TelegramOAuthClient
@@ -159,3 +163,48 @@ def telegram_oauth_callback(
     )
     access_token = use_case.execute(code=body.code)
     return TokenResponse(access_token=access_token)
+
+
+@router.post("/link", response_model=MessageResponse)
+def telegram_oauth_link(
+    body: OAuthCallbackRequest,
+    caller_id: str = Depends(get_current_user_id),
+    oauth_client: TelegramOAuthClient | None = Depends(get_telegram_oauth_client),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> MessageResponse:
+    """Link a Telegram account to the authenticated user.
+
+    Same flow as /callback, but instead of login/register it attaches
+    the Telegram credential to the currently authenticated user.
+
+    Raises:
+        409: If the Telegram account is already linked to another user.
+        422: If the user already has a Telegram credential.
+    """
+    if oauth_client is None:
+        raise HTTPException(status_code=501, detail="Telegram OAuth is not configured")
+
+    # Look up and validate the auth request (same as /callback)
+    with uow:
+        auth_request = uow.telegram_auth_requests.find_by_authorization_code(body.code)
+        if auth_request is None:
+            raise HTTPException(status_code=400, detail="Invalid authorization code")
+
+        if auth_request.state != body.state:
+            raise HTTPException(status_code=400, detail="State mismatch")
+
+        if auth_request.is_used:
+            raise HTTPException(
+                status_code=400, detail="Authorization code has already been used"
+            )
+
+        auth_request.consume()
+        uow.telegram_auth_requests.save(auth_request)
+        uow.commit()
+
+    # Inject the auth request data into the OAuth client.
+    oauth_client.set_auth_request(auth_request)
+
+    use_case = LinkOAuthProviderUseCase(uow=uow, oauth_client=oauth_client)
+    use_case.execute(user_id=caller_id, code=body.code)
+    return MessageResponse(message="Telegram account linked successfully")

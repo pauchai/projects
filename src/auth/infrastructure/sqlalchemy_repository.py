@@ -10,8 +10,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from auth.domain.user import User
-from auth.infrastructure.orm import users_table
+from auth.domain.user import Credential, User
+from auth.infrastructure.orm import credentials_table, users_table
 
 
 class SqlAlchemyUserRepository:
@@ -40,6 +40,23 @@ class SqlAlchemyUserRepository:
         stmt = (
             select(User)
             .where(users_table.c.email == normalized)
+            .options(
+                selectinload(User.credentials),  # type: ignore[attr-defined]
+            )
+        )
+        return self._session.scalars(stmt).first()
+
+    def find_by_oauth_provider_user_id(
+        self, provider: str, provider_user_id: str
+    ) -> User | None:
+        """Find the user who owns a credential with the given provider + external ID."""
+        stmt = (
+            select(User)
+            .join(Credential, users_table.c.user_id == credentials_table.c.user_id)
+            .where(
+                credentials_table.c.provider == provider,
+                credentials_table.c.provider_user_id == provider_user_id,
+            )
             .options(
                 selectinload(User.credentials),  # type: ignore[attr-defined]
             )
