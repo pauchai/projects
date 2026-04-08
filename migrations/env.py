@@ -73,7 +73,7 @@ def include_object(
     reflected: bool,
     compare_to: sa.schema.SchemaItem | None,
 ) -> bool:
-    """Filter out legacy tables from autogenerate comparison."""
+    """Filter out excluded tables from autogenerate comparison."""
     if type_ == "table" and name in EXCLUDED_TABLES:
         return False
     return True
