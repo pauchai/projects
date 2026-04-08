@@ -50,7 +50,12 @@ class FakeUserRepository:
 
 
 class FakeTelegramAuthRequestRepository:
-    """In-memory TelegramAuthRequestRepository for testing."""
+    """In-memory TelegramAuthRequestRepository for testing.
+
+    Standalone fake — not part of FakeUnitOfWork. TelegramAuthRequests
+    are stored in Redis (not PostgreSQL) and do not participate in
+    SQL transactions.
+    """
 
     def __init__(self) -> None:
         self._storage: dict[str, TelegramAuthRequest] = {}
@@ -69,38 +74,34 @@ class FakeTelegramAuthRequestRepository:
     def save(self, request: TelegramAuthRequest) -> None:
         self._storage[request.auth_code] = request
 
-    def snapshot(self) -> dict[str, TelegramAuthRequest]:
-        """Return a deep copy of the storage for rollback support."""
-        return copy.deepcopy(self._storage)
-
-    def restore(self, snapshot: dict[str, TelegramAuthRequest]) -> None:
-        """Restore storage from a snapshot."""
-        self._storage = snapshot
+    def delete(self, auth_code: str) -> None:
+        self._storage.pop(auth_code, None)
 
 
 class FakeUnitOfWork:
-    """Fake UoW for auth testing: in-memory with commit/rollback semantics."""
+    """Fake UoW for auth testing: in-memory with commit/rollback semantics.
+
+    Note: TelegramAuthRequestRepository is NOT part of the UoW — it uses
+    Redis and is injected as a standalone dependency. Use
+    ``FakeTelegramAuthRequestRepository`` separately in tests that need it.
+    """
 
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.users = FakeUserRepository()
-        self.telegram_auth_requests = FakeTelegramAuthRequestRepository()
         self.committed = False
         self._user_snapshot: dict[str, User] | None = None
-        self._telegram_snapshot: dict[str, TelegramAuthRequest] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
         self._user_snapshot = self.users.snapshot()
-        self._telegram_snapshot = self.telegram_auth_requests.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
         if not self.committed:
             self.rollback()
         self._user_snapshot = None
-        self._telegram_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
@@ -108,15 +109,11 @@ class FakeUnitOfWork:
             self._event_bus.publish(self._pending_events)
         self._pending_events.clear()
         self._user_snapshot = None
-        self._telegram_snapshot = None
 
     def rollback(self) -> None:
         if self._user_snapshot is not None:
             self.users.restore(self._user_snapshot)
             self._user_snapshot = None
-        if self._telegram_snapshot is not None:
-            self.telegram_auth_requests.restore(self._telegram_snapshot)
-            self._telegram_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:

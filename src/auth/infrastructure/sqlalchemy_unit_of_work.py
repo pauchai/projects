@@ -5,9 +5,8 @@ domain events collected during ``save()`` are published **after** a
 successful ``commit()``.  If no bus is given, events are silently
 discarded.
 
-Note: The Auth context does not currently emit domain events, but this
-infrastructure is in place for future use (e.g., UserRegistered,
-UserDeactivated).
+Note: TelegramAuthRequestRepository is NOT part of this UoW — it uses
+Redis with TTL and does not participate in SQL transactions.
 """
 
 from __future__ import annotations
@@ -16,9 +15,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from shared_kernel.events import DomainEvent, EventBus
 from auth.infrastructure.sqlalchemy_repository import SqlAlchemyUserRepository
-from auth.infrastructure.sqlalchemy_telegram_auth_request_repository import (
-    SqlAlchemyTelegramAuthRequestRepository,
-)
 
 
 class SqlAlchemyUnitOfWork:
@@ -40,9 +36,6 @@ class SqlAlchemyUnitOfWork:
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.users = SqlAlchemyUserRepository(self._session)
-        self.telegram_auth_requests = SqlAlchemyTelegramAuthRequestRepository(
-            self._session
-        )
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

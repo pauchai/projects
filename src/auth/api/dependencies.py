@@ -1,7 +1,7 @@
 """FastAPI dependency injection for the Auth bounded context.
 
-Provides UnitOfWork, PasswordHasher, TokenService, and auth guard instances
-to route handlers.
+Provides UnitOfWork, PasswordHasher, TokenService, TelegramAuthRequestRepository,
+and auth guard instances to route handlers.
 """
 
 from __future__ import annotations
@@ -22,6 +22,10 @@ from auth.infrastructure.database import (
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.google_oauth_client import GoogleOAuthClient
 from auth.infrastructure.providers.telegram_oauth_client import TelegramOAuthClient
+from auth.infrastructure.redis_client import get_redis_client
+from auth.infrastructure.redis_telegram_auth_request_repository import (
+    RedisTelegramAuthRequestRepository,
+)
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 from shared_kernel.events import EventBus
 
@@ -32,6 +36,7 @@ _token_service: JwtTokenService | None = None
 _event_bus: EventBus | None = None
 _google_oauth_client: GoogleOAuthClient | None = None
 _telegram_oauth_client: TelegramOAuthClient | None = None
+_telegram_auth_repo: RedisTelegramAuthRequestRepository | None = None
 
 # JWT configuration via env vars with sensible defaults.
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
@@ -190,3 +195,17 @@ def get_telegram_oauth_client() -> TelegramOAuthClient | None:
             bot_username=OAUTH_TELEGRAM_BOT_USERNAME,
         )
     return _telegram_oauth_client
+
+
+def get_telegram_auth_repo() -> RedisTelegramAuthRequestRepository:
+    """FastAPI dependency: returns a singleton RedisTelegramAuthRequestRepository.
+
+    Uses Redis for storing temporary Telegram auth requests with automatic
+    TTL-based expiration (5 minutes).  This replaces the old SQLAlchemy-based
+    repository that caused unbounded record accumulation in PostgreSQL.
+    """
+    global _telegram_auth_repo
+    if _telegram_auth_repo is None:
+        redis_client = get_redis_client()
+        _telegram_auth_repo = RedisTelegramAuthRequestRepository(redis_client)
+    return _telegram_auth_repo

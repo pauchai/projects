@@ -1,6 +1,7 @@
-"""Telegram OAuth API integration tests: test Telegram endpoints against real PostgreSQL.
+"""Telegram OAuth API integration tests: test Telegram endpoints against real PostgreSQL + fakeredis.
 
-Uses ``httpx`` sync TestClient + test database (port 5433).
+Uses ``httpx`` sync TestClient + test database (port 5433) for User persistence
+and fakeredis for TelegramAuthRequest storage.
 Tests the full HTTP -> route -> use case -> repository flow.
 """
 
@@ -15,6 +16,7 @@ from auth.api.app import create_auth_app
 from auth.api.dependencies import (
     get_auth_uow,
     get_password_hasher,
+    get_telegram_auth_repo,
     get_telegram_oauth_client,
     get_token_service,
 )
@@ -27,7 +29,12 @@ from auth.infrastructure.database import (
 )
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.telegram_oauth_client import TelegramOAuthClient
+from auth.infrastructure.redis_telegram_auth_request_repository import (
+    RedisTelegramAuthRequestRepository,
+)
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
+
+fakeredis = pytest.importorskip("fakeredis")
 
 
 # ---------------------------------------------------------------------------
@@ -82,10 +89,15 @@ def telegram_api_client(telegram_api_engine: Engine):
     token_service = JwtTokenService(secret=JWT_SECRET, expire_minutes=60)
     telegram_client = TelegramOAuthClient(bot_username="test_bot")
 
+    # Use fakeredis for TelegramAuthRequest storage
+    fake_redis = fakeredis.FakeRedis(decode_responses=True)
+    telegram_auth_repo = RedisTelegramAuthRequestRepository(fake_redis)
+
     app.dependency_overrides[get_auth_uow] = _test_uow
     app.dependency_overrides[get_password_hasher] = lambda: password_hasher
     app.dependency_overrides[get_token_service] = lambda: token_service
     app.dependency_overrides[get_telegram_oauth_client] = lambda: telegram_client
+    app.dependency_overrides[get_telegram_auth_repo] = lambda: telegram_auth_repo
 
     client = TestClient(app)
     yield client

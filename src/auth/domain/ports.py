@@ -77,7 +77,13 @@ class UserRepository(Protocol):
 
 
 class TelegramAuthRequestRepository(Protocol):
-    """Port for persisting and querying TelegramAuthRequests."""
+    """Port for persisting and querying TelegramAuthRequests.
+
+    This repository is intentionally **not** part of the UnitOfWork.
+    TelegramAuthRequests are short-lived coordination records stored in
+    Redis with automatic TTL expiration — they do not participate in
+    the same transaction as User/Credential persistence.
+    """
 
     def find_by_auth_code(self, auth_code: str) -> TelegramAuthRequest | None: ...
 
@@ -87,6 +93,10 @@ class TelegramAuthRequestRepository(Protocol):
 
     def save(self, request: TelegramAuthRequest) -> None: ...
 
+    def delete(self, auth_code: str) -> None:
+        """Remove a TelegramAuthRequest by auth_code."""
+        ...
+
 
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence for the Auth context.
@@ -94,6 +104,9 @@ class UnitOfWork(Protocol):
     Application Services manage the UoW lifecycle (enter, commit/rollback, exit).
     The domain layer defines this contract; infrastructure provides the real
     implementation. Tests use a FakeUnitOfWork.
+
+    Note: TelegramAuthRequestRepository is NOT part of the UoW — it uses
+    Redis with TTL and does not participate in SQL transactions.
 
     Usage::
 
@@ -105,7 +118,6 @@ class UnitOfWork(Protocol):
     """
 
     users: UserRepository
-    telegram_auth_requests: TelegramAuthRequestRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

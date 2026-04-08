@@ -1,10 +1,14 @@
 """Telegram OAuth routes: REST endpoints for Telegram bot-based authentication.
 
 Flow:
-1. GET /authorize — generates auth_code + state, stores in DB, returns Telegram deep link.
+1. GET /authorize — generates auth_code + state, stores in Redis, returns Telegram deep link.
 2. POST /bot-callback — bot sends telegram user data + auth_code (internal API).
 3. POST /callback — frontend exchanges authorization_code + state for JWT.
 4. POST /link — links Telegram account to the authenticated user.
+
+TelegramAuthRequests are stored in Redis with automatic TTL expiration
+(not in PostgreSQL) — they are short-lived coordination records that do
+not participate in the same transaction as User/Credential persistence.
 """
 
 import secrets
@@ -14,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from auth.api.dependencies import (
     get_auth_uow,
     get_current_user_id,
+    get_telegram_auth_repo,
     get_telegram_oauth_client,
     get_token_service,
 )
@@ -31,6 +36,9 @@ from auth.application.link_oauth_provider import LinkOAuthProviderUseCase
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.providers.telegram_oauth_client import TelegramOAuthClient
+from auth.infrastructure.redis_telegram_auth_request_repository import (
+    RedisTelegramAuthRequestRepository,
+)
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 
 router = APIRouter(prefix="/auth/oauth/telegram", tags=["telegram-oauth"])
@@ -47,12 +55,12 @@ def telegram_oauth_available(
 @router.get("/authorize", response_model=TelegramAuthorizeResponse)
 def telegram_oauth_authorize(
     oauth_client: TelegramOAuthClient | None = Depends(get_telegram_oauth_client),
-    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    auth_repo: RedisTelegramAuthRequestRepository = Depends(get_telegram_auth_repo),
 ) -> TelegramAuthorizeResponse:
     """Generate a Telegram deep link for bot-based auth.
 
     Creates a TelegramAuthRequest with a unique auth_code and state,
-    stores it in the DB, and returns the Telegram deep link URL.
+    stores it in Redis (with TTL), and returns the Telegram deep link URL.
     """
     if oauth_client is None:
         raise HTTPException(status_code=501, detail="Telegram OAuth is not configured")
@@ -61,10 +69,7 @@ def telegram_oauth_authorize(
     state = secrets.token_urlsafe(32)
 
     auth_request = TelegramAuthRequest(auth_code=auth_code, state=state)
-
-    with uow:
-        uow.telegram_auth_requests.save(auth_request)
-        uow.commit()
+    auth_repo.save(auth_request)
 
     telegram_url = oauth_client.build_authorization_url(auth_code)
 
@@ -75,7 +80,7 @@ def telegram_oauth_authorize(
 def telegram_bot_callback(
     body: TelegramBotCallbackRequest,
     oauth_client: TelegramOAuthClient | None = Depends(get_telegram_oauth_client),
-    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    auth_repo: RedisTelegramAuthRequestRepository = Depends(get_telegram_auth_repo),
 ) -> TelegramBotCallbackResponse:
     """Internal endpoint called by the Telegram bot after /start command.
 
@@ -85,45 +90,44 @@ def telegram_bot_callback(
     if oauth_client is None:
         raise HTTPException(status_code=501, detail="Telegram OAuth is not configured")
 
-    with uow:
-        auth_request = uow.telegram_auth_requests.find_by_auth_code(body.auth_code)
-        if auth_request is None:
-            raise HTTPException(status_code=404, detail="Auth request not found")
+    auth_request = auth_repo.find_by_auth_code(body.auth_code)
+    if auth_request is None:
+        raise HTTPException(status_code=404, detail="Auth request not found")
 
-        if auth_request.is_used:
-            raise HTTPException(
-                status_code=400, detail="Auth request has already been used"
-            )
-
-        authorization_code = secrets.token_urlsafe(32)
-
-        auth_request.fill_telegram_data(
-            telegram_user_id=body.telegram_user_id,
-            telegram_username=body.telegram_username,
-            telegram_first_name=body.telegram_first_name,
-            authorization_code=authorization_code,
+    if auth_request.is_used:
+        raise HTTPException(
+            status_code=400, detail="Auth request has already been used"
         )
 
-        uow.telegram_auth_requests.save(auth_request)
-        uow.commit()
+    authorization_code = secrets.token_urlsafe(32)
 
-        return TelegramBotCallbackResponse(
-            authorization_code=authorization_code,
-            state=auth_request.state,
-        )
+    auth_request.fill_telegram_data(
+        telegram_user_id=body.telegram_user_id,
+        telegram_username=body.telegram_username,
+        telegram_first_name=body.telegram_first_name,
+        authorization_code=authorization_code,
+    )
+
+    auth_repo.save(auth_request)
+
+    return TelegramBotCallbackResponse(
+        authorization_code=authorization_code,
+        state=auth_request.state,
+    )
 
 
 @router.post("/callback", response_model=TokenResponse)
 def telegram_oauth_callback(
     body: OAuthCallbackRequest,
     oauth_client: TelegramOAuthClient | None = Depends(get_telegram_oauth_client),
+    auth_repo: RedisTelegramAuthRequestRepository = Depends(get_telegram_auth_repo),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
     token_service: JwtTokenService = Depends(get_token_service),
 ) -> TokenResponse:
     """Exchange a Telegram authorization code for a JWT access token.
 
     Called by the frontend after the user clicks the auth link sent by the bot.
-    1. Looks up the TelegramAuthRequest by authorization_code.
+    1. Looks up the TelegramAuthRequest by authorization_code in Redis.
     2. Validates the state parameter.
     3. Passes the request to TelegramOAuthClient.
     4. Runs AuthenticateWithOAuthUseCase to create/link user + return JWT.
@@ -132,27 +136,23 @@ def telegram_oauth_callback(
         raise HTTPException(status_code=501, detail="Telegram OAuth is not configured")
 
     # Look up the auth request by the authorization code
-    with uow:
-        auth_request = uow.telegram_auth_requests.find_by_authorization_code(body.code)
-        if auth_request is None:
-            raise HTTPException(status_code=400, detail="Invalid authorization code")
+    auth_request = auth_repo.find_by_authorization_code(body.code)
+    if auth_request is None:
+        raise HTTPException(status_code=400, detail="Invalid authorization code")
 
-        if auth_request.state != body.state:
-            raise HTTPException(status_code=400, detail="State mismatch")
+    if auth_request.state != body.state:
+        raise HTTPException(status_code=400, detail="State mismatch")
 
-        if auth_request.is_used:
-            raise HTTPException(
-                status_code=400, detail="Authorization code has already been used"
-            )
+    if auth_request.is_used:
+        raise HTTPException(
+            status_code=400, detail="Authorization code has already been used"
+        )
 
-        # Mark as used to prevent replay
-        auth_request.consume()
-        uow.telegram_auth_requests.save(auth_request)
-        uow.commit()
+    # Mark as used and save back, then delete (TTL will also clean up)
+    auth_request.consume()
+    auth_repo.save(auth_request)
 
     # Inject the auth request data into the OAuth client.
-    # Note: consume() sets is_used=True, but the client only needs
-    # telegram user data and authorization_code — not the is_ready flag.
     oauth_client.set_auth_request(auth_request)
 
     # Reuse the standard OAuth use case
@@ -170,6 +170,7 @@ def telegram_oauth_link(
     body: OAuthCallbackRequest,
     caller_id: str = Depends(get_current_user_id),
     oauth_client: TelegramOAuthClient | None = Depends(get_telegram_oauth_client),
+    auth_repo: RedisTelegramAuthRequestRepository = Depends(get_telegram_auth_repo),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
 ) -> MessageResponse:
     """Link a Telegram account to the authenticated user.
@@ -185,22 +186,20 @@ def telegram_oauth_link(
         raise HTTPException(status_code=501, detail="Telegram OAuth is not configured")
 
     # Look up and validate the auth request (same as /callback)
-    with uow:
-        auth_request = uow.telegram_auth_requests.find_by_authorization_code(body.code)
-        if auth_request is None:
-            raise HTTPException(status_code=400, detail="Invalid authorization code")
+    auth_request = auth_repo.find_by_authorization_code(body.code)
+    if auth_request is None:
+        raise HTTPException(status_code=400, detail="Invalid authorization code")
 
-        if auth_request.state != body.state:
-            raise HTTPException(status_code=400, detail="State mismatch")
+    if auth_request.state != body.state:
+        raise HTTPException(status_code=400, detail="State mismatch")
 
-        if auth_request.is_used:
-            raise HTTPException(
-                status_code=400, detail="Authorization code has already been used"
-            )
+    if auth_request.is_used:
+        raise HTTPException(
+            status_code=400, detail="Authorization code has already been used"
+        )
 
-        auth_request.consume()
-        uow.telegram_auth_requests.save(auth_request)
-        uow.commit()
+    auth_request.consume()
+    auth_repo.save(auth_request)
 
     # Inject the auth request data into the OAuth client.
     oauth_client.set_auth_request(auth_request)
