@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from auth.api.dependencies import AuthenticationError as AuthAuthenticationError
 from auth.api.routes.auth import router as auth_router
 from auth.api.routes.oauth import router as oauth_router
+from auth.api.routes.telegram import router as telegram_router
 from auth.domain.oauth import OAuthError
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.projects import router as projects_router
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(oauth_router)
     app.include_router(projects_router)
+    app.include_router(telegram_router)
 
     return app
 
