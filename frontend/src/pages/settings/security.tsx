@@ -12,20 +12,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { GoogleIcon, TelegramIcon, LockIcon, KeyIcon } from "@/components/ui/brand-icons"
 import { useUserCredentials, useLinkGoogleAccount, useLinkTelegramInitiate } from "@/hooks/use-credentials"
 import { useGoogleOAuthAvailable, useTelegramOAuthAvailable } from "@/hooks/use-auth"
 import { ApiError } from "@/api/client"
 import type { CredentialResponse } from "@/api/types"
 
-/** Map provider identifiers to descriptive icons / labels for the UI. */
-const PROVIDER_ICONS: Record<string, string> = {
-  local: "\u{1F512}",
-  google: "\u{1F310}",
-  telegram: "\u{2708}\uFE0F",
+/** Map provider identifiers to icon components for the UI. */
+const PROVIDER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  local: LockIcon,
+  google: GoogleIcon,
+  telegram: TelegramIcon,
 }
 
-function getProviderIcon(provider: string): string {
-  return PROVIDER_ICONS[provider] ?? "\u{1F511}"
+function ProviderIcon({ provider, className }: { provider: string; className?: string }) {
+  const Icon = PROVIDER_ICONS[provider] ?? KeyIcon
+  return <Icon className={className} />
 }
 
 function CredentialCard({ credential }: { credential: CredentialResponse }) {
@@ -33,7 +35,7 @@ function CredentialCard({ credential }: { credential: CredentialResponse }) {
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <span className="text-lg">{getProviderIcon(credential.provider)}</span>
+          <ProviderIcon provider={credential.provider} className="h-5 w-5" />
           <span>{credential.provider_display_name}</span>
           {!credential.is_removable && (
             <Badge variant="secondary" className="ml-auto text-xs">
@@ -169,6 +171,7 @@ export function SecuritySettingsPage() {
                   disabled={isLinkingInProgress}
                   onClick={() => linkGoogleMutation.mutate()}
                 >
+                  <GoogleIcon />
                   {linkGoogleMutation.isPending
                     ? "Linking Google..."
                     : "Link Google Account"}
@@ -181,6 +184,7 @@ export function SecuritySettingsPage() {
                   disabled={isLinkingInProgress}
                   onClick={() => linkTelegramMutation.mutate()}
                 >
+                  <TelegramIcon />
                   {linkTelegramMutation.isPending
                     ? "Opening Telegram..."
                     : "Link Telegram Account"}

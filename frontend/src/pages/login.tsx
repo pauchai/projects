@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useLogin, useGoogleOAuthAvailable, useGoogleLogin, useTelegramOAuthAvailable, useTelegramLogin } from "@/hooks/use-auth"
+import { GoogleIcon, TelegramIcon } from "@/components/ui/brand-icons"
 import { ApiError } from "@/api/client"
 
 interface FormErrors {
@@ -108,6 +109,7 @@ export function LoginPage() {
                   disabled={isAnyPending}
                   onClick={handleGoogleLogin}
                 >
+                  <GoogleIcon />
                   {googleLoginMutation.isPending
                     ? "Signing in..."
                     : "Sign in with Google"}
@@ -122,6 +124,7 @@ export function LoginPage() {
                   disabled={isAnyPending}
                   onClick={() => telegramLoginMutation.mutate()}
                 >
+                  <TelegramIcon />
                   {telegramLoginMutation.isPending
                     ? "Opening Telegram..."
                     : "Sign in with Telegram"}
