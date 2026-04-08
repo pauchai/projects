@@ -16,6 +16,7 @@ import logging
 
 import httpx
 from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 
 logger = logging.getLogger(__name__)
@@ -44,14 +45,16 @@ def create_dispatcher(
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
             await message.answer(
-                "Welcome! To sign in, please use the link on the website."
+                "👋 Welcome!\n\nTo sign in, please use the link on the website.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
         auth_code = parts[1].strip()
         if not auth_code:
             await message.answer(
-                "Welcome! To sign in, please use the link on the website."
+                "👋 Welcome!\n\nTo sign in, please use the link on the website.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
@@ -73,7 +76,8 @@ def create_dispatcher(
         except httpx.HTTPError:
             logger.exception("Failed to call bot-callback endpoint")
             await message.answer(
-                "Something went wrong. Please try again from the website."
+                "❌ Something went wrong.\n\nPlease try again from the website.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
@@ -82,8 +86,9 @@ def create_dispatcher(
                 "Bot-callback failed: %s %s", response.status_code, response.text
             )
             await message.answer(
-                "Authentication request not found or expired. "
-                "Please start again from the website."
+                "⏰ Authentication request not found or expired.\n\n"
+                "Please start again from the website.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
@@ -97,15 +102,18 @@ def create_dispatcher(
         )
 
         await message.answer(
-            f"Click the link below to complete sign-in:\n\n{auth_link}"
+            "✨ Almost done!\n\n"
+            f"Tap here to finish signing in and access your account:\n\n{auth_link}"
         )
 
     @dp.message(CommandStart())
     async def handle_start_no_payload(message: types.Message) -> None:
         """Handle /start without payload — welcome message."""
         await message.answer(
-            "Welcome! To sign in, please use the 'Sign in with Telegram' "
-            "button on the website."
+            "👋 Welcome!\n\n"
+            "To sign in, please use the <b>Sign in with Telegram</b> "
+            "button on the website.",
+            parse_mode=ParseMode.HTML,
         )
 
     return dp
