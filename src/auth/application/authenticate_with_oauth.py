@@ -1,9 +1,10 @@
 """AuthenticateWithOAuth use case — exchanges an OAuth code for a JWT token.
 
-Handles three scenarios:
-1. New user → creates User + OAuth Credential → returns token.
-2. Existing user without this provider's credential → links credential → returns token.
-3. Existing user already has the credential → returns token (login).
+Handles four scenarios (checked in order):
+1. OAuth account already owned → log in the owner (regardless of email).
+2. Email matches existing user → link OAuth credential to that user → return token.
+3. Email matches but user is inactive → raise ValueError.
+4. No match at all → create new User + OAuth Credential → return token.
 """
 
 import uuid
@@ -34,6 +35,12 @@ class AuthenticateWithOAuthUseCase:
     def execute(self, code: str) -> str:
         """Exchange an authorization code for a JWT access token.
 
+        The lookup order is critical:
+        1. Check if the OAuth account (provider + provider_user_id) already
+           belongs to a user → log in that user directly.
+        2. Otherwise, fall back to email lookup → link the credential.
+        3. If no user found at all → create a new user.
+
         Raises:
             OAuthError: if the OAuth provider rejects the code or user info request.
             ValueError: if the matched user account is inactive.
@@ -42,14 +49,27 @@ class AuthenticateWithOAuthUseCase:
         user_info = self._oauth_client.get_user_info(access_token)
 
         with self._uow as uow:
-            user = uow.users.find_by_email(user_info.email)
+            # Step 1: OAuth ownership check (takes precedence over email).
+            user = uow.users.find_by_oauth_provider_user_id(
+                provider=user_info.provider,
+                provider_user_id=user_info.provider_user_id,
+            )
 
-            if user is None:
-                user = self._create_new_user(user_info)
-            else:
+            if user is not None:
+                # OAuth account is already linked — just log in.
                 if not user.is_active:
                     raise ValueError("User account is inactive")
-                self._link_credential_if_needed(user, user_info)
+            else:
+                # Step 2: OAuth account is free — check by email.
+                user = uow.users.find_by_email(user_info.email)
+
+                if user is not None:
+                    if not user.is_active:
+                        raise ValueError("User account is inactive")
+                    self._link_credential_if_needed(user, user_info)
+                else:
+                    # Step 3: Completely new user.
+                    user = self._create_new_user(user_info)
 
             uow.users.save(user)
             uow.commit()

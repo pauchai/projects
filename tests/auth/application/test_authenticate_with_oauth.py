@@ -180,6 +180,141 @@ class TestAuthenticateWithOAuthExistingUserWithGoogleCredential:
         assert len([c for c in user.credentials if c.provider == "google"]) == 1
 
 
+TELEGRAM_USER_INFO = OAuthUserInfo(
+    provider="telegram",
+    provider_user_id="tg-user-456",
+    email="bob@example.com",
+    display_name="Bob from Telegram",
+)
+
+
+class TestAuthenticateWithOAuthAccountOwnership:
+    """When the OAuth account (provider + provider_user_id) already belongs
+    to a user, the use case MUST log in that user — regardless of email match.
+
+    This is the critical scenario that caused the Telegram duplicate-user bug:
+    User A linked Telegram, then logged out and logged in again via Telegram.
+    The old code only searched by email, so if User A's email didn't match
+    the Telegram-provided email (or if the email lookup missed), a brand-new
+    user was created instead of logging into User A.
+    """
+
+    def test_logs_in_oauth_owner_even_when_email_matches_different_user(self) -> None:
+        """OAuth account belongs to User A, but email matches User B.
+        Must log in User A (OAuth ownership takes precedence)."""
+        uow = FakeUnitOfWork()
+
+        # User A owns the Telegram OAuth account
+        user_a = User(user_id="user-a", email="alice@example.com", display_name="Alice")
+        tg_cred = Credential(
+            credential_id="cred-tg",
+            user_id="user-a",
+            provider="telegram",
+            provider_user_id="tg-user-456",
+            hashed_secret=None,
+        )
+        user_a.add_credential(tg_cred)
+        uow.users.save(user_a)
+
+        # User B has the email that Telegram returns
+        user_b = User(user_id="user-b", email="bob@example.com", display_name="Bob")
+        local_cred = Credential(
+            credential_id="cred-local",
+            user_id="user-b",
+            provider="local",
+            provider_user_id="bob@example.com",
+            hashed_secret="hashed:password",
+        )
+        user_b.add_credential(local_cred)
+        uow.users.save(user_b)
+
+        use_case = _make_use_case(
+            uow,
+            oauth_client=FakeOAuthClient(user_info=TELEGRAM_USER_INFO),
+        )
+        token = use_case.execute(code="tg-code")
+
+        # Must log in User A (the OAuth owner), NOT User B (the email match)
+        assert token == "fake-token:user-a"
+
+    def test_logs_in_oauth_owner_when_no_email_match_exists(self) -> None:
+        """OAuth account belongs to User A, no user with that email exists.
+        Must log in User A — not create a new user."""
+        uow = FakeUnitOfWork()
+
+        # User A owns the Telegram account but has a different email
+        user_a = User(user_id="user-a", email="alice@example.com", display_name="Alice")
+        tg_cred = Credential(
+            credential_id="cred-tg",
+            user_id="user-a",
+            provider="telegram",
+            provider_user_id="tg-user-456",
+            hashed_secret=None,
+        )
+        user_a.add_credential(tg_cred)
+        uow.users.save(user_a)
+
+        use_case = _make_use_case(
+            uow,
+            oauth_client=FakeOAuthClient(user_info=TELEGRAM_USER_INFO),
+        )
+        token = use_case.execute(code="tg-code")
+
+        assert token == "fake-token:user-a"
+        # No new user should be created
+        assert uow.users.find_by_email("bob@example.com") is None
+
+    def test_does_not_duplicate_credential_on_returning_oauth_user(self) -> None:
+        """When the OAuth owner logs in again, no new credential is created."""
+        uow = FakeUnitOfWork()
+
+        user = User(user_id="user-a", email="bob@example.com", display_name="Bob")
+        tg_cred = Credential(
+            credential_id="cred-tg",
+            user_id="user-a",
+            provider="telegram",
+            provider_user_id="tg-user-456",
+            hashed_secret=None,
+        )
+        user.add_credential(tg_cred)
+        uow.users.save(user)
+
+        use_case = _make_use_case(
+            uow,
+            oauth_client=FakeOAuthClient(user_info=TELEGRAM_USER_INFO),
+        )
+        use_case.execute(code="tg-code")
+
+        updated = uow.users.find_by_id("user-a")
+        assert updated is not None
+        tg_creds = [c for c in updated.credentials if c.provider == "telegram"]
+        assert len(tg_creds) == 1
+
+    def test_raises_when_oauth_owner_is_inactive(self) -> None:
+        """OAuth account belongs to an inactive user — must raise ValueError."""
+        uow = FakeUnitOfWork()
+
+        user = User(user_id="user-a", email="bob@example.com", display_name="Bob")
+        tg_cred = Credential(
+            credential_id="cred-tg",
+            user_id="user-a",
+            provider="telegram",
+            provider_user_id="tg-user-456",
+            hashed_secret=None,
+        )
+        user.add_credential(tg_cred)
+        user.deactivate()
+        uow.users.save(user)
+
+        use_case = _make_use_case(
+            uow,
+            oauth_client=FakeOAuthClient(user_info=TELEGRAM_USER_INFO),
+        )
+
+        with pytest.raises(ValueError, match="User account is inactive"):
+            use_case.execute(code="tg-code")
+
+
 class TestAuthenticateWithOAuthErrorCases:
     """Error scenarios for OAuth authentication."""
 
