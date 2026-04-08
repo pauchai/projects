@@ -39,6 +39,8 @@ from project_collaboration.domain.application_form import (
     ApplicationForm,
     ApplicationStatus,
 )
+from project_collaboration.domain.feature_request import FeatureRequest
+from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.membership import Membership
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
@@ -168,6 +170,27 @@ applications_table = Table(
     Column("submitted_at", DateTime(timezone=True), nullable=False),
 )
 
+feature_requests_table = Table(
+    "feature_requests",
+    metadata,
+    Column("request_id", String(255), primary_key=True),
+    Column("author_id", String(255), nullable=False),
+    Column("title", String(500), nullable=False),
+    Column("description", Text, nullable=False, default=""),
+    Column(
+        "status",
+        Enum(FeatureStatus, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=FeatureStatus.SUBMITTED.value,
+    ),
+    Column("category", String(100), nullable=True),
+    Column("priority", String(50), nullable=True),
+    Column("admin_notes", Text, nullable=True, default=""),
+    Column("metadata", JSON, nullable=False, default={}),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
@@ -192,3 +215,5 @@ mapper_registry.map_imperatively(
         ),
     },
 )
+
+mapper_registry.map_imperatively(FeatureRequest, feature_requests_table)

@@ -2,6 +2,8 @@
 
 from typing import Protocol
 
+from project_collaboration.domain.feature_request import FeatureRequest
+from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
@@ -24,6 +26,20 @@ class ProjectRepository(Protocol):
     ) -> list[Project]: ...
 
 
+class FeatureRequestRepository(Protocol):
+    """Port for persisting and querying FeatureRequests."""
+
+    def find_by_id(self, request_id: str) -> FeatureRequest | None: ...
+
+    def save(self, feature_request: FeatureRequest) -> None: ...
+
+    def find_all(
+        self,
+        status: FeatureStatus | None = None,
+        author_id: str | None = None,
+    ) -> list[FeatureRequest]: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -41,6 +57,7 @@ class UnitOfWork(Protocol):
     """
 
     projects: ProjectRepository
+    feature_requests: FeatureRequestRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

@@ -106,3 +106,40 @@ class MessageResponse(BaseModel):
     """Generic success/info response."""
 
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Feature Request schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateFeatureRequestRequest(BaseModel):
+    """POST /features"""
+
+    request_id: str
+    title: str = Field(min_length=3, max_length=500)
+    description: str = Field(min_length=1, max_length=10000)
+    category: str | None = None
+    priority: str | None = None
+
+
+class UpdateFeatureStatusRequest(BaseModel):
+    """PUT /admin/features/{request_id}/status"""
+
+    status: str
+    admin_notes: str | None = None
+
+
+class FeatureRequestResponse(BaseModel):
+    """Serialized FeatureRequest entity."""
+
+    request_id: str
+    author_id: str
+    title: str
+    description: str
+    status: str
+    category: str | None
+    priority: str | None
+    admin_notes: str
+    created_at: datetime
+    updated_at: datetime

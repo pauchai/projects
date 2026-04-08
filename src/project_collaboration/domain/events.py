@@ -93,3 +93,20 @@ class MemberRemoved(DomainEvent):
     membership_id: str
     project_id: str
     user_id: str
+
+
+# --- Feature request events ---
+
+
+@dataclass(frozen=True)
+class FeatureRequestSubmitted(DomainEvent):
+    request_id: str
+    author_id: str
+    title: str
+
+
+@dataclass(frozen=True)
+class FeatureRequestStatusChanged(DomainEvent):
+    request_id: str
+    old_status: str
+    new_status: str

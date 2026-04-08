@@ -2,6 +2,8 @@
 
 import copy
 
+from project_collaboration.domain.feature_request import FeatureRequest
+from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
@@ -68,6 +70,44 @@ class _FakeProjectRepository:
         self._storage = snapshot
 
 
+class _FakeFeatureRequestRepository:
+    """In-memory FeatureRequestRepository used within FakeUnitOfWork."""
+
+    def __init__(self, uow: "FakeUnitOfWork") -> None:
+        self._storage: dict[str, FeatureRequest] = {}
+        self._uow = uow
+
+    def find_by_id(self, request_id: str) -> FeatureRequest | None:
+        return self._storage.get(request_id)
+
+    def save(self, feature_request: FeatureRequest) -> None:
+        events = feature_request.collect_events()
+        self._uow.collect_events(events)
+        self._storage[feature_request.request_id] = feature_request
+
+    def find_all(
+        self,
+        status: FeatureStatus | None = None,
+        author_id: str | None = None,
+    ) -> list[FeatureRequest]:
+        results: list[FeatureRequest] = []
+        for fr in self._storage.values():
+            if status is not None and fr.status != status:
+                continue
+            if author_id is not None and fr.author_id != author_id:
+                continue
+            results.append(fr)
+        return results
+
+    def snapshot(self) -> dict[str, FeatureRequest]:
+        """Return a deep copy of the storage for rollback support."""
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, FeatureRequest]) -> None:
+        """Restore storage from a snapshot."""
+        self._storage = snapshot
+
+
 class FakeUnitOfWork:
     """Fake UoW for testing: in-memory with commit/rollback semantics.
 
@@ -78,20 +118,24 @@ class FakeUnitOfWork:
 
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.projects = _FakeProjectRepository(self)
+        self.feature_requests = _FakeFeatureRequestRepository(self)
         self.committed = False
-        self._snapshot: dict[str, Project] | None = None
+        self._projects_snapshot: dict[str, Project] | None = None
+        self._feature_requests_snapshot: dict[str, FeatureRequest] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
-        self._snapshot = self.projects.snapshot()
+        self._projects_snapshot = self.projects.snapshot()
+        self._feature_requests_snapshot = self.feature_requests.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
         if not self.committed:
             self.rollback()
-        self._snapshot = None
+        self._projects_snapshot = None
+        self._feature_requests_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
@@ -99,13 +143,17 @@ class FakeUnitOfWork:
         if self._event_bus and self._pending_events:
             self._event_bus.publish(self._pending_events)
         self._pending_events.clear()
-        # Snapshot is discarded — changes are kept
-        self._snapshot = None
+        # Snapshots are discarded — changes are kept
+        self._projects_snapshot = None
+        self._feature_requests_snapshot = None
 
     def rollback(self) -> None:
-        if self._snapshot is not None:
-            self.projects.restore(self._snapshot)
-            self._snapshot = None
+        if self._projects_snapshot is not None:
+            self.projects.restore(self._projects_snapshot)
+            self._projects_snapshot = None
+        if self._feature_requests_snapshot is not None:
+            self.feature_requests.restore(self._feature_requests_snapshot)
+            self._feature_requests_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:

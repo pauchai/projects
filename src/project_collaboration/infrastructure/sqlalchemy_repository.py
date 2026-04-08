@@ -1,10 +1,10 @@
-"""SQLAlchemy ORM-based ProjectRepository (driven adapter).
+"""SQLAlchemy ORM-based repository adapters (driven adapters).
 
 Uses SQLAlchemy ORM with Imperative Mapping (configured in ``orm.py``).
 Domain classes are loaded/saved as mapped objects; the ORM handles
 ``__new__`` + attribute population on load, bypassing ``__init__``.
 
-Two attributes are NOT mapped by the ORM and require manual handling:
+Two attributes on Project are NOT mapped by the ORM and require manual handling:
 - ``required_skills`` — stored in the ``project_skill_tags`` association
   table, loaded/saved via helper methods (SkillTag is a frozen dataclass).
 - ``_events`` — transient list of domain events, initialised after load.
@@ -15,10 +15,13 @@ from __future__ import annotations
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
+from project_collaboration.domain.feature_request import FeatureRequest
+from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from project_collaboration.infrastructure.orm import (
+    feature_requests_table,
     project_skill_tags_table,
 )
 
@@ -169,3 +172,53 @@ class SqlAlchemyProjectRepository:
         """Initialise transient attributes that the ORM does not populate."""
         if not hasattr(project, "_events"):
             project._events = []
+
+
+class SqlAlchemyFeatureRequestRepository:
+    """Implements FeatureRequestRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session, uow: object | None = None) -> None:
+        self._session = session
+        self._uow = uow
+
+    def find_by_id(self, request_id: str) -> FeatureRequest | None:
+        """Load a FeatureRequest by ID, or return None."""
+        feature_request = self._session.get(FeatureRequest, request_id)
+        if feature_request is None:
+            return None
+        self._init_transient(feature_request)
+        return feature_request
+
+    def save(self, feature_request: FeatureRequest) -> None:
+        """Persist a FeatureRequest."""
+        events = feature_request.collect_events()
+        if events and self._uow is not None and hasattr(self._uow, "collect_events"):
+            self._uow.collect_events(events)
+
+        self._session.merge(feature_request)
+        self._session.flush()
+
+    def find_all(
+        self,
+        status: FeatureStatus | None = None,
+        author_id: str | None = None,
+    ) -> list[FeatureRequest]:
+        """Query feature requests with optional filters."""
+        query = select(FeatureRequest)
+
+        if status is not None:
+            query = query.where(feature_requests_table.c.status == status)
+
+        if author_id is not None:
+            query = query.where(feature_requests_table.c.author_id == author_id)
+
+        results = self._session.scalars(query).all()
+        for fr in results:
+            self._init_transient(fr)
+        return list(results)
+
+    @staticmethod
+    def _init_transient(feature_request: FeatureRequest) -> None:
+        """Initialise transient attributes that the ORM does not populate."""
+        if not hasattr(feature_request, "_events"):
+            feature_request._events = []

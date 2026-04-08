@@ -1,4 +1,4 @@
-"""Shared test factories for creating Project aggregates at various lifecycle stages.
+"""Shared test factories for creating domain objects at various lifecycle stages.
 
 All factories produce domain objects with sensible defaults.
 Use ``save_project(uow, project)`` to persist into a FakeUnitOfWork.
@@ -6,6 +6,8 @@ Use ``save_project(uow, project)`` to persist into a FakeUnitOfWork.
 
 from __future__ import annotations
 
+from project_collaboration.domain.feature_request import FeatureRequest
+from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
@@ -77,4 +79,44 @@ def save_project(uow: FakeUnitOfWork, project: Project) -> None:
     """Persist a project into the FakeUnitOfWork (opens UoW, saves, commits)."""
     with uow:
         uow.projects.save(project)
+        uow.commit()
+
+
+# ---------------------------------------------------------------------------
+# Feature Request factories
+# ---------------------------------------------------------------------------
+
+
+def make_feature_request(**overrides: object) -> FeatureRequest:
+    """Create a FeatureRequest in Submitted status with sensible defaults."""
+    defaults: dict = dict(
+        request_id="fr1",
+        author_id="user1",
+        title="Add dark mode",
+        description="Please add dark mode to the application.",
+    )
+    defaults.update(overrides)
+    return FeatureRequest(**defaults)
+
+
+def make_planned_feature_request(**overrides: object) -> FeatureRequest:
+    """Create a feature request in Planned status."""
+    fr = make_feature_request(**overrides)
+    fr.change_status(FeatureStatus.PLANNED)
+    fr.collect_events()
+    return fr
+
+
+def make_in_progress_feature_request(**overrides: object) -> FeatureRequest:
+    """Create a feature request in In Progress status."""
+    fr = make_planned_feature_request(**overrides)
+    fr.change_status(FeatureStatus.IN_PROGRESS)
+    fr.collect_events()
+    return fr
+
+
+def save_feature_request(uow: FakeUnitOfWork, feature_request: FeatureRequest) -> None:
+    """Persist a feature request into the FakeUnitOfWork."""
+    with uow:
+        uow.feature_requests.save(feature_request)
         uow.commit()
