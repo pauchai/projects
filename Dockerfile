@@ -32,6 +32,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy source code
 COPY src/ src/
 
+# Copy Alembic configuration and migrations
+COPY alembic.ini ./
+COPY migrations/ migrations/
+
 # Expose backend port
 EXPOSE 8000
 

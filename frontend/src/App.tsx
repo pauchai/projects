@@ -6,6 +6,9 @@ import { ProjectsListPage } from "@/pages/projects-list"
 import { ProjectDetailPage } from "@/pages/project-detail"
 import { CreateProjectPage } from "@/pages/create-project"
 import { ManageApplicationsPage } from "@/pages/manage-applications"
+import { FeaturesListPage } from "@/pages/features-list"
+import { SubmitFeaturePage } from "@/pages/submit-feature"
+import { FeatureDetailPage } from "@/pages/feature-detail"
 import { ProfilePage } from "@/pages/profile"
 import { SecuritySettingsPage } from "@/pages/settings/security"
 import { LoginPage } from "@/pages/login"
@@ -50,6 +53,16 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/features" element={<FeaturesListPage />} />
+              <Route
+                path="/features/new"
+                element={
+                  <ProtectedRoute>
+                    <SubmitFeaturePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/features/:requestId" element={<FeatureDetailPage />} />
               <Route
                 path="/profile"
                 element={

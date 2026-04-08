@@ -27,6 +27,12 @@ export function Header() {
           >
             Projects
           </Link>
+          <Link
+            to="/features"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Features
+          </Link>
 
           {isAuthenticated ? (
             <>

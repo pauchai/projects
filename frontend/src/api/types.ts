@@ -158,6 +158,53 @@ export interface ApiErrorResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Feature Requests
+// ---------------------------------------------------------------------------
+
+/** Feature request status values */
+export type FeatureStatus =
+  | "submitted"
+  | "planned"
+  | "in_progress"
+  | "done"
+  | "rejected"
+
+/** GET /features — query params */
+export interface ListFeaturesParams {
+  status?: string
+  author_id?: string
+}
+
+/** POST /features — request body */
+export interface CreateFeatureRequestRequest {
+  request_id: string
+  title: string
+  description: string
+  category?: string | null
+  priority?: string | null
+}
+
+/** PUT /admin/features/:id/status — request body */
+export interface UpdateFeatureStatusRequest {
+  status: string
+  admin_notes?: string | null
+}
+
+/** Feature request response (GET /features, GET /features/:id, POST /features) */
+export interface FeatureRequestResponse {
+  request_id: string
+  author_id: string
+  title: string
+  description: string
+  status: FeatureStatus
+  category: string | null
+  priority: string | null
+  admin_notes: string
+  created_at: string
+  updated_at: string
+}
+
+// ---------------------------------------------------------------------------
 // Credentials management
 // ---------------------------------------------------------------------------
 
