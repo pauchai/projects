@@ -61,7 +61,7 @@ export function useLinkGoogleAccount() {
  *
  * Flow:
  * 1. GET /auth/oauth/telegram/authorize → telegram_url + state
- * 2. Store state in sessionStorage, redirect user to Telegram
+ * 2. Store state in localStorage, redirect user to Telegram
  * 3. User interacts with bot → bot sends auth link back
  * 4. User returns to callback page → code + state extracted
  * 5. POST /auth/oauth/telegram/link with { code, state }
@@ -76,9 +76,11 @@ export function useLinkTelegramInitiate() {
       // Get Telegram deep link from backend
       const { telegram_url, state } = await authApi.getTelegramOAuthAuthorize()
 
-      // Store state and mark this as a linking flow (not login)
-      sessionStorage.setItem("telegram_oauth_state", state)
-      sessionStorage.setItem("telegram_oauth_flow", "link")
+      // Store state and mark this as a linking flow (not login).
+      // Use localStorage (not sessionStorage) because the Telegram link
+      // opens in a new tab / Telegram's embedded browser.
+      localStorage.setItem("telegram_oauth_state", state)
+      localStorage.setItem("telegram_oauth_flow", "link")
 
       // Redirect to Telegram
       window.location.href = telegram_url
@@ -100,12 +102,12 @@ export function useLinkTelegramCallback() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CREDENTIALS_QUERY_KEY })
-      sessionStorage.removeItem("telegram_oauth_state")
-      sessionStorage.removeItem("telegram_oauth_flow")
+      localStorage.removeItem("telegram_oauth_state")
+      localStorage.removeItem("telegram_oauth_flow")
     },
     onError: () => {
-      sessionStorage.removeItem("telegram_oauth_state")
-      sessionStorage.removeItem("telegram_oauth_flow")
+      localStorage.removeItem("telegram_oauth_state")
+      localStorage.removeItem("telegram_oauth_flow")
     },
   })
 }

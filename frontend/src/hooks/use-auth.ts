@@ -177,7 +177,7 @@ export function useTelegramOAuthAvailable() {
  *
  * Flow:
  * 1. Call GET /authorize → get telegram_url + state
- * 2. Store state in sessionStorage for later validation
+ * 2. Store state in localStorage for later validation
  * 3. Redirect user to Telegram deep link (opens Telegram app/web)
  * 4. User interacts with bot → bot sends auth link back
  * 5. User clicks auth link → /oauth/callback page handles code exchange
@@ -188,8 +188,11 @@ export function useTelegramLogin() {
       // Step 1: Get Telegram deep link from backend
       const { telegram_url, state } = await authApi.getTelegramOAuthAuthorize()
 
-      // Step 2: Store state for validation when the user returns
-      sessionStorage.setItem("telegram_oauth_state", state)
+      // Step 2: Store state for validation when the user returns.
+      // Use localStorage (not sessionStorage) because the Telegram link
+      // opens in a new tab / Telegram's embedded browser, so sessionStorage
+      // from the original tab is inaccessible.
+      localStorage.setItem("telegram_oauth_state", state)
 
       // Step 3: Redirect to Telegram (opens Telegram app)
       window.location.href = telegram_url
@@ -201,7 +204,7 @@ export function useTelegramLogin() {
  * Exchange a Telegram authorization code + state for a JWT.
  *
  * Called by the OAuth callback page when it detects Telegram state
- * in sessionStorage. This completes the auth flow after the user
+ * in localStorage. This completes the auth flow after the user
  * clicks the link sent by the bot.
  */
 export function useTelegramCallback() {
@@ -222,12 +225,12 @@ export function useTelegramCallback() {
     onSuccess: ({ user, token }) => {
       setAuth(token, user.user_id, user.email, user.display_name)
       queryClient.setQueryData(ME_QUERY_KEY, user)
-      // Clean up sessionStorage
-      sessionStorage.removeItem("telegram_oauth_state")
+      // Clean up localStorage
+      localStorage.removeItem("telegram_oauth_state")
     },
     onError: () => {
       useAuthStore.getState().logout()
-      sessionStorage.removeItem("telegram_oauth_state")
+      localStorage.removeItem("telegram_oauth_state")
     },
   })
 }
