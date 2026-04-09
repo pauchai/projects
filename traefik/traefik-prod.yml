@@ -1,0 +1,28 @@
+# =============================================================================
+# Traefik — Production configuration (HTTPS + Let's Encrypt, INFO logging).
+# =============================================================================
+
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  docker:
+    exposedByDefault: false
+    watch: true
+
+log:
+  level: INFO

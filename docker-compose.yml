@@ -1,28 +1,28 @@
-services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --maxmemory 100mb --maxmemory-policy noeviction --save ""
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+# =============================================================================
+# Base Docker Compose — shared service definitions.
+#
+# This file is never used alone. Combine with an environment overlay:
+#
+#   Development:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Or use the helper scripts:
+#   ./scripts/dev-start.sh
+#   ./scripts/prod-deploy.sh
+# =============================================================================
 
+services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: collab
-      POSTGRES_PASSWORD: collab
-      POSTGRES_DB: project_collaboration
-    ports:
-      - "5434:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-collab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-project_collaboration}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U collab -d project_collaboration"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-collab} -d ${POSTGRES_DB:-project_collaboration}"]
+      interval: 10s
       timeout: 3s
       retries: 5
 
@@ -39,35 +39,45 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    profiles:
+      - test
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 100mb --maxmemory-policy noeviction --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - path: .env
-        required: false
     environment:
-      # Docker-specific overrides (hostname differs from local dev)
-      - DATABASE_URL=postgresql://collab:collab@postgres:5432/project_collaboration
-      - REDIS_URL=redis://redis:6379/0
-      - CORS_ORIGINS=http://frontend:80,http://localhost:5173,http://localhost:3001
       - PYTHONPATH=/app/src
-      # All other variables (JWT_*, OAUTH_*) are read from .env
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-collab}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project_collaboration}
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-60}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID:-}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      - OAUTH_GOOGLE_REDIRECT_URI=${OAUTH_GOOGLE_REDIRECT_URI:-}
+      - OAUTH_TELEGRAM_BOT_TOKEN=${OAUTH_TELEGRAM_BOT_TOKEN:-}
+      - OAUTH_TELEGRAM_BOT_USERNAME=${OAUTH_TELEGRAM_BOT_USERNAME:-}
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3001:80"
     depends_on:
       - backend
 
@@ -78,19 +88,10 @@ services:
     depends_on:
       backend:
         condition: service_started
-    env_file:
-      - path: .env
-        required: false
     environment:
-      - BACKEND_URL=http://backend:8000
-      - FRONTEND_URL=http://localhost:3001
       - PYTHONPATH=/app/src
-    healthcheck:
-      test: ["CMD", "python", "-c", "import os, httpx; r = httpx.get(f'https://api.telegram.org/bot{os.environ[\"OAUTH_TELEGRAM_BOT_TOKEN\"]}/getMe', timeout=5); r.raise_for_status()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      - BACKEND_URL=http://backend:8000
+      - OAUTH_TELEGRAM_BOT_TOKEN=${OAUTH_TELEGRAM_BOT_TOKEN:-}
 
 volumes:
   pgdata:

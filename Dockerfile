@@ -39,6 +39,6 @@ COPY migrations/ migrations/
 # Expose backend port
 EXPOSE 8000
 
-# Run with uvicorn (--reload for dev auto-reload on code changes)
-# Use host network mode for better compatibility with volume mounts
-CMD ["uvicorn", "project_collaboration.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Default CMD: production mode (no --reload).
+# Dev overlay overrides this with --reload via docker-compose.dev.yml.
+CMD ["uvicorn", "project_collaboration.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

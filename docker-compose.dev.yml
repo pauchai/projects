@@ -1,0 +1,67 @@
+# =============================================================================
+# Development overlay — Traefik HTTP, hot reload, telegram polling.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.temp up
+#
+# Or simply:
+#   ./scripts/dev-start.sh
+# =============================================================================
+
+services:
+  traefik:
+    image: traefik:v3.6
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik-dev.yml:/etc/traefik/traefik.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+
+  backend:
+    command: ["uvicorn", "project_collaboration.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    environment:
+      - CORS_ORIGINS=http://app.localhost,http://localhost:5173
+      - FRONTEND_URL=http://app.localhost
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`app.localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.middlewares=strip-api-prefix"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes=/api"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: build
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./frontend/tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./frontend/components.json:/app/components.json:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=5173"
+
+  telegram-bot:
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    environment:
+      - FRONTEND_URL=http://app.localhost

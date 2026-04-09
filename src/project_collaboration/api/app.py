@@ -96,6 +96,12 @@ def create_app() -> FastAPI:
     def handle_value_error(request: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
+    # ----- Health check (used by Traefik / Docker healthcheck) -----
+
+    @app.get("/health")
+    def health_check() -> dict[str, str]:
+        return {"status": "ok"}
+
     # ----- Routes -----
 
     app.include_router(auth_router)

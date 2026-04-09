@@ -12,7 +12,7 @@ Domain-Driven Design (DDD), Hexagonal Architecture, and Test-Driven Development
 | Auth     | JWT (email/password), Google OAuth 2.0 (popup flow)               |
 | Frontend | React 19, TypeScript 5.9, Vite 8, Tailwind CSS 4, shadcn/ui      |
 | State    | Zustand (auth), TanStack Query (server state)                     |
-| Infra    | Docker Compose, nginx                                             |
+| Infra    | Docker Compose, Traefik (reverse proxy + SSL), nginx (static)     |
 
 ## Architecture
 
@@ -100,9 +100,26 @@ domain objects and calls Ports.
 │   │   ├── pages/                     # 7 pages (register, login, projects, etc.)
 │   │   └── components/                # UI components (shadcn/ui + custom)
 │   ├── Dockerfile                     # Multi-stage: node build -> nginx
-│   └── nginx.conf                     # SPA fallback + API reverse proxy
-├── docker-compose.yml                 # PostgreSQL (dev + test) + frontend
+│   └── nginx.conf                     # SPA fallback (API routing via Traefik)
+├── docker-compose.yml                 # Base service definitions (no ports)
+├── docker-compose.dev.yml             # Dev overlay: Traefik HTTP + hot reload
+├── docker-compose.prod.yml            # Prod overlay: Traefik HTTPS + Let's Encrypt
+├── traefik/
+│   ├── traefik-dev.yml                # Traefik config: HTTP, debug logging
+│   └── traefik-prod.yml               # Traefik config: HTTPS + ACME
+├── scripts/
+│   ├── dev-start.sh                   # Start development environment
+│   ├── dev-stop.sh                    # Stop development environment
+│   ├── dev-logs.sh                    # Tail dev logs
+│   ├── prod-deploy.sh                 # Build & deploy production
+│   ├── prod-logs.sh                   # Tail prod logs
+│   ├── webhook-setup.sh              # Set Telegram webhook for prod
+│   ├── telegram_bot_dev.py            # Telegram bot polling runner
+│   └── telegram_bot_handler.py        # Shared bot handler logic
 ├── .env.example                       # Environment variable template
+├── .env.common                        # Shared env vars (DB name, JWT algo)
+├── .env.dev                           # Dev-specific env vars
+├── .env.prod                          # Prod-specific env vars
 ├── pyproject.toml                     # Poetry config
 └── AGENTS.md                          # Coding conventions for AI agents
 ```
@@ -277,64 +294,161 @@ npm run build
 
 ## Docker (Full Stack)
 
-### One-command launch
+The project uses a **base + overlay** Docker Compose architecture with
+[Traefik](https://traefik.io/) as the reverse proxy in both dev and prod.
 
-Start the entire stack with a single command:
-
-```bash
-docker compose up --build -d
+```
+docker-compose.yml          # Base: service definitions (no ports, no volumes)
+docker-compose.dev.yml      # Dev overlay: Traefik HTTP, hot reload, *.localhost
+docker-compose.prod.yml     # Prod overlay: Traefik HTTPS + Let's Encrypt
 ```
 
-This builds and starts all services:
+Environment variables are split into three files:
 
-| Service    | Port  | Description                                    |
-|------------|-------|------------------------------------------------|
-| `postgres` | 5434  | PostgreSQL 16 — main database                  |
-| `postgres-test` | 5433 | PostgreSQL 16 — test database |
-| `backend`  | 8000  | FastAPI application (uvicorn, auto-reload)     |
-| `frontend` | 3001  | nginx serving React SPA                        |
+| File           | Purpose                                         |
+|----------------|-------------------------------------------------|
+| `.env.common`  | Shared between dev and prod (DB name, JWT algo) |
+| `.env.dev`     | Dev-specific (weak passwords, HTTP URLs)        |
+| `.env.prod`    | Prod-specific (strong passwords, domain, HTTPS) |
 
-Wait a few seconds for services to initialize, then open:
-- **Frontend:** http://localhost:3001
-- **API Docs:** http://localhost:8000/docs
+The helper scripts merge `.env.common` + `.env.{dev|prod}` into a temporary
+`.env.temp` automatically.
 
-### Manual setup (development)
+---
 
-For development with hot reload on code changes:
+### Development Environment
+
+```bash
+# 1. Fill in .env.common and .env.dev with your values
+#    (sensible defaults are provided — only Telegram bot token is required
+#     if you want the bot to work)
+
+# 2. Start everything
+./scripts/dev-start.sh
+```
+
+This builds and starts all services with Traefik routing:
+
+| URL                              | Service                    |
+|----------------------------------|----------------------------|
+| `http://app.localhost`           | Frontend (Vite dev server) |
+| `http://app.localhost/api`       | Backend (FastAPI)          |
+| `http://app.localhost/api/docs`  | Swagger UI                 |
+| `http://traefik.localhost:8080`  | Traefik dashboard          |
+
+All `*.localhost` domains resolve automatically — no `/etc/hosts` edits needed.
+
+**Hot reload** is enabled for all services:
+- **Backend:** `uvicorn --reload` + volume mount of `./src`
+- **Frontend:** Vite dev server + volume mount of `./frontend/src`
+- **Telegram bot:** volume mounts of `./src` and `./scripts`
+
+```bash
+# Stop the environment
+./scripts/dev-stop.sh
+
+# Tail logs (all services or specific)
+./scripts/dev-logs.sh
+./scripts/dev-logs.sh backend
+```
+
+#### Manual setup (without Docker)
+
+For development without Docker, start databases manually and run services
+directly:
 
 ```bash
 # Start databases only
-docker compose up -d postgres postgres-test
+docker compose up -d postgres
+docker compose --profile test up -d postgres-test
 
 # Backend (in project root)
+cp .env.example .env
+poetry install
 poetry run uvicorn project_collaboration.api.app:app --reload --port 8000
 
 # Frontend (in frontend/)
-cd frontend && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-The backend uses `--reload` — any code changes trigger automatic restart.
+The Vite dev server proxies `/api` requests to `localhost:8000`. Open
+`http://localhost:5173` in your browser.
+
+---
+
+### Production Deployment
+
+The production setup uses Traefik with automatic HTTPS via Let's Encrypt on a
+DigitalOcean Droplet (or any server with Docker).
+
+#### Prerequisites
+
+1. A server with Docker and Docker Compose installed.
+2. A domain with DNS A record pointing to the server's IP.
+3. (Optional) A CNAME record for `www` pointing to the bare domain.
+
+#### Deploy
+
+```bash
+# 1. Fill in .env.common with real OAuth credentials
+# 2. Fill in .env.prod:
+#    - DOMAIN=yourdomain.com
+#    - ACME_EMAIL=admin@yourdomain.com
+#    - POSTGRES_PASSWORD=<strong-password>
+#    - JWT_SECRET=<generate: python -c "import secrets; print(secrets.token_urlsafe(48))">
+#    - OAUTH_TELEGRAM_BOT_TOKEN=<prod-bot-token>
+
+# 3. Generate Traefik dashboard credentials
+sudo apt-get install -y apache2-utils   # if htpasswd not available
+htpasswd -nB admin > traefik/dashboard-auth.txt
+
+# 4. Deploy
+./scripts/prod-deploy.sh
+
+# 5. (Optional) Set Telegram webhook for prod bot
+./scripts/webhook-setup.sh yourdomain.com <bot-token>
+```
+
+Production URLs:
+
+| URL                                  | Service                          |
+|--------------------------------------|----------------------------------|
+| `https://yourdomain.com`             | Frontend (nginx + built React)   |
+| `https://yourdomain.com/api`         | Backend (FastAPI, 2 workers)     |
+| `https://traefik.yourdomain.com`     | Traefik dashboard (Basic Auth)   |
+
+All services have `restart: unless-stopped`. HTTP is automatically redirected
+to HTTPS. SSL certificates are provisioned and renewed by Traefik via
+Let's Encrypt.
+
+```bash
+# View production logs
+./scripts/prod-logs.sh
+./scripts/prod-logs.sh backend
+```
+
+---
+
+### Running Tests
+
+Requires the test database:
+
+```bash
+docker compose --profile test up -d postgres-test
+```
 
 ### Environment
 
-The backend service reads variables from your `.env` file automatically via
-`env_file` in `docker-compose.yml`. Docker-specific overrides (hostnames that
-differ inside the container network) are set directly in the compose file:
+The base `docker-compose.yml` parametrizes all secrets via environment variables.
+Docker-specific overrides (container hostnames) are set in compose files:
 
-| Variable        | Docker Override                                                          | Reason                                  |
+| Variable        | Docker Value                                                             | Reason                                  |
 |-----------------|--------------------------------------------------------------------------|-----------------------------------------|
-| `DATABASE_URL`  | `postgresql://collab:collab@postgres:5432/project_collaboration`         | Container hostname `postgres`, not `localhost` |
-| `CORS_ORIGINS`  | `http://frontend:80,http://localhost:5173,http://localhost:3001`          | Include container-to-container origin   |
+| `DATABASE_URL`  | `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/...`   | Container hostname `postgres`, not `localhost` |
+| `REDIS_URL`     | `redis://redis:6379/0`                                                   | Container hostname `redis`              |
 | `PYTHONPATH`    | `/app/src`                                                               | Module resolution inside container      |
 
-All other variables (`JWT_*`, `OAUTH_*`) are read from `.env` unchanged.
-If `.env` is absent, the backend starts with defaults (OAuth disabled).
-
-### Troubleshooting
-
-If ports are already in use on the host, edit `docker-compose.yml` to change the
-port mappings (e.g., `8001:8000` for backend, `3002:80` for frontend), then
-re-run `docker compose up -d`.
+CORS origins and frontend URLs are set per-environment in the overlay files.
 
 ## Interactive API Docs
 

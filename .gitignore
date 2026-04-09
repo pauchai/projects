@@ -28,6 +28,14 @@ Thumbs.db
 .env.*.local
 .env.test
 .env.production
+.env.common
+.env.dev
+.env.prod
+.env.temp
+
+# Traefik secrets
+traefik/acme.json
+traefik/dashboard-auth.txt
 
 # Node / Frontend
 node_modules/
