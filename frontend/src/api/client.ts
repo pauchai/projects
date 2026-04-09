@@ -42,17 +42,22 @@ function buildUrl(path: string, params?: Record<string, string>): string {
 
 /**
  * Core fetch wrapper with JWT injection and error handling.
+ *
+ * @param options.token - Explicit JWT token. When provided, this token is
+ *   used instead of reading from the auth store. This avoids race conditions
+ *   when the token was just obtained but the store may not have persisted it
+ *   yet (e.g. Telegram OAuth callback opening in a new tab).
  */
 async function request<T>(
   path: string,
-  options: RequestInit & { params?: Record<string, string> } = {},
+  options: RequestInit & { params?: Record<string, string>; token?: string } = {},
 ): Promise<T> {
-  const { params, ...fetchOptions } = options
+  const { params, token: explicitToken, ...fetchOptions } = options
 
   const headers = new Headers(fetchOptions.headers)
 
-  // Inject JWT token if available
-  const token = useAuthStore.getState().token
+  // Inject JWT token: prefer explicit token, fall back to auth store
+  const token = explicitToken ?? useAuthStore.getState().token
   if (token) {
     headers.set("Authorization", `Bearer ${token}`)
   }
@@ -95,8 +100,9 @@ async function request<T>(
 export function get<T>(
   path: string,
   params?: Record<string, string>,
+  token?: string,
 ): Promise<T> {
-  return request<T>(path, { method: "GET", params })
+  return request<T>(path, { method: "GET", params, token })
 }
 
 /** HTTP POST with JSON body */

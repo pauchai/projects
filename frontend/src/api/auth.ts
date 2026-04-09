@@ -24,9 +24,11 @@ export function login(data: LoginRequest): Promise<TokenResponse> {
   return post<TokenResponse>("/auth/login", data)
 }
 
-/** GET /auth/me — requires valid JWT */
-export function getMe(): Promise<UserResponse> {
-  return get<UserResponse>("/auth/me")
+/** GET /auth/me — requires valid JWT.
+ *  @param token - Explicit JWT to use instead of reading from the auth store.
+ */
+export function getMe(token?: string): Promise<UserResponse> {
+  return get<UserResponse>("/auth/me", undefined, token)
 }
 
 // ---------------------------------------------------------------------------

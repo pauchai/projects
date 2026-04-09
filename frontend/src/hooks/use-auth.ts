@@ -68,9 +68,8 @@ export function useLogin() {
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
       const tokenResp = await authApi.login(data)
-      // Temporarily store token so getMe() can use it
-      useAuthStore.getState().setAuth(tokenResp.access_token, "", "", "")
-      const user = await authApi.getMe()
+      // Pass token explicitly to avoid race with store persistence
+      const user = await authApi.getMe(tokenResp.access_token)
       return { user, token: tokenResp.access_token }
     },
     onSuccess: ({ user, token }) => {
@@ -78,7 +77,7 @@ export function useLogin() {
       queryClient.setQueryData(ME_QUERY_KEY, user)
     },
     onError: () => {
-      // If login fails after partial state update, clear auth
+      // Ensure clean state on failure
       useAuthStore.getState().logout()
     },
   })
@@ -139,9 +138,8 @@ export function useGoogleLogin() {
       // Step 3: Exchange code for JWT
       const tokenResp = await authApi.googleOAuthCallback({ code, state })
 
-      // Step 4: Temporarily store token so getMe() can use it
-      useAuthStore.getState().setAuth(tokenResp.access_token, "", "", "")
-      const user = await authApi.getMe()
+      // Step 4: Pass token explicitly to avoid race with store persistence
+      const user = await authApi.getMe(tokenResp.access_token)
 
       return { user, token: tokenResp.access_token }
     },
@@ -150,7 +148,7 @@ export function useGoogleLogin() {
       queryClient.setQueryData(ME_QUERY_KEY, user)
     },
     onError: () => {
-      // If login fails after partial state update, clear auth
+      // Ensure clean state on failure
       useAuthStore.getState().logout()
     },
   })
@@ -216,9 +214,10 @@ export function useTelegramCallback() {
       // Exchange code + state for JWT
       const tokenResp = await authApi.telegramOAuthCallback({ code, state })
 
-      // Temporarily store token so getMe() can use it
-      useAuthStore.getState().setAuth(tokenResp.access_token, "", "", "")
-      const user = await authApi.getMe()
+      // Pass the token explicitly to getMe() to avoid a race condition:
+      // the auth store may not have persisted the token yet when the
+      // callback page opens in a new browser tab.
+      const user = await authApi.getMe(tokenResp.access_token)
 
       return { user, token: tokenResp.access_token }
     },
