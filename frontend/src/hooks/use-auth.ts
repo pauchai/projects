@@ -28,7 +28,7 @@ export function useMe() {
 
   return useQuery({
     queryKey: ME_QUERY_KEY,
-    queryFn: authApi.getMe,
+    queryFn: () => authApi.getMe(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
