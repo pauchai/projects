@@ -14,7 +14,7 @@ entryPoints:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${ACME_EMAIL}"
+      email: "paul.khimyack@gmail.com"
       storage: /acme.json
       httpChallenge:
         entryPoint: web

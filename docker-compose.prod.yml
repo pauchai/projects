@@ -20,6 +20,8 @@ services:
       - ./traefik/acme.json:/acme.json
       - ./traefik/dashboard-auth.txt:/dashboard-auth.txt:ro
     restart: unless-stopped
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL}
     labels:
       - "traefik.enable=true"
       # Dashboard — protected with Basic Auth
