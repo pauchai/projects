@@ -32,6 +32,7 @@ Thumbs.db
 .env.dev
 .env.prod
 .env.temp
+.env.staging
 
 # Traefik secrets
 traefik/acme.json
