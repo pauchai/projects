@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { ModeToggle } from "@/components/mode-toggle"
 import { useAuthStore } from "@/stores/auth-store"
 import { useLogout } from "@/hooks/use-auth"
 
@@ -68,6 +69,8 @@ export function Header() {
               </Link>
             </>
           )}
+          
+          <ModeToggle />
         </nav>
       </div>
     </header>
