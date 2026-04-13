@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/layout/protected-route"
 import { ProjectsListPage } from "@/pages/projects-list"
 import { ProjectDetailPage } from "@/pages/project-detail"
 import { CreateProjectPage } from "@/pages/create-project"
+import { EditProjectPage } from "@/pages/edit-project"
 import { ManageApplicationsPage } from "@/pages/manage-applications"
 import { FeaturesListPage } from "@/pages/features-list"
 import { SubmitFeaturePage } from "@/pages/submit-feature"
@@ -39,6 +40,14 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
               <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+              <Route
+                path="/projects/:projectId/edit"
+                element={
+                  <ProtectedRoute>
+                    <EditProjectPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/projects/new"
                 element={

@@ -46,6 +46,12 @@ class ProjectCancelled(DomainEvent):
     project_id: str
 
 
+@dataclass(frozen=True)
+class ProjectUpdated(DomainEvent):
+    project_id: str
+    updated_fields: list[str]
+
+
 # --- Application events ---
 
 

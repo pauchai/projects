@@ -11,6 +11,7 @@ import type {
   ProjectResponse,
   ProjectSummaryResponse,
   SearchProjectsParams,
+  UpdateProjectRequest,
 } from "./types"
 
 /** POST /projects — create a new project */
@@ -36,6 +37,14 @@ export function searchProjects(
 /** GET /projects/:id — get project detail */
 export function getProject(projectId: string): Promise<ProjectResponse> {
   return get<ProjectResponse>(`/projects/${projectId}`)
+}
+
+/** PATCH /projects/:id — update project */
+export function updateProject(
+  projectId: string,
+  data: UpdateProjectRequest,
+): Promise<ProjectResponse> {
+  return patch<ProjectResponse>(`/projects/${projectId}`, data)
 }
 
 /** POST /projects/:id/publish */

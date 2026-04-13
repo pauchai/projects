@@ -16,6 +16,7 @@ import type {
   ChangeMemberRoleRequest,
   CreateProjectRequest,
   SearchProjectsParams,
+  UpdateProjectRequest,
 } from "@/api/types"
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,29 @@ export function useCreateProject() {
       projectsApi.createProject(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all })
+    },
+  })
+}
+
+/** Update an existing project */
+export function useUpdateProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      data,
+    }: {
+      projectId: string
+      data: UpdateProjectRequest
+    }) => projectsApi.updateProject(projectId, data),
+    onSuccess: (_data, { projectId }) => {
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(projectId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.all,
+      })
     },
   })
 }

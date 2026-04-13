@@ -142,6 +142,14 @@ export interface ApplyToProjectRequest {
   applicant_skills?: string[]
 }
 
+/** PATCH /projects/:id — request body */
+export interface UpdateProjectRequest {
+  title: string
+  description?: string
+  required_skills?: string[]
+  max_members?: number | null
+}
+
 /** PATCH /projects/:id/members/:mid/role — request body */
 export interface ChangeMemberRoleRequest {
   new_role: string

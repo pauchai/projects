@@ -22,6 +22,15 @@ class CreateProjectRequest(BaseModel):
     max_members: int | None = None
 
 
+class UpdateProjectRequest(BaseModel):
+    """PATCH /projects/{project_id}"""
+
+    title: str = Field(min_length=3, max_length=200)
+    description: str = Field(default="", max_length=5000)
+    required_skills: list[str] = Field(default_factory=list)
+    max_members: int | None = None
+
+
 class ApplyToProjectRequest(BaseModel):
     """POST /projects/{project_id}/applications"""
 

@@ -21,6 +21,7 @@ from project_collaboration.domain.events import (
     MemberJoined,
     MemberRoleChanged,
     MemberRemoved,
+    ProjectUpdated,
 )
 from project_collaboration.domain.application_form import ApplicationStatus
 from tests.project_collaboration.factories import (
@@ -540,3 +541,204 @@ class TestRemoveMember:
         p, _ = self._project_with_member()
         with pytest.raises(LookupError, match="not found"):
             p.remove_member(membership_id="m999")
+
+
+# =============================================================================
+# Project update
+# =============================================================================
+
+
+class TestProjectUpdate:
+    def test_updates_title(self) -> None:
+        p = make_project(title="Original Title")
+        new_skills = [SkillTag("python")]
+
+        p.update(
+            title="New Title",
+            description="Updated desc",
+            required_skills=new_skills,
+            max_members=5,
+        )
+
+        assert p.title == "New Title"
+
+    def test_updates_description(self) -> None:
+        p = make_project(description="Original desc")
+
+        p.update(
+            title="Same Title",
+            description="New description",
+            required_skills=[],
+            max_members=None,
+        )
+
+        assert p.description == "New description"
+
+    def test_updates_required_skills(self) -> None:
+        p = make_project(required_skills=[SkillTag("python")])
+
+        p.update(
+            title="Title",
+            description="desc",
+            required_skills=[SkillTag("rust"), SkillTag("go")],
+            max_members=None,
+        )
+
+        assert p.required_skills == [SkillTag("rust"), SkillTag("go")]
+
+    def test_updates_max_members(self) -> None:
+        p = make_project(max_members=None)
+
+        p.update(
+            title="Title",
+            description="desc",
+            required_skills=[],
+            max_members=10,
+        )
+
+        assert p.max_members == 10
+
+    def test_raises_when_title_too_short(self) -> None:
+        p = make_project()
+        with pytest.raises(ValueError, match="Title must be between"):
+            p.update(
+                title="AB",
+                description="desc",
+                required_skills=[],
+                max_members=None,
+            )
+
+    def test_raises_when_title_too_long(self) -> None:
+        p = make_project()
+        with pytest.raises(ValueError, match="Title must be between"):
+            p.update(
+                title="A" * 201,
+                description="desc",
+                required_skills=[],
+                max_members=None,
+            )
+
+    def test_raises_when_description_too_long(self) -> None:
+        p = make_project()
+        with pytest.raises(ValueError, match="Description must not exceed"):
+            p.update(
+                title="Title",
+                description="A" * 5001,
+                required_skills=[],
+                max_members=None,
+            )
+
+    def test_emits_project_updated_event_when_title_changes(self) -> None:
+        p = make_project(title="Old Title")
+        p.collect_events()
+
+        p.update(
+            title="New Title",
+            description="desc",
+            required_skills=[],
+            max_members=None,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectUpdated)
+        assert events[0].project_id == p.project_id
+        assert "title" in events[0].updated_fields
+
+    def test_emits_project_updated_event_when_description_changes(self) -> None:
+        p = make_project(description="Old")
+        p.collect_events()
+
+        p.update(
+            title="Title",
+            description="New",
+            required_skills=[],
+            max_members=None,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectUpdated)
+        assert "description" in events[0].updated_fields
+
+    def test_emits_project_updated_event_when_skills_change(self) -> None:
+        p = make_project(required_skills=[SkillTag("python")])
+        p.collect_events()
+
+        p.update(
+            title="Title",
+            description="desc",
+            required_skills=[SkillTag("rust")],
+            max_members=None,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectUpdated)
+        assert "required_skills" in events[0].updated_fields
+
+    def test_emits_project_updated_event_when_max_members_changes(self) -> None:
+        p = make_project(max_members=5)
+        p.collect_events()
+
+        p.update(
+            title="Title",
+            description="desc",
+            required_skills=[],
+            max_members=10,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 1
+        assert isinstance(events[0], ProjectUpdated)
+        assert "max_members" in events[0].updated_fields
+
+    def test_emits_event_with_multiple_fields_when_multiple_change(self) -> None:
+        p = make_project(
+            title="Old", description="old", max_members=5, required_skills=[]
+        )
+        p.collect_events()
+
+        p.update(
+            title="New",
+            description="new",
+            required_skills=[],
+            max_members=10,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 1
+        assert set(events[0].updated_fields) == {"title", "description", "max_members"}
+
+    def test_no_event_emitted_when_nothing_changes(self) -> None:
+        p = make_project(
+            title="Same",
+            description="same",
+            max_members=5,
+            required_skills=[SkillTag("python")],
+        )
+        p.collect_events()
+
+        p.update(
+            title="Same",
+            description="same",
+            required_skills=[SkillTag("python")],
+            max_members=5,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 0
+
+    def test_no_event_emitted_when_only_same_skills_passed(self) -> None:
+        p = make_project(required_skills=[SkillTag("python")])
+        p.collect_events()
+
+        p.update(
+            title="Test Project",
+            description="A test project description.",
+            required_skills=[SkillTag("python")],
+            max_members=None,
+        )
+
+        events = p.collect_events()
+        assert len(events) == 0

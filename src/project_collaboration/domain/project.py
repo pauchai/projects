@@ -24,6 +24,7 @@ from project_collaboration.domain.events import (
     ProjectPublished,
     ProjectResumed,
     ProjectSuspended,
+    ProjectUpdated,
 )
 from project_collaboration.domain.membership import Membership
 from project_collaboration.domain.project_status import ProjectStatus
@@ -305,3 +306,48 @@ class Project:
                 user_id=member.user_id,
             )
         )
+
+    # -------------------------------------------------------------------------
+    # Project details update
+    # -------------------------------------------------------------------------
+
+    def update(
+        self,
+        title: str,
+        description: str,
+        required_skills: list[SkillTag],
+        max_members: int | None,
+    ) -> None:
+        """Update project details. Only owner can call this."""
+        if len(title) < MIN_TITLE_LENGTH or len(title) > MAX_TITLE_LENGTH:
+            raise ValueError(
+                f"Title must be between {MIN_TITLE_LENGTH} and {MAX_TITLE_LENGTH} characters"
+            )
+        if len(description) > MAX_DESCRIPTION_LENGTH:
+            raise ValueError(
+                f"Description must not exceed {MAX_DESCRIPTION_LENGTH} characters"
+            )
+
+        updated_fields: list[str] = []
+        if self.title != title:
+            self.title = title
+            updated_fields.append("title")
+        if self.description != description:
+            self.description = description
+            updated_fields.append("description")
+        if self.max_members != max_members:
+            self.max_members = max_members
+            updated_fields.append("max_members")
+
+        new_skills = set(required_skills)
+        old_skills = set(self.required_skills)
+        if new_skills != old_skills:
+            self.required_skills = list(required_skills)
+            updated_fields.append("required_skills")
+
+        if updated_fields:
+            self._emit(
+                ProjectUpdated(
+                    project_id=self.project_id, updated_fields=updated_fields
+                )
+            )

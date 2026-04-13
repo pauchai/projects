@@ -12,6 +12,7 @@ from project_collaboration.api.schemas import (
     MessageResponse,
     ProjectResponse,
     ProjectSummaryResponse,
+    UpdateProjectRequest,
 )
 from project_collaboration.application.apply_to_project import ApplyToProjectUseCase
 from project_collaboration.application.change_project_status import (
@@ -32,6 +33,7 @@ from project_collaboration.application.review_application import (
     RejectApplicationUseCase,
 )
 from project_collaboration.application.search_projects import SearchProjectsUseCase
+from project_collaboration.application.update_project import UpdateProjectUseCase
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
@@ -163,6 +165,26 @@ def get_project(
         if project is None:
             raise LookupError(f"Project {project_id} not found")
         return _project_to_response(project)
+
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: str,
+    body: UpdateProjectRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> ProjectResponse:
+    """Update a project. Only the owner can update."""
+    use_case = UpdateProjectUseCase(uow)
+    project = use_case.execute(
+        project_id=project_id,
+        caller_id=caller_id,
+        title=body.title,
+        description=body.description,
+        required_skills=[SkillTag(s) for s in body.required_skills],
+        max_members=body.max_members,
+    )
+    return _project_to_response(project)
 
 
 @router.post("/{project_id}/publish", response_model=MessageResponse)

@@ -198,8 +198,6 @@ function OwnerActions({ project }: { project: ProjectResponse }) {
 
   const actions = getStatusActions(project.status)
 
-  if (actions.length === 0) return null
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -221,6 +219,11 @@ function OwnerActions({ project }: { project: ProjectResponse }) {
               </Button>
             )
           })}
+          <Link to={`/projects/${project.project_id}/edit`}>
+            <Button variant="outline" size="sm">
+              Edit
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>
