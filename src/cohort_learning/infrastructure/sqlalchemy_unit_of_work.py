@@ -4,6 +4,11 @@ Supports optional event publishing: when an ``EventBus`` is provided,
 domain events collected during ``save()`` are published **after** a
 successful ``commit()``.  If no bus is given, events are silently
 discarded — this keeps the system backward-compatible and testable.
+
+Exposes three repositories:
+- ``cohorts`` — SqlAlchemyCohortRepository
+- ``practice_tasks`` — SqlAlchemyPracticeTaskRepository
+- ``peer_reviews`` — SqlAlchemyPeerReviewRepository
 """
 
 from __future__ import annotations
@@ -13,6 +18,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from shared_kernel.events import DomainEvent, EventBus
 from cohort_learning.infrastructure.sqlalchemy_repository import (
     SqlAlchemyCohortRepository,
+    SqlAlchemyPeerReviewRepository,
+    SqlAlchemyPracticeTaskRepository,
 )
 
 
@@ -35,6 +42,8 @@ class SqlAlchemyUnitOfWork:
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.cohorts = SqlAlchemyCohortRepository(self._session, self)
+        self.practice_tasks = SqlAlchemyPracticeTaskRepository(self._session, self)
+        self.peer_reviews = SqlAlchemyPeerReviewRepository(self._session, self)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:
