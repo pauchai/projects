@@ -26,7 +26,7 @@ class TestTopicExpertCreation:
         assert expert.validated_at == datetime(2026, 4, 15, 10, 0, 0, tzinfo=UTC)
         assert expert.validator_id == "master-1"
 
-    def test_topic_expert_is_immutable_after_creation(self) -> None:
+    def test_topic_expert_attributes_are_accessible(self) -> None:
         # Arrange
         expert = TopicExpert(
             expert_id="exp-1",
@@ -37,9 +37,9 @@ class TestTopicExpertCreation:
             validator_id="master-1",
         )
 
-        # Act & Assert — expert status is permanent, cannot be revoked
-        with pytest.raises(AttributeError):
-            expert.learner_id = "learner-2"  # type: ignore
+        # Act & Assert — expert status is permanent (business rule, not enforced by immutability)
+        assert expert.learner_id == "learner-1"
+        assert expert.topic_id == "topic-react-hooks"
 
 
 class TestTopicExpertEquality:

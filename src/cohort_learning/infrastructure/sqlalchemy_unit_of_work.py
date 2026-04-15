@@ -5,10 +5,13 @@ domain events collected during ``save()`` are published **after** a
 successful ``commit()``.  If no bus is given, events are silently
 discarded — this keeps the system backward-compatible and testable.
 
-Exposes three repositories:
+Exposes six repositories:
 - ``cohorts`` — SqlAlchemyCohortRepository
 - ``practice_tasks`` — SqlAlchemyPracticeTaskRepository
 - ``peer_reviews`` — SqlAlchemyPeerReviewRepository
+- ``topic_experts`` — SqlAlchemyTopicExpertRepository
+- ``helper_metrics`` — SqlAlchemyHelperMetricsRepository
+- ``module_curators`` — SqlAlchemyModuleCuratorRepository
 """
 
 from __future__ import annotations
@@ -18,8 +21,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from shared_kernel.events import DomainEvent, EventBus
 from cohort_learning.infrastructure.sqlalchemy_repository import (
     SqlAlchemyCohortRepository,
+    SqlAlchemyHelperMetricsRepository,
+    SqlAlchemyModuleCuratorRepository,
     SqlAlchemyPeerReviewRepository,
     SqlAlchemyPracticeTaskRepository,
+    SqlAlchemyTopicExpertRepository,
 )
 
 
@@ -44,6 +50,9 @@ class SqlAlchemyUnitOfWork:
         self.cohorts = SqlAlchemyCohortRepository(self._session, self)
         self.practice_tasks = SqlAlchemyPracticeTaskRepository(self._session, self)
         self.peer_reviews = SqlAlchemyPeerReviewRepository(self._session, self)
+        self.topic_experts = SqlAlchemyTopicExpertRepository(self._session)
+        self.helper_metrics = SqlAlchemyHelperMetricsRepository(self._session)
+        self.module_curators = SqlAlchemyModuleCuratorRepository(self._session)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

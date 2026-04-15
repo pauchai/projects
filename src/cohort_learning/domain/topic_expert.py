@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
-@dataclass(frozen=True)
+@dataclass
 class TopicExpert:
     """
     A learner who has achieved Topic Competency and is authorized to help

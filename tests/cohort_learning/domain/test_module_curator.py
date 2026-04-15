@@ -26,7 +26,7 @@ class TestModuleCuratorCreation:
         assert curator.promoted_at == datetime(2026, 4, 15, 10, 0, 0, tzinfo=UTC)
         assert curator.promoted_by == "master-1"
 
-    def test_module_curator_is_immutable_after_creation(self) -> None:
+    def test_module_curator_attributes_are_accessible(self) -> None:
         # Arrange
         curator = ModuleCurator(
             curator_id="cur-1",
@@ -37,9 +37,9 @@ class TestModuleCuratorCreation:
             promoted_by="master-1",
         )
 
-        # Act & Assert — curator status is permanent, cannot be revoked
-        with pytest.raises(AttributeError):
-            curator.module_id = "module-other"  # type: ignore
+        # Act & Assert — curator status is permanent (business rule, not enforced by immutability)
+        assert curator.module_id == "module-frontend-basics"
+        assert curator.learner_id == "learner-1"
 
 
 class TestModuleCuratorEquality:

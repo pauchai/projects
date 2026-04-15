@@ -13,9 +13,13 @@ Key design decisions:
   the ``.value`` string in the database.
 - ``_events`` on PracticeTask and PeerReview are NOT persisted (transient).
 - ReviewScore is mapped as a composite value object via a child table.
+- HelperMetrics.average_satisfaction (Decimal) is stored as String(10) and
+  converted by the repository layer.
 """
 
 from __future__ import annotations
+
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
@@ -25,6 +29,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     MetaData,
+    PrimaryKeyConstraint,
     String,
     Table,
     Text,
@@ -34,7 +39,9 @@ from sqlalchemy.orm import composite, registry, relationship
 from cohort_learning.domain.cohort_membership import CohortMembership
 from cohort_learning.domain.cohort_role import CohortRole
 from cohort_learning.domain.cohort_status import CohortStatus
+from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
@@ -44,6 +51,7 @@ from cohort_learning.domain.task_status import SubmissionStatus, TaskStatus
 from cohort_learning.domain.task_submission import TaskSubmission
 from cohort_learning.domain.topic import Topic
 from cohort_learning.domain.topic_competency import TopicCompetency
+from cohort_learning.domain.topic_expert import TopicExpert
 
 # ---------------------------------------------------------------------------
 # Registry (manages MetaData + class ↔ table mappings)
@@ -198,6 +206,43 @@ review_scores_table = Table(
     Column("comment", Text, nullable=False, default=""),
 )
 
+# --- Partner Progression tables ---
+
+topic_experts_table = Table(
+    "topic_experts",
+    metadata,
+    Column("expert_id", String(255), primary_key=True),
+    Column("learner_id", String(255), nullable=False),
+    Column("topic_id", String(255), nullable=False),
+    Column("cohort_id", String(255), nullable=False),
+    Column("validated_at", DateTime(timezone=True), nullable=False),
+    Column("validator_id", String(255), nullable=False),
+)
+
+helper_metrics_table = Table(
+    "helper_metrics",
+    metadata,
+    Column("learner_id", String(255), nullable=False),
+    Column("cohort_id", String(255), nullable=False),
+    Column("learners_helped", Integer, nullable=False, default=0),
+    Column("questions_answered", Integer, nullable=False, default=0),
+    Column("tasks_reviewed", Integer, nullable=False, default=0),
+    Column("average_satisfaction", String(10), nullable=True),  # Decimal as string
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("learner_id", "cohort_id"),
+)
+
+module_curators_table = Table(
+    "module_curators",
+    metadata,
+    Column("curator_id", String(255), primary_key=True),
+    Column("learner_id", String(255), nullable=False),
+    Column("module_id", String(255), nullable=False),
+    Column("cohort_id", String(255), nullable=False),
+    Column("promoted_at", DateTime(timezone=True), nullable=False),
+    Column("promoted_by", String(255), nullable=False),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
@@ -303,3 +348,11 @@ mapper_registry.map_imperatively(
         ),
     },
 )
+
+# --- Partner Progression mappings ---
+
+mapper_registry.map_imperatively(TopicExpert, topic_experts_table)
+
+mapper_registry.map_imperatively(HelperMetrics, helper_metrics_table)
+
+mapper_registry.map_imperatively(ModuleCurator, module_curators_table)

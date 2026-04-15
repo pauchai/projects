@@ -11,7 +11,7 @@ CURATOR_MIN_TASKS_REVIEWED = 5
 CURATOR_MIN_SATISFACTION = Decimal("4.0")
 
 
-@dataclass(frozen=True)
+@dataclass
 class HelperMetrics:
     """
     Aggregated view of a Peer Helper's activity and effectiveness.

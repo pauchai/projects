@@ -11,17 +11,25 @@ Repositories:
 - ``SqlAlchemyCohortRepository`` — LearningCohort aggregate
 - ``SqlAlchemyPracticeTaskRepository`` — PracticeTask aggregate (with submissions)
 - ``SqlAlchemyPeerReviewRepository`` — PeerReview aggregate (with ReviewScore conversion)
+- ``SqlAlchemyTopicExpertRepository`` — TopicExpert entity (no events)
+- ``SqlAlchemyHelperMetricsRepository`` — HelperMetrics entity (with Decimal conversion)
+- ``SqlAlchemyModuleCuratorRepository`` — ModuleCurator entity (no events)
 """
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
+from cohort_learning.domain.topic_expert import TopicExpert
 from cohort_learning.infrastructure.orm import ReviewScoreRecord
 
 
@@ -228,3 +236,161 @@ class SqlAlchemyPeerReviewRepository:
         # Initialise transient event list
         if not hasattr(review, "_events"):
             review._events = []
+
+
+class SqlAlchemyTopicExpertRepository:
+    """Implements TopicExpertRepository Protocol using SQLAlchemy ORM.
+
+    TopicExpert is a simple entity without domain events or value object
+    conversions. This repository provides basic CRUD operations.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    # ------------------------------------------------------------------
+    # Public interface (matches TopicExpertRepository Protocol)
+    # ------------------------------------------------------------------
+
+    def find_by_id(self, expert_id: str) -> TopicExpert | None:
+        """Load a TopicExpert by ID, or return None."""
+        return self._session.get(TopicExpert, expert_id)
+
+    def save(self, expert: TopicExpert) -> None:
+        """Persist a TopicExpert entity."""
+        self._session.merge(expert)
+        self._session.flush()
+
+    def find_by_learner_and_topic(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> TopicExpert | None:
+        """Find TopicExpert record for a specific learner, topic, and cohort."""
+        stmt = select(TopicExpert).where(
+            TopicExpert.learner_id == learner_id,  # type: ignore[attr-defined]
+            TopicExpert.topic_id == topic_id,  # type: ignore[attr-defined]
+            TopicExpert.cohort_id == cohort_id,  # type: ignore[attr-defined]
+        )
+        return self._session.scalars(stmt).first()
+
+    def find_by_cohort(self, cohort_id: str) -> list[TopicExpert]:
+        """Return all TopicExperts in a cohort."""
+        stmt = select(TopicExpert).where(
+            TopicExpert.cohort_id == cohort_id  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
+
+class SqlAlchemyHelperMetricsRepository:
+    """Implements HelperMetricsRepository Protocol using SQLAlchemy ORM.
+
+    HelperMetrics stores average_satisfaction as a Decimal in the domain,
+    but as String(10) in the database. This repository handles the conversion.
+    The table uses a composite primary key (learner_id, cohort_id).
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    # ------------------------------------------------------------------
+    # Public interface (matches HelperMetricsRepository Protocol)
+    # ------------------------------------------------------------------
+
+    def find_by_learner_and_cohort(
+        self, learner_id: str, cohort_id: str
+    ) -> HelperMetrics | None:
+        """Load HelperMetrics by composite key (learner_id, cohort_id)."""
+        # SQLAlchemy .get() with composite key uses tuple
+        metrics = self._session.get(HelperMetrics, (learner_id, cohort_id))
+        if metrics is None:
+            return None
+
+        self._reconstitute(metrics)
+        return metrics
+
+    def save(self, metrics: HelperMetrics) -> None:
+        """Persist HelperMetrics with Decimal → String conversion."""
+        # Convert Decimal → String for database storage
+        avg_satisfaction_str: str | None = None
+        if metrics.average_satisfaction is not None:
+            avg_satisfaction_str = str(metrics.average_satisfaction)
+
+        # Create a copy with the string value for ORM persistence
+        # (The ORM will handle the attribute assignment)
+        metrics_dict = {
+            "learner_id": metrics.learner_id,
+            "cohort_id": metrics.cohort_id,
+            "learners_helped": metrics.learners_helped,
+            "questions_answered": metrics.questions_answered,
+            "tasks_reviewed": metrics.tasks_reviewed,
+            "average_satisfaction": avg_satisfaction_str,  # type: ignore[dict-item]
+            "updated_at": metrics.updated_at,
+        }
+
+        # Merge will INSERT or UPDATE based on primary key
+        self._session.merge(HelperMetrics(**metrics_dict))  # type: ignore[arg-type]
+        self._session.flush()
+
+    def find_by_cohort(self, cohort_id: str) -> list[HelperMetrics]:
+        """Return all HelperMetrics for a cohort."""
+        stmt = select(HelperMetrics).where(
+            HelperMetrics.cohort_id == cohort_id  # type: ignore[attr-defined]
+        )
+        metrics_list = list(self._session.scalars(stmt).all())
+        for metrics in metrics_list:
+            self._reconstitute(metrics)
+        return metrics_list
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _reconstitute(metrics: HelperMetrics) -> None:
+        """Convert String → Decimal for average_satisfaction after load."""
+        avg_str = getattr(metrics, "average_satisfaction", None)
+        if avg_str is not None and isinstance(avg_str, str):
+            metrics.average_satisfaction = Decimal(avg_str)  # type: ignore[misc]
+        else:
+            metrics.average_satisfaction = None  # type: ignore[misc]
+
+
+class SqlAlchemyModuleCuratorRepository:
+    """Implements ModuleCuratorRepository Protocol using SQLAlchemy ORM.
+
+    ModuleCurator is a simple entity without domain events or value object
+    conversions. This repository provides basic CRUD operations.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    # ------------------------------------------------------------------
+    # Public interface (matches ModuleCuratorRepository Protocol)
+    # ------------------------------------------------------------------
+
+    def find_by_id(self, curator_id: str) -> ModuleCurator | None:
+        """Load a ModuleCurator by ID, or return None."""
+        return self._session.get(ModuleCurator, curator_id)
+
+    def save(self, curator: ModuleCurator) -> None:
+        """Persist a ModuleCurator entity."""
+        self._session.merge(curator)
+        self._session.flush()
+
+    def find_by_learner_and_module(
+        self, learner_id: str, module_id: str, cohort_id: str
+    ) -> ModuleCurator | None:
+        """Find ModuleCurator record for a specific learner, module, and cohort."""
+        stmt = select(ModuleCurator).where(
+            ModuleCurator.learner_id == learner_id,  # type: ignore[attr-defined]
+            ModuleCurator.module_id == module_id,  # type: ignore[attr-defined]
+            ModuleCurator.cohort_id == cohort_id,  # type: ignore[attr-defined]
+        )
+        return self._session.scalars(stmt).first()
+
+    def find_by_cohort(self, cohort_id: str) -> list[ModuleCurator]:
+        """Return all ModuleCurators in a cohort."""
+        stmt = select(ModuleCurator).where(
+            ModuleCurator.cohort_id == cohort_id  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
