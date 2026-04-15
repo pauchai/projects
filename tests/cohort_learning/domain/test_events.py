@@ -115,3 +115,104 @@ class TestCompetencyEvents:
         assert event.learner_id == "u1"
         assert event.task_id == "task1"
         assert event.topic_id == "t1"
+
+
+# --- Peer Review events ---
+
+
+class TestPeerReviewEvents:
+    """Events emitted by PracticeTask and PeerReview aggregates."""
+
+    def test_practice_task_created_is_domain_event(self) -> None:
+        from cohort_learning.domain.events import PracticeTaskCreated
+
+        event = PracticeTaskCreated(
+            task_id="task1",
+            cohort_id="c1",
+            topic_id="t1",
+            creator_id="master1",
+            title="Build a REST API",
+        )
+        assert isinstance(event, DomainEvent)
+
+    def test_practice_task_created_fields(self) -> None:
+        from cohort_learning.domain.events import PracticeTaskCreated
+
+        event = PracticeTaskCreated(
+            task_id="task1",
+            cohort_id="c1",
+            topic_id="t1",
+            creator_id="master1",
+            title="Build a REST API",
+        )
+        assert event.task_id == "task1"
+        assert event.cohort_id == "c1"
+        assert event.topic_id == "t1"
+        assert event.creator_id == "master1"
+        assert event.title == "Build a REST API"
+
+    def test_practice_task_created_is_frozen(self) -> None:
+        from cohort_learning.domain.events import PracticeTaskCreated
+
+        event = PracticeTaskCreated(
+            task_id="task1",
+            cohort_id="c1",
+            topic_id="t1",
+            creator_id="master1",
+            title="Build a REST API",
+        )
+        with pytest.raises(FrozenInstanceError):
+            event.task_id = "task2"  # type: ignore[misc]
+
+    def test_task_submission_created_fields(self) -> None:
+        from cohort_learning.domain.events import TaskSubmissionCreated
+
+        event = TaskSubmissionCreated(
+            submission_id="sub1",
+            task_id="task1",
+            learner_id="learner1",
+            cohort_id="c1",
+        )
+        assert event.submission_id == "sub1"
+        assert event.task_id == "task1"
+        assert event.learner_id == "learner1"
+        assert event.cohort_id == "c1"
+
+    def test_task_submission_created_is_domain_event(self) -> None:
+        from cohort_learning.domain.events import TaskSubmissionCreated
+
+        event = TaskSubmissionCreated(
+            submission_id="sub1",
+            task_id="task1",
+            learner_id="learner1",
+            cohort_id="c1",
+        )
+        assert isinstance(event, DomainEvent)
+
+    def test_peer_review_submitted_fields(self) -> None:
+        from cohort_learning.domain.events import PeerReviewSubmitted
+
+        event = PeerReviewSubmitted(
+            review_id="rev1",
+            submission_id="sub1",
+            reviewer_id="learner2",
+            task_id="task1",
+            cohort_id="c1",
+        )
+        assert event.review_id == "rev1"
+        assert event.submission_id == "sub1"
+        assert event.reviewer_id == "learner2"
+        assert event.task_id == "task1"
+        assert event.cohort_id == "c1"
+
+    def test_peer_review_submitted_is_domain_event(self) -> None:
+        from cohort_learning.domain.events import PeerReviewSubmitted
+
+        event = PeerReviewSubmitted(
+            review_id="rev1",
+            submission_id="sub1",
+            reviewer_id="learner2",
+            task_id="task1",
+            cohort_id="c1",
+        )
+        assert isinstance(event, DomainEvent)

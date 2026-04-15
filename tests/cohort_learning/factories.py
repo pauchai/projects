@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_progression import ModuleProgression
+from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.topic import Topic
 from tests.cohort_learning.fakes.fake_unit_of_work import FakeUnitOfWork
 
@@ -63,4 +65,58 @@ def save_cohort(uow: FakeUnitOfWork, cohort: LearningCohort) -> None:
     """Persist a cohort into the FakeUnitOfWork (opens UoW, saves, commits)."""
     with uow:
         uow.cohorts.save(cohort)
+        uow.commit()
+
+
+# --- Practice task factories ---
+
+
+def make_task(**overrides: object) -> PracticeTask:
+    """Create a PracticeTask in Draft status with sensible defaults."""
+    defaults: dict = dict(
+        task_id="task1",
+        cohort_id="c1",
+        topic_id="t1",
+        creator_id="master1",
+        title="Build a REST API",
+    )
+    defaults.update(overrides)
+    return PracticeTask(**defaults)
+
+
+def make_active_task(**overrides: object) -> PracticeTask:
+    """Create a PracticeTask in Active status (ready to accept submissions)."""
+    task = make_task(**overrides)
+    task.activate()
+    task.collect_events()
+    return task
+
+
+def save_task(uow: FakeUnitOfWork, task: PracticeTask) -> None:
+    """Persist a task into the FakeUnitOfWork (opens UoW, saves, commits)."""
+    with uow:
+        uow.practice_tasks.save(task)
+        uow.commit()
+
+
+# --- Peer review factories ---
+
+
+def make_review(**overrides: object) -> PeerReview:
+    """Create a PeerReview in Draft status with sensible defaults."""
+    defaults: dict = dict(
+        review_id="rev1",
+        submission_id="sub1",
+        reviewer_id="learner2",
+        task_id="task1",
+        cohort_id="c1",
+    )
+    defaults.update(overrides)
+    return PeerReview(**defaults)
+
+
+def save_review(uow: FakeUnitOfWork, review: PeerReview) -> None:
+    """Persist a review into the FakeUnitOfWork (opens UoW, saves, commits)."""
+    with uow:
+        uow.peer_reviews.save(review)
         uow.commit()

@@ -3,6 +3,8 @@
 from typing import Protocol
 
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.practice_task import PracticeTask
 
 
 class CohortRepository(Protocol):
@@ -11,6 +13,26 @@ class CohortRepository(Protocol):
     def find_by_id(self, cohort_id: str) -> LearningCohort | None: ...
 
     def save(self, cohort: LearningCohort) -> None: ...
+
+
+class PracticeTaskRepository(Protocol):
+    """Port for persisting and querying PracticeTasks."""
+
+    def find_by_id(self, task_id: str) -> PracticeTask | None: ...
+
+    def save(self, task: PracticeTask) -> None: ...
+
+    def find_by_cohort(self, cohort_id: str) -> list[PracticeTask]: ...
+
+
+class PeerReviewRepository(Protocol):
+    """Port for persisting and querying PeerReviews."""
+
+    def find_by_id(self, review_id: str) -> PeerReview | None: ...
+
+    def save(self, review: PeerReview) -> None: ...
+
+    def find_by_submission(self, submission_id: str) -> list[PeerReview]: ...
 
 
 class UnitOfWork(Protocol):
@@ -30,6 +52,8 @@ class UnitOfWork(Protocol):
     """
 
     cohorts: CohortRepository
+    practice_tasks: PracticeTaskRepository
+    peer_reviews: PeerReviewRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

@@ -80,3 +80,32 @@ class PracticeTaskCompleted(DomainEvent):
     learner_id: str
     task_id: str
     topic_id: str
+
+
+# --- Peer review events ---
+
+
+@dataclass(frozen=True)
+class PracticeTaskCreated(DomainEvent):
+    task_id: str
+    cohort_id: str
+    topic_id: str
+    creator_id: str
+    title: str
+
+
+@dataclass(frozen=True)
+class TaskSubmissionCreated(DomainEvent):
+    submission_id: str
+    task_id: str
+    learner_id: str
+    cohort_id: str
+
+
+@dataclass(frozen=True)
+class PeerReviewSubmitted(DomainEvent):
+    review_id: str
+    submission_id: str
+    reviewer_id: str
+    task_id: str
+    cohort_id: str
