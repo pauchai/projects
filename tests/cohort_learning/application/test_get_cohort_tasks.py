@@ -22,7 +22,7 @@ class TestGetCohortTasksUseCase:
         save_cohort(uow, make_active_cohort())
         use_case = GetCohortTasksUseCase(uow=uow)
 
-        result = use_case.execute(cohort_id="c1")
+        result = use_case.execute(cohort_id="c1", caller_id="learner1")
 
         assert result == []
 
@@ -33,7 +33,7 @@ class TestGetCohortTasksUseCase:
         save_task(uow, make_active_task(task_id="t2", cohort_id="c1"))
         use_case = GetCohortTasksUseCase(uow=uow)
 
-        result = use_case.execute(cohort_id="c1")
+        result = use_case.execute(cohort_id="c1", caller_id="learner1")
 
         assert len(result) == 2
         task_ids = {t.task_id for t in result}
@@ -47,7 +47,7 @@ class TestGetCohortTasksUseCase:
         save_task(uow, make_task(task_id="t2", cohort_id="c2"))
         use_case = GetCohortTasksUseCase(uow=uow)
 
-        result = use_case.execute(cohort_id="c1")
+        result = use_case.execute(cohort_id="c1", caller_id="learner1")
 
         assert len(result) == 1
         assert result[0].task_id == "t1"
@@ -57,4 +57,13 @@ class TestGetCohortTasksUseCase:
         use_case = GetCohortTasksUseCase(uow=uow)
 
         with pytest.raises(LookupError, match="not found"):
-            use_case.execute(cohort_id="nonexistent")
+            use_case.execute(cohort_id="nonexistent", caller_id="user1")
+
+    def test_raises_when_caller_not_member(self) -> None:
+        """Non-members cannot list cohort tasks."""
+        uow = FakeUnitOfWork()
+        save_cohort(uow, make_active_cohort(cohort_id="c1"))
+        use_case = GetCohortTasksUseCase(uow=uow)
+
+        with pytest.raises(PermissionError, match="not an active member"):
+            use_case.execute(cohort_id="c1", caller_id="non_member")
