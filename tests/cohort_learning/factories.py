@@ -1,6 +1,7 @@
 """Shared test factories for the cohort_learning domain.
 
 All factories produce domain objects with sensible defaults.
+Use ``save_cohort(uow, cohort)`` to persist into a FakeUnitOfWork.
 """
 
 from __future__ import annotations
@@ -8,6 +9,7 @@ from __future__ import annotations
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.topic import Topic
+from tests.cohort_learning.fakes.fake_unit_of_work import FakeUnitOfWork
 
 
 def make_module(**overrides: object) -> ModuleProgression:
@@ -55,3 +57,10 @@ def make_active_cohort(learner_count: int = 5, **overrides: object) -> LearningC
     cohort.activate()
     cohort.collect_events()
     return cohort
+
+
+def save_cohort(uow: FakeUnitOfWork, cohort: LearningCohort) -> None:
+    """Persist a cohort into the FakeUnitOfWork (opens UoW, saves, commits)."""
+    with uow:
+        uow.cohorts.save(cohort)
+        uow.commit()
