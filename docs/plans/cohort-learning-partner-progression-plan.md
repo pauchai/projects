@@ -308,36 +308,216 @@ CREATE INDEX idx_reward_type ON reward_ledger (reward_type);
 
 ---
 
-### Phase C: Monetary Rewards Integration ⭐ **DEFERRED**
+### Phase C: Monetary Rewards Integration ⭐
 
-**Reason:** Requires Partnership bounded context to be implemented first.
+**Branch:** `feat/partnership-monetary-rewards`
 
-**When to implement:**
-- After Partnership context exists
-- After commission calculation logic defined
-- After hold period and payout rules established
-
-**What to implement:**
-- `MonetaryReward` value object
-- `CalculateCurationCommissionUseCase`
-- Domain events: `CurationCommissionEarned`, `QualityBonusEarned`
-- Event publisher to Partnership context
+**Business rules:**
+- Commission = `base_rate (10%) * cohort_size * curator_score`
+- `curator_score` = `tasks_reviewed * 3 + learners_helped * 2` (from HelperMetrics)
+- Hold period = 30 days after cohort graduation
+- Minimum payout threshold = 50 units
+- Quality bonus = +5% if avg peer review score > 4.5
 
 ---
 
-### Phase D: Domain Sagas ⭐ **DEFERRED**
+#### Stage 10: Partnership Domain Layer
 
-**Reason:** Requires cross-context integration (Projects, Learning, Partnership).
+**Scope:** Core domain model for the Partnership bounded context
 
-**When to implement:**
-- After Learning Project Integration (V2)
-- After Partnership context exists
-- After event bus infrastructure is ready
+**Files to create:**
+- `src/partnership/__init__.py`
+- `src/partnership/domain/__init__.py`
+- `src/partnership/domain/commission.py` — `CommissionStatus` enum, `Commission` aggregate
+- `src/partnership/domain/value_objects.py` — `Payout` VO, `HoldPolicy` VO
+- `src/partnership/domain/events.py` — `CurationCommissionEarned`, `QualityBonusEarned`, `PayoutReleased`
+- `src/partnership/domain/ports.py` — `CommissionRepository` Protocol, `UnitOfWork` Protocol
 
-**What to implement:**
-- Competency Achievement Saga
-- Cohort Graduation Saga
-- Curator Promotion Saga
+**Commission aggregate fields:**
+- `commission_id: str`
+- `curator_id: str`
+- `cohort_id: str`
+- `module_id: str`
+- `base_amount: Decimal`
+- `bonus_amount: Decimal`
+- `status: CommissionStatus` (PENDING | RELEASED)
+- `earned_at: datetime`
+- `release_eligible_at: datetime` (= earned_at + 30 days)
+- `released_at: datetime | None`
+- `_events: list`
+
+**Domain rules:**
+- Commission cannot be released before `release_eligible_at`
+- Commission cannot be released if total (`base_amount + bonus_amount`) < 50
+- Once RELEASED, status is final (immutable)
+- Quality bonus is a separate amount (not modifying base_amount)
+
+**Tests:** 20-25 unit tests (TDD)
+
+---
+
+#### Stage 11: Partnership Application Layer
+
+**Scope:** Use cases and cross-context ACL handler
+
+**Files to create:**
+- `src/partnership/application/__init__.py`
+- `src/partnership/application/calculate_curation_commission.py` — `CalculateCurationCommissionUseCase`
+- `src/partnership/application/release_payout.py` — `ReleasePayoutUseCase`
+- `src/partnership/application/get_curator_earnings.py` — `GetCuratorEarningsUseCase`
+- `src/partnership/application/event_handlers/__init__.py`
+- `src/partnership/application/event_handlers/cohort_graduated_handler.py` — `CohortGraduatedHandler` (ACL)
+
+**`CalculateCurationCommissionUseCase` logic:**
+- Input: `cohort_id`, `curator_id`, `module_id`, `cohort_size`, `curator_score`, `avg_review_score`
+- Compute `base_amount = 0.10 * cohort_size * curator_score`
+- If `avg_review_score > 4.5`: `bonus_amount = base_amount * 0.05`, emit `QualityBonusEarned`
+- Create `Commission` aggregate, emit `CurationCommissionEarned`
+- Save via UoW
+
+**`ReleasePayoutUseCase` logic:**
+- Input: `commission_id`, `curator_id`
+- Load commission, verify ownership (`curator_id` matches)
+- Call `commission.release(now)` — raises if hold period not elapsed or below threshold
+- Save via UoW, emit `PayoutReleased`
+
+**`CohortGraduatedHandler` (ACL) logic:**
+- Listens to `CohortGraduated` domain event (from cohort_learning)
+- Reads `cohort_size` and curator metrics from cohort UoW (cross-context read)
+- For each curator of the module: calls `CalculateCurationCommissionUseCase`
+- Lives in `src/partnership/` (not in cohort_learning)
+
+**Tests:** 25-30 application tests (with `FakeUnitOfWork`)
+
+---
+
+#### Stage 12: Partnership Infrastructure + API
+
+**Scope:** Persistence and REST endpoints
+
+**Files to create:**
+- `src/partnership/infrastructure/__init__.py`
+- `src/partnership/infrastructure/orm.py` — imperative mapping for `Commission`
+- `src/partnership/infrastructure/sqlalchemy_commission_repository.py`
+- `src/partnership/infrastructure/sqlalchemy_unit_of_work.py`
+- `migrations/versions/{hash}_add_commissions_table.py` (down_revision = `"4ef6xquy94pz"`)
+- `src/partnership/api/__init__.py`
+- `src/partnership/api/schemas.py`
+- `src/partnership/api/routes/earnings.py`
+
+**Database schema:**
+```sql
+CREATE TABLE commissions (
+    commission_id   VARCHAR(255) PRIMARY KEY,
+    curator_id      VARCHAR(255) NOT NULL,
+    cohort_id       VARCHAR(255) NOT NULL,
+    module_id       VARCHAR(255) NOT NULL,
+    base_amount     NUMERIC(12,2) NOT NULL,
+    bonus_amount    NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status          VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    earned_at       TIMESTAMPTZ NOT NULL,
+    release_eligible_at TIMESTAMPTZ NOT NULL,
+    released_at     TIMESTAMPTZ
+);
+
+CREATE INDEX idx_commissions_curator ON commissions (curator_id);
+CREATE INDEX idx_commissions_cohort  ON commissions (cohort_id);
+```
+
+**Endpoints:**
+- `GET /me/earnings` — current curator's pending + released commissions summary
+- `GET /me/earnings/history` — paginated commission entries
+- `POST /me/earnings/{commission_id}/release` — manually release a payout (checks hold period + threshold)
+
+**Tests:** 10-15 integration tests
+
+---
+
+#### Stage 13: EventBus Wiring
+
+**Scope:** Connect all event handlers via `InProcessEventBus` in app lifespan
+
+**File to modify:**
+- `src/project_collaboration/api/app.py` — add lifespan, Partnership router, EventBus singleton
+
+**Subscriptions to wire:**
+- `CohortGraduated` → `CohortGraduatedHandler`
+- `PeerReviewSubmitted` → `PeerReviewSubmittedRewardHandler`
+- `HelperMetricsUpdated` → `HelperMetricsUpdatedRewardHandler`
+- `TopicExpertPromoted` → `TopicExpertPromotedRewardHandler`
+
+**DI changes:**
+- Create `InProcessEventBus` singleton in lifespan
+- Pass `event_bus` to both `SqlAlchemyUnitOfWork` (cohort_learning) and `SqlAlchemyUnitOfWork` (partnership) via FastAPI dependency overrides
+
+**Tests:** 8-10 integration tests verifying end-to-end event flow
+
+---
+
+### Phase D: Domain Sagas ⭐
+
+**Sagas coordinate multi-step cross-aggregate workflows by listening to events and triggering further actions. They do NOT contain business logic — they delegate to use cases.**
+
+---
+
+#### Stage 14: CompetencyAchievementSaga (cohort_learning)
+
+**Scope:** Auto-check competency prerequisites when peer reviews arrive
+
+**Files to create:**
+- `src/cohort_learning/application/sagas/__init__.py`
+- `src/cohort_learning/application/sagas/competency_achievement_saga.py`
+
+**Logic:**
+- Listens to `PeerReviewSubmitted`
+- Checks if the reviewed learner has:
+  1. All tasks for that topic completed
+  2. Minimum 2 peer reviews received for the topic
+- If both conditions met: records competency progress (NOT a promotion — marks learner as "eligible for validation")
+- Does NOT auto-promote; full promotion still requires manual call with `knowledge_check_score` and `mentor_approved`
+
+**Tests:** 10-15 unit tests + 5 integration tests
+
+---
+
+#### Stage 15: CohortGraduationSaga (partnership)
+
+**Scope:** Trigger commission calculations when a cohort graduates
+
+**Files to create:**
+- `src/partnership/application/sagas/__init__.py`
+- `src/partnership/application/sagas/cohort_graduation_saga.py`
+
+**Logic:**
+- Listens to `CohortGraduated`
+- Queries all `ModuleCurator` records for the cohort's module
+- For each curator: reads their `HelperMetrics` to compute `curator_score`
+- Queries avg peer review score for the cohort
+- Calls `CalculateCurationCommissionUseCase` per curator
+- Emits `CurationCommissionEarned` (and optionally `QualityBonusEarned`) per curator
+
+**Tests:** 10-15 unit tests + 5 integration tests
+
+---
+
+#### Stage 16: CuratorPromotionSaga (cohort_learning)
+
+**Scope:** Notify when a helper becomes eligible for curator promotion
+
+**Files to create:**
+- `src/cohort_learning/application/sagas/curator_promotion_saga.py`
+
+**Logic:**
+- Listens to `HelperMetricsUpdated`
+- Checks thresholds:
+  - `learners_helped >= 3`
+  - `tasks_reviewed >= 5`
+  - `average_satisfaction >= 4.0`
+- If all thresholds met: emits `CuratorPromotionEligible` event (notification only)
+- Full promotion still requires master to call `PromoteToModuleCuratorUseCase`
+- Idempotent: does NOT re-emit if already eligible (check existing `ModuleCurator` record)
+
+**Tests:** 10-12 unit tests + 5 integration tests
 
 ---
 
