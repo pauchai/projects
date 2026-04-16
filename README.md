@@ -366,6 +366,34 @@ npx playwright show-report
 Authenticated sessions are stored in `frontend/e2e/.auth/` (git-ignored) and
 reused across all tests in a run without going through the login UI.
 
+#### Running E2E against the Docker dev stack (Traefik)
+
+If you prefer to run tests against the full Docker stack instead of starting
+services manually, bring up the dev overlay first:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+Then point Playwright at the Traefik endpoints via environment variables:
+
+```bash
+cd frontend
+E2E_BACKEND_URL=http://app.localhost/api \
+E2E_FRONTEND_URL=http://app.localhost \
+npm run test:e2e
+```
+
+`E2E_DATABASE_URL` defaults to `postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test`
+and works as-is because `postgres-test` exposes port 5433 on the host in both
+configurations.
+
+When `E2E_FRONTEND_URL` is set to anything other than `http://localhost:5173`
+Playwright skips starting the Vite dev server (the frontend is already served
+by the Docker container).
+
+See `frontend/.env.e2e.example` for a reference of all available variables.
+
 ## Docker (Full Stack)
 
 The project uses a **base + overlay** Docker Compose architecture with

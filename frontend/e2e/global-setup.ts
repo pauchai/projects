@@ -24,7 +24,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Configuration
 // ---------------------------------------------------------------------------
 
-const BACKEND_URL = "http://localhost:8000"
+const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8000"
+const FRONTEND_URL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173"
+const DATABASE_URL =
+  process.env.E2E_DATABASE_URL ??
+  "postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test"
 const AUTH_DIR = path.join(__dirname, ".auth")
 
 /** Test personas used across all E2E scenarios. */
@@ -76,7 +80,7 @@ function buildStorageState(
     cookies: [],
     origins: [
       {
-        origin: "http://localhost:5173",
+        origin: FRONTEND_URL,
         localStorage: [{ name: "auth-storage", value: authValue }],
       },
     ],
@@ -99,8 +103,7 @@ export default async function globalSetup() {
       cwd: projectRoot,
       env: {
         ...process.env,
-        DATABASE_URL:
-          "postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test",
+        DATABASE_URL,
         PYTHONPATH: "src",
       },
       stdio: "pipe",

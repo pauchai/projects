@@ -11,7 +11,18 @@ import { defineConfig, devices } from "@playwright/test"
  *
  * Then:
  *   cd frontend && npx playwright test
+ *
+ * To run against the Docker dev stack (Traefik at app.localhost):
+ *   E2E_FRONTEND_URL=http://app.localhost \
+ *   E2E_BACKEND_URL=http://app.localhost/api \
+ *   npm run test:e2e
+ *
+ * See .env.e2e.example for all available env variables.
  */
+
+const FRONTEND_URL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173"
+const isLocalVite = FRONTEND_URL === "http://localhost:5173"
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
@@ -31,7 +42,7 @@ export default defineConfig({
   reporter: [["html", { outputFolder: "playwright-report", open: "never" }], ["list"]],
 
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: FRONTEND_URL,
     // Capture screenshot + trace on first retry to aid debugging
     screenshot: "only-on-failure",
     trace: "on-first-retry",
@@ -46,11 +57,15 @@ export default defineConfig({
     },
   ],
 
-  // Vite dev server — Playwright starts it automatically if not already running
-  webServer: {
-    command: "npm run dev",
-    port: 5173,
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
+  // Vite dev server — only started when targeting the local Vite instance.
+  // When E2E_FRONTEND_URL points to a Docker/Traefik host the frontend is
+  // already running and webServer is omitted entirely.
+  ...(isLocalVite && {
+    webServer: {
+      command: "npm run dev",
+      port: 5173,
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  }),
 })

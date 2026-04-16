@@ -24,7 +24,7 @@ import { test as base, type BrowserContext, type Page, request as pwRequest } fr
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const AUTH_DIR = path.join(__dirname, ".auth")
 
-export const BACKEND_URL = "http://localhost:8000"
+export const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8000"
 
 // ---------------------------------------------------------------------------
 // Auth state paths (written by global-setup.ts)
