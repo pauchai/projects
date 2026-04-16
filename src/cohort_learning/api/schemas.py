@@ -237,3 +237,39 @@ class MessageResponse(BaseModel):
     """Generic success/info response."""
 
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Response schemas — Rewards
+# ---------------------------------------------------------------------------
+
+
+class RewardBalanceResponse(BaseModel):
+    """Serialized RewardBalance — current accumulated rewards for a learner."""
+
+    learner_id: str
+    total_xp: int
+    total_credits: int
+    badges: list[str]
+    reputation_score: int | None
+
+
+class RewardEntryResponse(BaseModel):
+    """Serialized RewardEntry — a single reward ledger entry."""
+
+    entry_id: str
+    learner_id: str
+    reward_type: str
+    amount: int | None
+    metadata: dict[str, str]
+    granted_at: datetime
+    triggering_event: str | None
+    cohort_id: str | None
+
+
+class LeaderboardEntryResponse(BaseModel):
+    """A single entry in the cohort XP leaderboard."""
+
+    learner_id: str
+    total_xp: int
+    rank: int
