@@ -399,6 +399,13 @@ class SqlAlchemyModuleCuratorRepository:
         )
         return list(self._session.scalars(stmt).all())
 
+    def find_by_module(self, module_id: str) -> list[ModuleCurator]:
+        """Return all ModuleCurators for a given module."""
+        stmt = select(ModuleCurator).where(
+            ModuleCurator.module_id == module_id  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
 
 class SqlAlchemyTopicCompetencyRepository:
     """Implements TopicCompetencyRepository Protocol using SQLAlchemy ORM."""
