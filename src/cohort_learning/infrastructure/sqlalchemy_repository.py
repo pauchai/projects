@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session, selectinload
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
+from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.pending_competency_validation import (
     PendingCompetencyValidation,
@@ -36,6 +37,7 @@ from cohort_learning.domain.pending_curator_promotion import PendingCuratorPromo
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
 from cohort_learning.domain.reward_ledger import RewardLedger
+from cohort_learning.domain.topic import Topic
 from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 from cohort_learning.infrastructure.orm import (
@@ -602,3 +604,39 @@ class SqlAlchemyPendingCuratorPromotionRepository:
             PendingCuratorPromotion.cohort_id == cohort_id,  # type: ignore[attr-defined]
         )
         return self._session.scalars(stmt).first()
+
+
+class SqlAlchemyModuleProgressionRepository:
+    """Implements ModuleProgressionRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_id(self, module_id: str) -> ModuleProgression | None:
+        """Load a ModuleProgression with its topics, or return None."""
+        return self._session.get(
+            ModuleProgression,
+            module_id,
+            options=[selectinload(ModuleProgression._topics)],  # type: ignore[attr-defined]
+        )
+
+    def save(self, module: ModuleProgression) -> None:
+        """Persist a ModuleProgression (module + topics via ORM cascade)."""
+        self._session.merge(module)
+        self._session.flush()
+
+    def find_by_master(self, master_id: str) -> list[ModuleProgression]:
+        """Return all modules owned by a given master."""
+        stmt = (
+            select(ModuleProgression)
+            .where(ModuleProgression.master_id == master_id)  # type: ignore[attr-defined]
+            .options(selectinload(ModuleProgression._topics))  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
+    def find_all(self) -> list[ModuleProgression]:
+        """Return all modules (public catalog)."""
+        stmt = select(ModuleProgression).options(
+            selectinload(ModuleProgression._topics)  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())

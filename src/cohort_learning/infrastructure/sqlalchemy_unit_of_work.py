@@ -5,13 +5,14 @@ domain events collected during ``save()`` are published **after** a
 successful ``commit()``.  If no bus is given, events are silently
 discarded — this keeps the system backward-compatible and testable.
 
-Exposes nine repositories:
+Exposes ten repositories:
 - ``cohorts`` — SqlAlchemyCohortRepository
 - ``practice_tasks`` — SqlAlchemyPracticeTaskRepository
 - ``peer_reviews`` — SqlAlchemyPeerReviewRepository
 - ``topic_experts`` — SqlAlchemyTopicExpertRepository
 - ``helper_metrics`` — SqlAlchemyHelperMetricsRepository
 - ``module_curators`` — SqlAlchemyModuleCuratorRepository
+- ``modules`` — SqlAlchemyModuleProgressionRepository
 - ``reward_ledgers`` — SqlAlchemyRewardLedgerRepository
 - ``pending_competency_validations`` — SqlAlchemyPendingCompetencyValidationRepository
 - ``pending_curator_promotions`` — SqlAlchemyPendingCuratorPromotionRepository
@@ -26,6 +27,7 @@ from cohort_learning.infrastructure.sqlalchemy_repository import (
     SqlAlchemyCohortRepository,
     SqlAlchemyHelperMetricsRepository,
     SqlAlchemyModuleCuratorRepository,
+    SqlAlchemyModuleProgressionRepository,
     SqlAlchemyPeerReviewRepository,
     SqlAlchemyPendingCompetencyValidationRepository,
     SqlAlchemyPendingCuratorPromotionRepository,
@@ -60,6 +62,7 @@ class SqlAlchemyUnitOfWork:
         self.topic_experts = SqlAlchemyTopicExpertRepository(self._session)
         self.helper_metrics = SqlAlchemyHelperMetricsRepository(self._session)
         self.module_curators = SqlAlchemyModuleCuratorRepository(self._session)
+        self.modules = SqlAlchemyModuleProgressionRepository(self._session)
         self.topic_competencies = SqlAlchemyTopicCompetencyRepository(self._session)
         self.reward_ledgers = SqlAlchemyRewardLedgerRepository(self._session, self)
         self.pending_competency_validations = (

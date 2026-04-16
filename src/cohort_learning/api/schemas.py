@@ -298,3 +298,43 @@ class PendingCuratorPromotionResponse(BaseModel):
     module_id: str
     cohort_id: str
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Request / Response schemas — Modules & Topics
+# ---------------------------------------------------------------------------
+
+
+class CreateModuleRequest(BaseModel):
+    """Request body for POST /modules."""
+
+    module_id: str
+    title: str
+
+
+class AddTopicRequest(BaseModel):
+    """Request body for POST /modules/{module_id}/topics."""
+
+    topic_id: str
+    title: str
+    position: int
+    description: str = ""
+
+
+class TopicResponse(BaseModel):
+    """Serialized Topic."""
+
+    topic_id: str
+    title: str
+    position: int
+    description: str
+
+
+class ModuleResponse(BaseModel):
+    """Serialized ModuleProgression with topics."""
+
+    module_id: str
+    title: str
+    master_id: str
+    topics: list[TopicResponse]
+    topic_count: int

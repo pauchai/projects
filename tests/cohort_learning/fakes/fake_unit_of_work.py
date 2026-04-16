@@ -5,6 +5,7 @@ import copy
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
+from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.pending_competency_validation import (
     PendingCompetencyValidation,
@@ -190,6 +191,31 @@ class _FakeTopicCompetencyRepository:
         self._storage = snapshot
 
 
+class _FakeModuleProgressionRepository:
+    """In-memory ModuleProgressionRepository used within FakeUnitOfWork."""
+
+    def __init__(self) -> None:
+        self._storage: dict[str, ModuleProgression] = {}
+
+    def find_by_id(self, module_id: str) -> ModuleProgression | None:
+        return self._storage.get(module_id)
+
+    def save(self, module: ModuleProgression) -> None:
+        self._storage[module.module_id] = module
+
+    def find_by_master(self, master_id: str) -> list[ModuleProgression]:
+        return [m for m in self._storage.values() if m.master_id == master_id]
+
+    def find_all(self) -> list[ModuleProgression]:
+        return list(self._storage.values())
+
+    def snapshot(self) -> dict[str, ModuleProgression]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, ModuleProgression]) -> None:
+        self._storage = snapshot
+
+
 class _FakeModuleCuratorRepository:
     """In-memory ModuleCuratorRepository used within FakeUnitOfWork."""
 
@@ -325,6 +351,7 @@ class FakeUnitOfWork:
         self.topic_experts = _FakeTopicExpertRepository(self)
         self.helper_metrics = _FakeHelperMetricsRepository(self)
         self.module_curators = _FakeModuleCuratorRepository(self)
+        self.modules = _FakeModuleProgressionRepository()
         self.topic_competencies = _FakeTopicCompetencyRepository(self)
         self.reward_ledgers = _FakeRewardLedgerRepository(self)
         self.pending_competency_validations = (
@@ -345,6 +372,7 @@ class FakeUnitOfWork:
             "topic_experts": self.topic_experts.snapshot(),
             "helper_metrics": self.helper_metrics.snapshot(),
             "module_curators": self.module_curators.snapshot(),
+            "modules": self.modules.snapshot(),
             "topic_competencies": self.topic_competencies.snapshot(),
             "reward_ledgers": self.reward_ledgers.snapshot(),
             "pending_competency_validations": self.pending_competency_validations.snapshot(),
@@ -372,6 +400,7 @@ class FakeUnitOfWork:
             self.topic_experts.restore(self._snapshots["topic_experts"])  # type: ignore[arg-type]
             self.helper_metrics.restore(self._snapshots["helper_metrics"])  # type: ignore[arg-type]
             self.module_curators.restore(self._snapshots["module_curators"])  # type: ignore[arg-type]
+            self.modules.restore(self._snapshots["modules"])  # type: ignore[arg-type]
             self.topic_competencies.restore(self._snapshots["topic_competencies"])  # type: ignore[arg-type]
             self.reward_ledgers.restore(self._snapshots["reward_ledgers"])  # type: ignore[arg-type]
             self.pending_competency_validations.restore(

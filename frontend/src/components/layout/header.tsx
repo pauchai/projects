@@ -42,6 +42,12 @@ export function Header() {
               Features
             </Link>
             <Link
+              to="/modules"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Modules
+            </Link>
+            <Link
               to="/cohorts"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -118,6 +124,13 @@ export function Header() {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Features
+            </Link>
+            <Link
+              to="/modules"
+              onClick={closeMenu}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Modules
             </Link>
             <Link
               to="/cohorts"

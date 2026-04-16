@@ -422,3 +422,34 @@ export interface RewardEntryResponse {
   triggering_event: string | null
   cohort_id: string | null
 }
+
+// ---------------------------------------------------------------------------
+// Modules & Topics
+// ---------------------------------------------------------------------------
+
+export interface TopicResponse {
+  topic_id: string
+  title: string
+  position: number
+  description: string
+}
+
+export interface ModuleResponse {
+  module_id: string
+  title: string
+  master_id: string
+  topics: TopicResponse[]
+  topic_count: number
+}
+
+export interface CreateModuleRequest {
+  module_id: string
+  title: string
+}
+
+export interface AddTopicRequest {
+  topic_id: string
+  title: string
+  position: number
+  description: string
+}

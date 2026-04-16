@@ -5,6 +5,7 @@ from typing import Protocol
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
+from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.pending_competency_validation import (
     PendingCompetencyValidation,
@@ -132,6 +133,18 @@ class PendingCuratorPromotionRepository(Protocol):
     ) -> PendingCuratorPromotion | None: ...
 
 
+class ModuleProgressionRepository(Protocol):
+    """Port for persisting and querying ModuleProgressions."""
+
+    def find_by_id(self, module_id: str) -> ModuleProgression | None: ...
+
+    def save(self, module: ModuleProgression) -> None: ...
+
+    def find_by_master(self, master_id: str) -> list[ModuleProgression]: ...
+
+    def find_all(self) -> list[ModuleProgression]: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -154,6 +167,7 @@ class UnitOfWork(Protocol):
     topic_experts: TopicExpertRepository
     helper_metrics: HelperMetricsRepository
     module_curators: ModuleCuratorRepository
+    modules: ModuleProgressionRepository
     topic_competencies: TopicCompetencyRepository
     reward_ledgers: RewardLedgerRepository
     pending_competency_validations: PendingCompetencyValidationRepository

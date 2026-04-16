@@ -20,6 +20,9 @@ import { CohortsListPage } from "@/pages/cohorts-list"
 import { CreateCohortPage } from "@/pages/create-cohort"
 import { CohortDetailPage } from "@/pages/cohort-detail"
 import { CohortDashboardPage } from "@/pages/cohort-dashboard"
+import { ModulesListPage } from "@/pages/modules-list"
+import { CreateModulePage } from "@/pages/create-module"
+import { ModuleDetailPage } from "@/pages/module-detail"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,17 +102,41 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <CohortDetailPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/cohorts/:cohortId/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <CohortDashboardPage />
-                  </ProtectedRoute>
-                }
-              />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/cohorts/:cohortId/dashboard"
+                 element={
+                   <ProtectedRoute>
+                     <CohortDashboardPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules"
+                 element={
+                   <ProtectedRoute>
+                     <ModulesListPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules/new"
+                 element={
+                   <ProtectedRoute>
+                     <CreateModulePage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules/:moduleId"
+                 element={
+                   <ProtectedRoute>
+                     <ModuleDetailPage />
+                   </ProtectedRoute>
+                 }
+               />
               <Route
                 path="/profile"
                 element={
