@@ -43,3 +43,19 @@ def require_cohort_member(cohort: LearningCohort, learner_id: str) -> None:
         raise PermissionError(
             f"Learner '{learner_id}' is not an active member of this cohort"
         )
+
+
+def require_master_or_member(cohort: LearningCohort, caller_id: str) -> None:
+    """Raise PermissionError if caller is neither the cohort master nor an active member.
+
+    The cohort master can always access cohort data even without a membership record.
+    Any active enrolled member is also allowed.
+    """
+    if cohort.master_id == caller_id:
+        return
+    membership = cohort.find_membership_by_learner_id(caller_id)
+    if membership is not None:
+        return
+    raise PermissionError(
+        f"User '{caller_id}' is not the cohort master or an active member of this cohort"
+    )

@@ -389,7 +389,7 @@ class TestGetCohortTasks:
         resp = api_client.get("/cohorts/c1/tasks", headers=NON_MEMBER_HEADERS)
 
         assert resp.status_code == 403
-        assert "not an active member" in resp.json()["detail"]
+        assert "not the cohort master or an active member" in resp.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -434,8 +434,8 @@ class TestSubmitTaskSolution:
             headers=MASTER_HEADERS,
         )
 
-        # Master is not enrolled as a learner, so gets 403 (not a member)
-        # before the "creator cannot submit" check
+        # Master has no membership record, so require_cohort_member on
+        # SubmitTaskSolution rejects with 403 before "creator cannot submit"
         assert resp.status_code == 403
 
     def test_returns_422_when_task_not_active(self, api_client: TestClient) -> None:

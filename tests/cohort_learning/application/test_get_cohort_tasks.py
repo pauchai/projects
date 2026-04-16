@@ -65,5 +65,7 @@ class TestGetCohortTasksUseCase:
         save_cohort(uow, make_active_cohort(cohort_id="c1"))
         use_case = GetCohortTasksUseCase(uow=uow)
 
-        with pytest.raises(PermissionError, match="not an active member"):
+        with pytest.raises(
+            PermissionError, match="not the cohort master or an active member"
+        ):
             use_case.execute(cohort_id="c1", caller_id="non_member")
