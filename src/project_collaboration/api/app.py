@@ -29,6 +29,12 @@ from cohort_learning.application.event_handlers.reward_auto_grant import (
     PeerReviewSubmittedRewardHandler,
     TopicExpertPromotedRewardHandler,
 )
+from cohort_learning.application.sagas.competency_achievement_saga import (
+    CompetencyAchievementSaga,
+)
+from cohort_learning.application.sagas.curator_promotion_saga import (
+    CuratorPromotionSaga,
+)
 from cohort_learning.domain.events import (
     CohortGraduated,
     HelperMetricsUpdated,
@@ -95,6 +101,16 @@ async def lifespan(app: FastAPI):
     )
     bus.subscribe(
         HelperMetricsUpdated, HelperMetricsUpdatedRewardHandler(cohort_uow_factory())
+    )
+
+    # ---- Cohort sagas ----
+    bus.subscribe(
+        PeerReviewSubmitted,
+        CompetencyAchievementSaga(uow=cohort_uow_factory(), event_bus=bus),
+    )
+    bus.subscribe(
+        HelperMetricsUpdated,
+        CuratorPromotionSaga(uow=cohort_uow_factory(), event_bus=bus),
     )
 
     # ---- Partnership: commission on cohort graduation ----

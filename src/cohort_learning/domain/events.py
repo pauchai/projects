@@ -115,6 +115,23 @@ class PeerReviewSubmitted(DomainEvent):
 
 
 @dataclass(frozen=True)
+class CuratorPromotionEligible(DomainEvent):
+    """Emitted when a learner's HelperMetrics cross all promotion thresholds.
+
+    This is NOT a promotion — it is a notification that the learner is
+    eligible.  A Master must still call ``PromoteToModuleCuratorUseCase``
+    to formally promote the learner.
+
+    Idempotent: the saga will not re-emit if a ModuleCurator record for
+    the same learner/module already exists.
+    """
+
+    cohort_id: str
+    learner_id: str
+    module_id: str
+
+
+@dataclass(frozen=True)
 class CompetencyPrerequisitesMet(DomainEvent):
     """Emitted when a learner has completed all tasks and received enough peer
     reviews for a topic, signalling they are eligible for competency validation.
