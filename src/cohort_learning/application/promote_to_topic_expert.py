@@ -40,9 +40,19 @@ class PromoteToTopicExpertUseCase:
             cohort = get_cohort_or_raise(uow, cohort_id)
             require_master_or_curator(cohort, validator_id)
 
+            # Check that learner has achieved topic competency for this topic
+            competency = uow.topic_competencies.find_by_learner_and_topic(
+                learner_id, topic_id, cohort_id
+            )
+            if competency is None:
+                raise ValueError(
+                    f"Learner '{learner_id}' has not achieved topic competency"
+                    f" for topic '{topic_id}'"
+                )
+
             # Check if learner is already a Topic Expert for this topic
             existing_expert = uow.topic_experts.find_by_learner_and_topic(
-                learner_id, topic_id
+                learner_id, topic_id, cohort_id
             )
             if existing_expert is not None:
                 raise ValueError(

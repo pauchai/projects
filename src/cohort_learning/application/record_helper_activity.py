@@ -35,7 +35,7 @@ class RecordHelperActivityUseCase:
             get_cohort_or_raise(uow, cohort_id)
 
             # Get or create helper metrics
-            metrics = uow.helper_metrics.find_by_learner(learner_id, cohort_id)
+            metrics = uow.helper_metrics.find_by_learner_and_cohort(learner_id, cohort_id)
             if metrics is None:
                 metrics = HelperMetrics(
                     learner_id=learner_id,

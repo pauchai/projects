@@ -20,6 +20,7 @@ from auth.api.routes.oauth import router as oauth_router
 from auth.api.routes.telegram import router as telegram_router
 from auth.domain.oauth import OAuthAccountAlreadyLinkedError, OAuthError
 from cohort_learning.api.routes.cohorts import router as cohorts_router
+from cohort_learning.api.routes.progression import router as progression_router
 from cohort_learning.api.routes.tasks import router as tasks_router
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
@@ -113,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(features_router)
     app.include_router(cohorts_router)
     app.include_router(tasks_router)
+    app.include_router(progression_router)
     app.include_router(telegram_router)
 
     return app

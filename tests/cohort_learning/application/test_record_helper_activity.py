@@ -31,7 +31,7 @@ class TestRecordHelperActivityUseCase:
             satisfaction_score=Decimal("4.5"),
         )
 
-        metrics = uow.helper_metrics.find_by_learner("learner1", "c1")
+        metrics = uow.helper_metrics.find_by_learner_and_cohort("learner1", "c1")
         assert metrics is not None
         assert metrics.tasks_reviewed == 1
         assert metrics.average_satisfaction == Decimal("4.5")
@@ -65,7 +65,7 @@ class TestRecordHelperActivityUseCase:
             satisfaction_score=Decimal("5.0"),
         )
 
-        metrics = uow.helper_metrics.find_by_learner("learner1", "c1")
+        metrics = uow.helper_metrics.find_by_learner_and_cohort("learner1", "c1")
         assert metrics is not None
         assert metrics.tasks_reviewed == 3
         # Average: (4.0 * 2 + 5.0) / 3 = 13 / 3 = 4.333...
@@ -87,7 +87,7 @@ class TestRecordHelperActivityUseCase:
             helped_learner_id="learner2",
         )
 
-        metrics = uow.helper_metrics.find_by_learner("learner1", "c1")
+        metrics = uow.helper_metrics.find_by_learner_and_cohort("learner1", "c1")
         assert metrics is not None
         assert metrics.learners_helped == 1
 
@@ -120,7 +120,7 @@ class TestRecordHelperActivityUseCase:
             helped_learner_id="learner3",
         )
 
-        metrics = uow.helper_metrics.find_by_learner("learner1", "c1")
+        metrics = uow.helper_metrics.find_by_learner_and_cohort("learner1", "c1")
         assert metrics is not None
         assert metrics.learners_helped == 3
 

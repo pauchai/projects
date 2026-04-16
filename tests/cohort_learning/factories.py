@@ -6,11 +6,18 @@ Use ``save_cohort(uow, cohort)`` to persist into a FakeUnitOfWork.
 
 from __future__ import annotations
 
+from datetime import datetime, UTC
+from decimal import Decimal
+
+from cohort_learning.domain.cohort_status import CohortStatus
+from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.topic import Topic
+from cohort_learning.domain.topic_expert import TopicExpert
 from tests.cohort_learning.fakes.fake_unit_of_work import FakeUnitOfWork
 
 
@@ -120,3 +127,86 @@ def save_review(uow: FakeUnitOfWork, review: PeerReview) -> None:
     with uow:
         uow.peer_reviews.save(review)
         uow.commit()
+
+
+# --- Partner progression factories ---
+
+
+def create_cohort(
+    cohort_id: str = "cohort-1",
+    master_id: str = "master-1",
+    module_id: str = "module-1",
+    status: CohortStatus = CohortStatus.FORMING,
+) -> LearningCohort:
+    """Create a LearningCohort with explicit parameters.
+
+    Note: To activate a cohort, you must enrol at least 5 learners first.
+    """
+    cohort = LearningCohort(
+        cohort_id=cohort_id,
+        master_id=master_id,
+        module_id=module_id,
+    )
+    # Note: Activation requires 5 learners, so status changes must happen after enrollment
+    # Only set status to FORMING by default
+    cohort.collect_events()  # Clear events
+    return cohort
+
+
+def create_topic_expert(
+    expert_id: str,
+    learner_id: str,
+    topic_id: str,
+    cohort_id: str,
+    validator_id: str,
+    validated_at: datetime | None = None,
+) -> TopicExpert:
+    """Create a TopicExpert with explicit parameters."""
+    return TopicExpert(
+        expert_id=expert_id,
+        learner_id=learner_id,
+        topic_id=topic_id,
+        cohort_id=cohort_id,
+        validated_at=validated_at or datetime.now(UTC),
+        validator_id=validator_id,
+    )
+
+
+def create_helper_metrics(
+    learner_id: str,
+    cohort_id: str,
+    learners_helped: int = 0,
+    questions_answered: int = 0,
+    tasks_reviewed: int = 0,
+    average_satisfaction: Decimal | None = None,
+    updated_at: datetime | None = None,
+) -> HelperMetrics:
+    """Create HelperMetrics with explicit parameters."""
+    return HelperMetrics(
+        learner_id=learner_id,
+        cohort_id=cohort_id,
+        learners_helped=learners_helped,
+        questions_answered=questions_answered,
+        tasks_reviewed=tasks_reviewed,
+        average_satisfaction=average_satisfaction,
+        updated_at=updated_at or datetime.now(UTC),
+    )
+
+
+def create_module_curator(
+    curator_id: str,
+    learner_id: str,
+    module_id: str,
+    cohort_id: str,
+    promoted_by: str,
+    promoted_at: datetime | None = None,
+) -> ModuleCurator:
+    """Create a ModuleCurator with explicit parameters."""
+    return ModuleCurator(
+        curator_id=curator_id,
+        learner_id=learner_id,
+        module_id=module_id,
+        cohort_id=cohort_id,
+        promoted_at=promoted_at or datetime.now(UTC),
+        promoted_by=promoted_by,
+    )

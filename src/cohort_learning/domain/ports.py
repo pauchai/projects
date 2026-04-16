@@ -7,6 +7,7 @@ from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
+from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 
 
@@ -46,18 +47,22 @@ class TopicExpertRepository(Protocol):
     def save(self, expert: TopicExpert) -> None: ...
 
     def find_by_learner_and_topic(
-        self, learner_id: str, topic_id: str
+        self, learner_id: str, topic_id: str, cohort_id: str
     ) -> TopicExpert | None: ...
 
     def find_by_topic(self, topic_id: str) -> list[TopicExpert]: ...
+
+    def find_by_cohort(self, cohort_id: str) -> list[TopicExpert]: ...
 
 
 class HelperMetricsRepository(Protocol):
     """Port for persisting and querying HelperMetrics."""
 
-    def find_by_learner(
+    def find_by_learner_and_cohort(
         self, learner_id: str, cohort_id: str
     ) -> HelperMetrics | None: ...
+
+    def find_by_cohort(self, cohort_id: str) -> list[HelperMetrics]: ...
 
     def save(self, metrics: HelperMetrics) -> None: ...
 
@@ -70,10 +75,20 @@ class ModuleCuratorRepository(Protocol):
     def save(self, curator: ModuleCurator) -> None: ...
 
     def find_by_learner_and_module(
-        self, learner_id: str, module_id: str
+        self, learner_id: str, module_id: str, cohort_id: str
     ) -> ModuleCurator | None: ...
 
     def find_by_module(self, module_id: str) -> list[ModuleCurator]: ...
+
+
+class TopicCompetencyRepository(Protocol):
+    """Port for persisting and querying TopicCompetency records."""
+
+    def find_by_learner_and_topic(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> TopicCompetency | None: ...
+
+    def save(self, competency: TopicCompetency) -> None: ...
 
 
 class UnitOfWork(Protocol):
@@ -98,6 +113,7 @@ class UnitOfWork(Protocol):
     topic_experts: TopicExpertRepository
     helper_metrics: HelperMetricsRepository
     module_curators: ModuleCuratorRepository
+    topic_competencies: TopicCompetencyRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

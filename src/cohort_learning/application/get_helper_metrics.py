@@ -35,7 +35,7 @@ class GetHelperMetricsUseCase:
                 require_cohort_member(cohort, caller_id)
 
             # Retrieve helper metrics
-            metrics = uow.helper_metrics.find_by_learner(learner_id, cohort_id)
+            metrics = uow.helper_metrics.find_by_learner_and_cohort(learner_id, cohort_id)
 
             uow.commit()
             return metrics

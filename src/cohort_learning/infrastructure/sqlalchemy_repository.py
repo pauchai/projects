@@ -29,6 +29,7 @@ from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
+from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 from cohort_learning.infrastructure.orm import ReviewScoreRecord
 
@@ -394,3 +395,26 @@ class SqlAlchemyModuleCuratorRepository:
             ModuleCurator.cohort_id == cohort_id  # type: ignore[attr-defined]
         )
         return list(self._session.scalars(stmt).all())
+
+
+class SqlAlchemyTopicCompetencyRepository:
+    """Implements TopicCompetencyRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_learner_and_topic(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> TopicCompetency | None:
+        """Find TopicCompetency for a specific learner, topic, and cohort."""
+        stmt = select(TopicCompetency).where(
+            TopicCompetency.learner_id == learner_id,  # type: ignore[attr-defined]
+            TopicCompetency.topic_id == topic_id,  # type: ignore[attr-defined]
+            TopicCompetency.cohort_id == cohort_id,  # type: ignore[attr-defined]
+        )
+        return self._session.scalars(stmt).first()
+
+    def save(self, competency: TopicCompetency) -> None:
+        """Persist a TopicCompetency record."""
+        self._session.merge(competency)
+        self._session.flush()

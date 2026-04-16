@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from cohort_learning.application._helpers import get_cohort_or_raise, require_master
 from cohort_learning.domain.curator_promotion import CuratorPromotionService
 from cohort_learning.domain.events import CuratorPromoted
-from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.ports import UnitOfWork
 
@@ -14,10 +13,10 @@ class PromoteToModuleCuratorUseCase:
     """Promote a learner to Module Curator after meeting all requirements.
 
     Requirements (evaluated by CuratorPromotionService):
-    1. Module Completion — all topics with Topic Competency
+    1. Module Completion — at least one Topic Expert record for the learner in the cohort
     2. Helper Track Record — HelperMetrics meets curator threshold
-    3. Teaching Trial — assisted 2-3 learners successfully
-    4. Master Approval — explicit confirmation
+    3. Teaching Trial — learner has helped ≥2 learners (derived from HelperMetrics)
+    4. Master Approval — implicit (only master can call this use case)
 
     Only Master can promote to Module Curator.
     """
@@ -31,36 +30,37 @@ class PromoteToModuleCuratorUseCase:
         learner_id: str,
         module_id: str,
         cohort_id: str,
-        master_id: str,
-        module_completed: bool,
-        teaching_trial_passed: bool,
+        caller_id: str,
     ) -> ModuleCurator:
         with self._uow as uow:
             cohort = get_cohort_or_raise(uow, cohort_id)
-            require_master(cohort, master_id)
+            require_master(cohort, caller_id)
 
             # Check if learner is already a Module Curator for this module
             existing_curator = uow.module_curators.find_by_learner_and_module(
-                learner_id, module_id
+                learner_id, module_id, cohort_id
             )
             if existing_curator is not None:
                 raise ValueError(
                     f"Learner '{learner_id}' is already a Module Curator for module '{module_id}'"
                 )
 
-            # Get helper metrics
-            helper_metrics = uow.helper_metrics.find_by_learner(learner_id, cohort_id)
+            # Get helper metrics — required for promotion
+            helper_metrics = uow.helper_metrics.find_by_learner_and_cohort(
+                learner_id, cohort_id
+            )
             if helper_metrics is None:
-                # No helper activity recorded — create empty metrics
-                helper_metrics = HelperMetrics(
-                    learner_id=learner_id,
-                    cohort_id=cohort_id,
-                    learners_helped=0,
-                    questions_answered=0,
-                    tasks_reviewed=0,
-                    average_satisfaction=None,
-                    updated_at=datetime.now(timezone.utc),
+                raise ValueError(
+                    f"No helper metrics found for learner '{learner_id}' in cohort '{cohort_id}'. "
+                    "Learner must build a helper track record before curator promotion."
                 )
+
+            # Derive module_completed: learner has at least one Topic Expert record in cohort
+            cohort_experts = uow.topic_experts.find_by_cohort(cohort_id)
+            module_completed = any(e.learner_id == learner_id for e in cohort_experts)
+
+            # Derive teaching_trial_passed from helper metrics (helped ≥2 learners)
+            teaching_trial_passed = helper_metrics.learners_helped >= 2
 
             # Evaluate promotion using domain service
             promotion_service = CuratorPromotionService()
@@ -86,7 +86,7 @@ class PromoteToModuleCuratorUseCase:
                 module_id=module_id,
                 cohort_id=cohort_id,
                 promoted_at=datetime.now(timezone.utc),
-                promoted_by=master_id,
+                promoted_by=caller_id,
             )
 
             # Emit domain event

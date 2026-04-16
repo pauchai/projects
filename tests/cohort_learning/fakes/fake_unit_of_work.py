@@ -7,6 +7,7 @@ from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
+from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 from shared_kernel.events import DomainEvent, EventBus
 
@@ -100,15 +101,22 @@ class _FakeTopicExpertRepository:
         self._storage[expert.expert_id] = expert
 
     def find_by_learner_and_topic(
-        self, learner_id: str, topic_id: str
+        self, learner_id: str, topic_id: str, cohort_id: str
     ) -> TopicExpert | None:
         for expert in self._storage.values():
-            if expert.learner_id == learner_id and expert.topic_id == topic_id:
+            if (
+                expert.learner_id == learner_id
+                and expert.topic_id == topic_id
+                and expert.cohort_id == cohort_id
+            ):
                 return expert
         return None
 
     def find_by_topic(self, topic_id: str) -> list[TopicExpert]:
         return [e for e in self._storage.values() if e.topic_id == topic_id]
+
+    def find_by_cohort(self, cohort_id: str) -> list[TopicExpert]:
+        return [e for e in self._storage.values() if e.cohort_id == cohort_id]
 
     def snapshot(self) -> dict[str, TopicExpert]:
         return copy.deepcopy(self._storage)
@@ -124,8 +132,13 @@ class _FakeHelperMetricsRepository:
         self._storage: dict[tuple[str, str], HelperMetrics] = {}
         self._uow = uow
 
-    def find_by_learner(self, learner_id: str, cohort_id: str) -> HelperMetrics | None:
+    def find_by_learner_and_cohort(
+        self, learner_id: str, cohort_id: str
+    ) -> HelperMetrics | None:
         return self._storage.get((learner_id, cohort_id))
+
+    def find_by_cohort(self, cohort_id: str) -> list[HelperMetrics]:
+        return [m for m in self._storage.values() if m.cohort_id == cohort_id]
 
     def save(self, metrics: HelperMetrics) -> None:
         # HelperMetrics has no domain events, so no event collection
@@ -136,6 +149,29 @@ class _FakeHelperMetricsRepository:
         return copy.deepcopy(self._storage)
 
     def restore(self, snapshot: dict[tuple[str, str], HelperMetrics]) -> None:
+        self._storage = snapshot
+
+
+class _FakeTopicCompetencyRepository:
+    """In-memory TopicCompetencyRepository used within FakeUnitOfWork."""
+
+    def __init__(self, uow: "FakeUnitOfWork") -> None:
+        self._storage: dict[tuple[str, str, str], TopicCompetency] = {}
+        self._uow = uow
+
+    def find_by_learner_and_topic(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> TopicCompetency | None:
+        return self._storage.get((learner_id, topic_id, cohort_id))
+
+    def save(self, competency: TopicCompetency) -> None:
+        key = (competency.learner_id, competency.topic_id, competency.cohort_id)
+        self._storage[key] = competency
+
+    def snapshot(self) -> dict[tuple[str, str, str], TopicCompetency]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[tuple[str, str, str], TopicCompetency]) -> None:
         self._storage = snapshot
 
 
@@ -154,10 +190,14 @@ class _FakeModuleCuratorRepository:
         self._storage[curator.curator_id] = curator
 
     def find_by_learner_and_module(
-        self, learner_id: str, module_id: str
+        self, learner_id: str, module_id: str, cohort_id: str
     ) -> ModuleCurator | None:
         for curator in self._storage.values():
-            if curator.learner_id == learner_id and curator.module_id == module_id:
+            if (
+                curator.learner_id == learner_id
+                and curator.module_id == module_id
+                and curator.cohort_id == cohort_id
+            ):
                 return curator
         return None
 
@@ -186,6 +226,7 @@ class FakeUnitOfWork:
         self.topic_experts = _FakeTopicExpertRepository(self)
         self.helper_metrics = _FakeHelperMetricsRepository(self)
         self.module_curators = _FakeModuleCuratorRepository(self)
+        self.topic_competencies = _FakeTopicCompetencyRepository(self)
         self.committed = False
         self._snapshots: dict[str, object] | None = None
         self._event_bus = event_bus
@@ -200,6 +241,7 @@ class FakeUnitOfWork:
             "topic_experts": self.topic_experts.snapshot(),
             "helper_metrics": self.helper_metrics.snapshot(),
             "module_curators": self.module_curators.snapshot(),
+            "topic_competencies": self.topic_competencies.snapshot(),
         }
         return self
 
@@ -223,6 +265,7 @@ class FakeUnitOfWork:
             self.topic_experts.restore(self._snapshots["topic_experts"])  # type: ignore[arg-type]
             self.helper_metrics.restore(self._snapshots["helper_metrics"])  # type: ignore[arg-type]
             self.module_curators.restore(self._snapshots["module_curators"])  # type: ignore[arg-type]
+            self.topic_competencies.restore(self._snapshots["topic_competencies"])  # type: ignore[arg-type]
             self._snapshots = None
         self._pending_events.clear()
 

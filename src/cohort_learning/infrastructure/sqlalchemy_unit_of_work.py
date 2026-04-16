@@ -25,6 +25,7 @@ from cohort_learning.infrastructure.sqlalchemy_repository import (
     SqlAlchemyModuleCuratorRepository,
     SqlAlchemyPeerReviewRepository,
     SqlAlchemyPracticeTaskRepository,
+    SqlAlchemyTopicCompetencyRepository,
     SqlAlchemyTopicExpertRepository,
 )
 
@@ -53,6 +54,7 @@ class SqlAlchemyUnitOfWork:
         self.topic_experts = SqlAlchemyTopicExpertRepository(self._session)
         self.helper_metrics = SqlAlchemyHelperMetricsRepository(self._session)
         self.module_curators = SqlAlchemyModuleCuratorRepository(self._session)
+        self.topic_competencies = SqlAlchemyTopicCompetencyRepository(self._session)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

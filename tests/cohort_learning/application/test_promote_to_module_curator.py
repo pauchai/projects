@@ -10,6 +10,7 @@ from cohort_learning.application.promote_to_module_curator import (
 )
 from cohort_learning.domain.events import CuratorPromoted
 from cohort_learning.domain.helper_metrics import HelperMetrics
+from cohort_learning.domain.topic_expert import TopicExpert
 from shared_kernel.events import DomainEvent
 from tests.cohort_learning.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.cohort_learning.factories import make_active_cohort, save_cohort
@@ -23,6 +24,37 @@ class _SpyEventBus:
         self.published.extend(events)
 
 
+def _qualifying_metrics(
+    learner_id: str = "learner1", cohort_id: str = "c1"
+) -> HelperMetrics:
+    """Helper: metrics that meet all curator thresholds."""
+    return HelperMetrics(
+        learner_id=learner_id,
+        cohort_id=cohort_id,
+        learners_helped=5,
+        questions_answered=10,
+        tasks_reviewed=10,
+        average_satisfaction=Decimal("4.5"),
+        updated_at=datetime.now(timezone.utc),
+    )
+
+
+def _topic_expert(
+    learner_id: str = "learner1",
+    cohort_id: str = "c1",
+    topic_id: str = "topic-1",
+) -> TopicExpert:
+    """Helper: a topic expert record for the learner in the cohort."""
+    return TopicExpert(
+        expert_id=f"exp-{learner_id}",
+        learner_id=learner_id,
+        topic_id=topic_id,
+        cohort_id=cohort_id,
+        validated_at=datetime.now(timezone.utc),
+        validator_id="master1",
+    )
+
+
 class TestPromoteToModuleCuratorUseCase:
     """Promote a learner to Module Curator after meeting all requirements."""
 
@@ -32,18 +64,9 @@ class TestPromoteToModuleCuratorUseCase:
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
 
-        # Create qualifying helper metrics
-        metrics = HelperMetrics(
-            learner_id="learner1",
-            cohort_id="c1",
-            learners_helped=5,
-            questions_answered=10,
-            tasks_reviewed=10,
-            average_satisfaction=Decimal("4.5"),
-            updated_at=datetime.now(timezone.utc),
-        )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(_qualifying_metrics())
+            uow.topic_experts.save(_topic_expert())
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -53,9 +76,7 @@ class TestPromoteToModuleCuratorUseCase:
             learner_id="learner1",
             module_id="mod1",
             cohort_id="c1",
-            master_id="master1",
-            module_completed=True,
-            teaching_trial_passed=True,
+            caller_id="master1",
         )
 
         curator = uow.module_curators.find_by_id("cur1")
@@ -64,6 +85,27 @@ class TestPromoteToModuleCuratorUseCase:
         assert curator.module_id == "mod1"
         assert curator.promoted_by == "master1"
 
+    def test_raises_when_helper_metrics_missing(self) -> None:
+        """Promotion fails if no helper metrics exist for the learner."""
+        uow = FakeUnitOfWork()
+        cohort = make_active_cohort()
+        save_cohort(uow, cohort)
+
+        with uow:
+            uow.topic_experts.save(_topic_expert())
+            uow.commit()
+
+        use_case = PromoteToModuleCuratorUseCase(uow=uow)
+
+        with pytest.raises(ValueError, match="No helper metrics found"):
+            use_case.execute(
+                curator_id="cur1",
+                learner_id="learner1",
+                module_id="mod1",
+                cohort_id="c1",
+                caller_id="master1",
+            )
+
     def test_raises_when_helper_metrics_below_threshold(self) -> None:
         """Promotion fails if helper metrics don't meet curator threshold."""
         uow = FakeUnitOfWork()
@@ -71,7 +113,7 @@ class TestPromoteToModuleCuratorUseCase:
         save_cohort(uow, cohort)
 
         # Create insufficient helper metrics
-        metrics = HelperMetrics(
+        insufficient = HelperMetrics(
             learner_id="learner1",
             cohort_id="c1",
             learners_helped=1,  # Below threshold of 3
@@ -81,7 +123,8 @@ class TestPromoteToModuleCuratorUseCase:
             updated_at=datetime.now(timezone.utc),
         )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(insufficient)
+            uow.topic_experts.save(_topic_expert())
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -92,29 +135,18 @@ class TestPromoteToModuleCuratorUseCase:
                 learner_id="learner1",
                 module_id="mod1",
                 cohort_id="c1",
-                master_id="master1",
-                module_completed=True,
-                teaching_trial_passed=True,
+                caller_id="master1",
             )
 
     def test_raises_when_module_not_completed(self) -> None:
-        """Promotion fails if module not completed."""
+        """Promotion fails if learner has no Topic Expert records (module not completed)."""
         uow = FakeUnitOfWork()
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
 
-        # Create qualifying helper metrics
-        metrics = HelperMetrics(
-            learner_id="learner1",
-            cohort_id="c1",
-            learners_helped=5,
-            questions_answered=10,
-            tasks_reviewed=10,
-            average_satisfaction=Decimal("4.5"),
-            updated_at=datetime.now(timezone.utc),
-        )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(_qualifying_metrics())
+            # No topic_expert records → module_completed=False
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -125,9 +157,7 @@ class TestPromoteToModuleCuratorUseCase:
                 learner_id="learner1",
                 module_id="mod1",
                 cohort_id="c1",
-                master_id="master1",
-                module_completed=False,  # Not completed
-                teaching_trial_passed=True,
+                caller_id="master1",
             )
 
     def test_raises_when_already_curator(self) -> None:
@@ -136,18 +166,9 @@ class TestPromoteToModuleCuratorUseCase:
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
 
-        # Create qualifying helper metrics
-        metrics = HelperMetrics(
-            learner_id="learner1",
-            cohort_id="c1",
-            learners_helped=5,
-            questions_answered=10,
-            tasks_reviewed=10,
-            average_satisfaction=Decimal("4.5"),
-            updated_at=datetime.now(timezone.utc),
-        )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(_qualifying_metrics())
+            uow.topic_experts.save(_topic_expert())
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -158,9 +179,7 @@ class TestPromoteToModuleCuratorUseCase:
             learner_id="learner1",
             module_id="mod1",
             cohort_id="c1",
-            master_id="master1",
-            module_completed=True,
-            teaching_trial_passed=True,
+            caller_id="master1",
         )
 
         # Second promotion should fail
@@ -170,9 +189,7 @@ class TestPromoteToModuleCuratorUseCase:
                 learner_id="learner1",
                 module_id="mod1",
                 cohort_id="c1",
-                master_id="master1",
-                module_completed=True,
-                teaching_trial_passed=True,
+                caller_id="master1",
             )
 
     def test_raises_when_caller_is_not_master(self) -> None:
@@ -189,9 +206,7 @@ class TestPromoteToModuleCuratorUseCase:
                 learner_id="learner1",
                 module_id="mod1",
                 cohort_id="c1",
-                master_id="learner2",  # Not the master
-                module_completed=True,
-                teaching_trial_passed=True,
+                caller_id="learner2",  # Not the master
             )
 
     def test_emits_curator_promoted_event(self) -> None:
@@ -201,18 +216,9 @@ class TestPromoteToModuleCuratorUseCase:
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
 
-        # Create qualifying helper metrics
-        metrics = HelperMetrics(
-            learner_id="learner1",
-            cohort_id="c1",
-            learners_helped=5,
-            questions_answered=10,
-            tasks_reviewed=10,
-            average_satisfaction=Decimal("4.5"),
-            updated_at=datetime.now(timezone.utc),
-        )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(_qualifying_metrics())
+            uow.topic_experts.save(_topic_expert())
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -222,9 +228,7 @@ class TestPromoteToModuleCuratorUseCase:
             learner_id="learner1",
             module_id="mod1",
             cohort_id="c1",
-            master_id="master1",
-            module_completed=True,
-            teaching_trial_passed=True,
+            caller_id="master1",
         )
 
         events = [e for e in spy_bus.published if isinstance(e, CuratorPromoted)]
@@ -238,18 +242,9 @@ class TestPromoteToModuleCuratorUseCase:
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
 
-        # Create qualifying helper metrics
-        metrics = HelperMetrics(
-            learner_id="learner1",
-            cohort_id="c1",
-            learners_helped=5,
-            questions_answered=10,
-            tasks_reviewed=10,
-            average_satisfaction=Decimal("4.5"),
-            updated_at=datetime.now(timezone.utc),
-        )
         with uow:
-            uow.helper_metrics.save(metrics)
+            uow.helper_metrics.save(_qualifying_metrics())
+            uow.topic_experts.save(_topic_expert())
             uow.commit()
 
         use_case = PromoteToModuleCuratorUseCase(uow=uow)
@@ -259,9 +254,7 @@ class TestPromoteToModuleCuratorUseCase:
             learner_id="learner1",
             module_id="mod1",
             cohort_id="c1",
-            master_id="master1",
-            module_completed=True,
-            teaching_trial_passed=True,
+            caller_id="master1",
         )
 
         assert uow.committed is True

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -151,6 +152,80 @@ class PeerReviewResponse(BaseModel):
     created_at: datetime
     reviewed_at: datetime | None
     scores: list[ReviewScoreResponse]
+
+
+# ---------------------------------------------------------------------------
+# Request schemas — Partner Progression
+# ---------------------------------------------------------------------------
+
+
+class ValidateTopicCompetencyRequest(BaseModel):
+    """POST /cohorts/{cohort_id}/members/{learner_id}/validate-competency"""
+
+    topic_id: str
+    knowledge_check_score: int
+    mentor_approved: bool
+
+
+class PromoteToTopicExpertRequest(BaseModel):
+    """POST /cohorts/{cohort_id}/members/{learner_id}/promote-expert"""
+
+    expert_id: str
+    topic_id: str
+
+
+class PromoteToModuleCuratorRequest(BaseModel):
+    """POST /cohorts/{cohort_id}/members/{learner_id}/promote-curator"""
+
+    curator_id: str
+    module_id: str
+
+
+# ---------------------------------------------------------------------------
+# Response schemas — Partner Progression
+# ---------------------------------------------------------------------------
+
+
+class TopicExpertResponse(BaseModel):
+    """Serialized TopicExpert entity."""
+
+    expert_id: str
+    learner_id: str
+    topic_id: str
+    cohort_id: str
+    validated_at: datetime
+    validator_id: str
+
+
+class HelperMetricsResponse(BaseModel):
+    """Serialized HelperMetrics entity."""
+
+    learner_id: str
+    cohort_id: str
+    learners_helped: int
+    questions_answered: int
+    tasks_reviewed: int
+    average_satisfaction: Decimal | None
+    updated_at: datetime
+
+
+class ModuleCuratorResponse(BaseModel):
+    """Serialized ModuleCurator entity."""
+
+    curator_id: str
+    learner_id: str
+    module_id: str
+    cohort_id: str
+    promoted_at: datetime
+    promoted_by: str
+
+
+class CompetencyValidationResult(BaseModel):
+    """Result of competency validation check."""
+
+    topic_id: str
+    is_validated: bool
+    missing_steps: list[str]
 
 
 # ---------------------------------------------------------------------------

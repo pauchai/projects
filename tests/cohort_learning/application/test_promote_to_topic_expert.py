@@ -8,9 +8,25 @@ from cohort_learning.application.promote_to_topic_expert import (
     PromoteToTopicExpertUseCase,
 )
 from cohort_learning.domain.events import TopicExpertPromoted
+from cohort_learning.domain.topic_competency import TopicCompetency
 from shared_kernel.events import DomainEvent
 from tests.cohort_learning.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.cohort_learning.factories import make_active_cohort, save_cohort
+
+
+def _seed_competency(
+    uow: FakeUnitOfWork, learner_id: str, topic_id: str, cohort_id: str
+) -> None:
+    """Persist a TopicCompetency so promote-to-expert can find it."""
+    competency = TopicCompetency(
+        competency_id=f"{learner_id}-{topic_id}-{cohort_id}",
+        learner_id=learner_id,
+        topic_id=topic_id,
+        cohort_id=cohort_id,
+    )
+    with uow:
+        uow.topic_competencies.save(competency)
+        uow.commit()
 
 
 class _SpyEventBus:
@@ -29,6 +45,7 @@ class TestPromoteToTopicExpertUseCase:
         uow = FakeUnitOfWork()
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
+        _seed_competency(uow, "learner1", "t1", "c1")
 
         use_case = PromoteToTopicExpertUseCase(uow=uow)
 
@@ -51,6 +68,7 @@ class TestPromoteToTopicExpertUseCase:
         uow = FakeUnitOfWork()
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
+        _seed_competency(uow, "learner1", "t1", "c1")
 
         use_case = PromoteToTopicExpertUseCase(uow=uow)
 
@@ -78,6 +96,8 @@ class TestPromoteToTopicExpertUseCase:
         uow = FakeUnitOfWork()
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
+        _seed_competency(uow, "learner1", "t1", "c1")
+        _seed_competency(uow, "learner1", "t2", "c1")
 
         use_case = PromoteToTopicExpertUseCase(uow=uow)
 
@@ -97,8 +117,8 @@ class TestPromoteToTopicExpertUseCase:
             validator_id="master1",
         )
 
-        expert_t1 = uow.topic_experts.find_by_learner_and_topic("learner1", "t1")
-        expert_t2 = uow.topic_experts.find_by_learner_and_topic("learner1", "t2")
+        expert_t1 = uow.topic_experts.find_by_learner_and_topic("learner1", "t1", "c1")
+        expert_t2 = uow.topic_experts.find_by_learner_and_topic("learner1", "t2", "c1")
 
         assert expert_t1 is not None
         assert expert_t2 is not None
@@ -143,6 +163,7 @@ class TestPromoteToTopicExpertUseCase:
         uow = FakeUnitOfWork(event_bus=spy_bus)
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
+        _seed_competency(uow, "learner1", "t1", "c1")
 
         use_case = PromoteToTopicExpertUseCase(uow=uow)
 
@@ -164,6 +185,7 @@ class TestPromoteToTopicExpertUseCase:
         uow = FakeUnitOfWork()
         cohort = make_active_cohort()
         save_cohort(uow, cohort)
+        _seed_competency(uow, "learner1", "t1", "c1")
 
         use_case = PromoteToTopicExpertUseCase(uow=uow)
 
