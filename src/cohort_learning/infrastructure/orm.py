@@ -49,6 +49,10 @@ from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.pending_competency_validation import (
+    PendingCompetencyValidation,
+)
+from cohort_learning.domain.pending_curator_promotion import PendingCuratorPromotion
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
 from cohort_learning.domain.review_status import ReviewStatus
@@ -264,6 +268,28 @@ reward_ledger_table = Table(
     Column("cohort_id", String(255), nullable=True),
 )
 
+# --- Eligibility notification tables (Stage 17-18) ---
+
+pending_competency_validations_table = Table(
+    "pending_competency_validations",
+    metadata,
+    Column("pending_id", String(255), primary_key=True),
+    Column("learner_id", String(255), nullable=False),
+    Column("topic_id", String(255), nullable=False),
+    Column("cohort_id", String(255), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+pending_curator_promotions_table = Table(
+    "pending_curator_promotions",
+    metadata,
+    Column("pending_id", String(255), primary_key=True),
+    Column("learner_id", String(255), nullable=False),
+    Column("module_id", String(255), nullable=False),
+    Column("cohort_id", String(255), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
@@ -444,3 +470,13 @@ class RewardEntryRecord:
 
 
 mapper_registry.map_imperatively(RewardEntryRecord, reward_ledger_table)
+
+# --- Eligibility notification mappings (Stage 17-18) ---
+
+mapper_registry.map_imperatively(
+    PendingCompetencyValidation, pending_competency_validations_table
+)
+
+mapper_registry.map_imperatively(
+    PendingCuratorPromotion, pending_curator_promotions_table
+)

@@ -29,6 +29,10 @@ from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.pending_competency_validation import (
+    PendingCompetencyValidation,
+)
+from cohort_learning.domain.pending_curator_promotion import PendingCuratorPromotion
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
 from cohort_learning.domain.reward_ledger import RewardLedger
@@ -488,3 +492,69 @@ class SqlAlchemyRewardLedgerRepository:
             self._session.merge(record)
 
         self._session.flush()
+
+
+class SqlAlchemyPendingCompetencyValidationRepository:
+    """Implements PendingCompetencyValidationRepository Protocol using SQLAlchemy ORM.
+
+    Simple entity without domain events. Provides save and query operations.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, record: PendingCompetencyValidation) -> None:
+        """Persist a PendingCompetencyValidation record (upsert via merge)."""
+        self._session.merge(record)
+        self._session.flush()
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCompetencyValidation]:
+        """Return all pending validation records for a cohort."""
+        stmt = select(PendingCompetencyValidation).where(
+            PendingCompetencyValidation.cohort_id == cohort_id  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
+    def find_by_learner_topic_cohort(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> PendingCompetencyValidation | None:
+        """Find a pending validation record for a specific learner, topic, and cohort."""
+        stmt = select(PendingCompetencyValidation).where(
+            PendingCompetencyValidation.learner_id == learner_id,  # type: ignore[attr-defined]
+            PendingCompetencyValidation.topic_id == topic_id,  # type: ignore[attr-defined]
+            PendingCompetencyValidation.cohort_id == cohort_id,  # type: ignore[attr-defined]
+        )
+        return self._session.scalars(stmt).first()
+
+
+class SqlAlchemyPendingCuratorPromotionRepository:
+    """Implements PendingCuratorPromotionRepository Protocol using SQLAlchemy ORM.
+
+    Simple entity without domain events. Provides save and query operations.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, record: PendingCuratorPromotion) -> None:
+        """Persist a PendingCuratorPromotion record (upsert via merge)."""
+        self._session.merge(record)
+        self._session.flush()
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCuratorPromotion]:
+        """Return all pending curator promotion records for a cohort."""
+        stmt = select(PendingCuratorPromotion).where(
+            PendingCuratorPromotion.cohort_id == cohort_id  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
+    def find_by_learner_module_cohort(
+        self, learner_id: str, module_id: str, cohort_id: str
+    ) -> PendingCuratorPromotion | None:
+        """Find a pending promotion record for a specific learner, module, and cohort."""
+        stmt = select(PendingCuratorPromotion).where(
+            PendingCuratorPromotion.learner_id == learner_id,  # type: ignore[attr-defined]
+            PendingCuratorPromotion.module_id == module_id,  # type: ignore[attr-defined]
+            PendingCuratorPromotion.cohort_id == cohort_id,  # type: ignore[attr-defined]
+        )
+        return self._session.scalars(stmt).first()

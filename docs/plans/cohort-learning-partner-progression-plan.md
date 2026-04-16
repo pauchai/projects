@@ -460,11 +460,11 @@ CREATE INDEX idx_commissions_cohort  ON commissions (cohort_id);
 
 ---
 
-#### Stage 14: CompetencyAchievementSaga (cohort_learning)
+#### Stage 14: CompetencyAchievementSaga (cohort_learning) ✅
 
 **Scope:** Auto-check competency prerequisites when peer reviews arrive
 
-**Files to create:**
+**Files created:**
 - `src/cohort_learning/application/sagas/__init__.py`
 - `src/cohort_learning/application/sagas/competency_achievement_saga.py`
 
@@ -473,18 +473,19 @@ CREATE INDEX idx_commissions_cohort  ON commissions (cohort_id);
 - Checks if the reviewed learner has:
   1. All tasks for that topic completed
   2. Minimum 2 peer reviews received for the topic
-- If both conditions met: records competency progress (NOT a promotion — marks learner as "eligible for validation")
-- Does NOT auto-promote; full promotion still requires manual call with `knowledge_check_score` and `mentor_approved`
+- If both conditions met: emits `CompetencyPrerequisitesMet` (notification only)
+- Does NOT auto-promote; full validation still requires manual call to `ValidateTopicCompetencyUseCase`
+- Idempotent: does not re-emit if `TopicCompetency` record already exists
 
-**Tests:** 10-15 unit tests + 5 integration tests
+**Tests:** 11 unit tests ✅
 
 ---
 
-#### Stage 15: CohortGraduationSaga (partnership)
+#### Stage 15: CohortGraduationSaga (partnership) ✅
 
 **Scope:** Trigger commission calculations when a cohort graduates
 
-**Files to create:**
+**Files created:**
 - `src/partnership/application/sagas/__init__.py`
 - `src/partnership/application/sagas/cohort_graduation_saga.py`
 
@@ -494,30 +495,184 @@ CREATE INDEX idx_commissions_cohort  ON commissions (cohort_id);
 - For each curator: reads their `HelperMetrics` to compute `curator_score`
 - Queries avg peer review score for the cohort
 - Calls `CalculateCurationCommissionUseCase` per curator
-- Emits `CurationCommissionEarned` (and optionally `QualityBonusEarned`) per curator
 
-**Tests:** 10-15 unit tests + 5 integration tests
+**Tests:** 6 unit tests ✅
 
 ---
 
-#### Stage 16: CuratorPromotionSaga (cohort_learning)
+#### Stage 16: CuratorPromotionSaga (cohort_learning) ✅
 
 **Scope:** Notify when a helper becomes eligible for curator promotion
 
-**Files to create:**
+**Files created:**
 - `src/cohort_learning/application/sagas/curator_promotion_saga.py`
 
 **Logic:**
 - Listens to `HelperMetricsUpdated`
-- Checks thresholds:
+- Checks thresholds via `HelperMetrics.meets_curator_threshold()`:
   - `learners_helped >= 3`
   - `tasks_reviewed >= 5`
   - `average_satisfaction >= 4.0`
 - If all thresholds met: emits `CuratorPromotionEligible` event (notification only)
 - Full promotion still requires master to call `PromoteToModuleCuratorUseCase`
-- Idempotent: does NOT re-emit if already eligible (check existing `ModuleCurator` record)
+- Idempotent: does NOT re-emit if `ModuleCurator` record already exists
 
-**Tests:** 10-12 unit tests + 5 integration tests
+**Tests:** 11 unit tests ✅
+
+---
+
+### Phase E: Eligibility Notifications ⭐
+
+**Context:** Stages 14 and 16 emit `CompetencyPrerequisitesMet` and `CuratorPromotionEligible` respectively. These events previously had no consumers. Phase E closes the loop: events are persisted as queryable eligibility records, allowing Masters and Curators to discover who needs their attention.
+
+**Architecture decisions:**
+- Pending records live in `cohort_learning` bounded context
+- Stale records are filtered **dynamically** in query use cases (no deletion needed, no changes to existing use cases)
+- Both `ValidateTopicCompetencyUseCase` and `PromoteToModuleCuratorUseCase` already have HTTP endpoints — they remain untouched
+
+---
+
+#### Stage 17: PendingCompetencyValidation
+
+**Scope:** Persist and query learners ready for competency validation
+
+**Files to create:**
+- `src/cohort_learning/domain/pending_competency_validation.py` — `PendingCompetencyValidation` entity
+- `src/cohort_learning/application/event_handlers/competency_prerequisites_met_handler.py` — saves record on event
+- `src/cohort_learning/application/get_pending_competency_validations.py` — query use case (filters already-validated)
+- Tests: `tests/cohort_learning/domain/test_pending_competency_validation.py`
+- Tests: `tests/cohort_learning/application/event_handlers/test_competency_prerequisites_met_handler.py`
+- Tests: `tests/cohort_learning/application/test_get_pending_competency_validations.py`
+- Tests: `tests/cohort_learning/integration/test_pending_competency_validation_integration.py`
+
+**Domain entity:**
+```python
+@dataclass
+class PendingCompetencyValidation:
+    pending_id: str          # UUID
+    learner_id: str
+    topic_id: str
+    cohort_id: str
+    created_at: datetime
+```
+
+**Port additions (cohort_learning/domain/ports.py):**
+```python
+class PendingCompetencyValidationRepository(Protocol):
+    def save(self, record: PendingCompetencyValidation) -> None: ...
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCompetencyValidation]: ...
+    def find_by_learner_topic_cohort(self, learner_id: str, topic_id: str, cohort_id: str) -> PendingCompetencyValidation | None: ...
+```
+
+**UoW addition:**
+- `pending_competency_validations: PendingCompetencyValidationRepository`
+
+**Handler logic:**
+- Listens to `CompetencyPrerequisitesMet`
+- Idempotent: only saves if record doesn't already exist for `(learner_id, topic_id, cohort_id)`
+
+**Query use case:**
+- `GetPendingCompetencyValidationsUseCase.execute(cohort_id, caller_id)`
+- Requires caller to be Master or ModuleCurator
+- Returns all `PendingCompetencyValidation` records for cohort where no `TopicCompetency` exists yet
+
+**API endpoint:**
+- `GET /cohorts/{cohort_id}/pending-competency-validations`
+- Auth: Bearer JWT, Master or Curator role
+- Response: list of `{pending_id, learner_id, topic_id, cohort_id, created_at}`
+
+**DB schema:**
+```sql
+CREATE TABLE pending_competency_validations (
+    pending_id   VARCHAR(255) PRIMARY KEY,
+    learner_id   VARCHAR(255) NOT NULL,
+    topic_id     VARCHAR(255) NOT NULL,
+    cohort_id    VARCHAR(255) NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL,
+    UNIQUE (learner_id, topic_id, cohort_id)
+);
+```
+
+**Tests:** 25-30 (TDD)
+
+---
+
+#### Stage 18: PendingCuratorPromotion
+
+**Scope:** Persist and query learners ready for curator promotion
+
+**Files to create:**
+- `src/cohort_learning/domain/pending_curator_promotion.py` — `PendingCuratorPromotion` entity
+- `src/cohort_learning/application/event_handlers/curator_promotion_eligible_handler.py` — saves record on event
+- `src/cohort_learning/application/get_pending_curator_promotions.py` — query use case (filters already-promoted)
+- Tests: `tests/cohort_learning/domain/test_pending_curator_promotion.py`
+- Tests: `tests/cohort_learning/application/event_handlers/test_curator_promotion_eligible_handler.py`
+- Tests: `tests/cohort_learning/application/test_get_pending_curator_promotions.py`
+- Tests: `tests/cohort_learning/integration/test_pending_curator_promotion_integration.py`
+
+**Domain entity:**
+```python
+@dataclass
+class PendingCuratorPromotion:
+    pending_id: str          # UUID
+    learner_id: str
+    module_id: str
+    cohort_id: str
+    created_at: datetime
+```
+
+**Port additions (cohort_learning/domain/ports.py):**
+```python
+class PendingCuratorPromotionRepository(Protocol):
+    def save(self, record: PendingCuratorPromotion) -> None: ...
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCuratorPromotion]: ...
+    def find_by_learner_module_cohort(self, learner_id: str, module_id: str, cohort_id: str) -> PendingCuratorPromotion | None: ...
+```
+
+**UoW addition:**
+- `pending_curator_promotions: PendingCuratorPromotionRepository`
+
+**Handler logic:**
+- Listens to `CuratorPromotionEligible`
+- Idempotent: only saves if no record exists for `(learner_id, module_id, cohort_id)`
+
+**Query use case:**
+- `GetPendingCuratorPromotionsUseCase.execute(cohort_id, caller_id)`
+- Requires caller to be Master
+- Returns all `PendingCuratorPromotion` records for cohort where learner is NOT already a `ModuleCurator`
+
+**API endpoint:**
+- `GET /cohorts/{cohort_id}/pending-curator-promotions`
+- Auth: Bearer JWT, Master role only
+- Response: list of `{pending_id, learner_id, module_id, cohort_id, created_at}`
+
+**DB schema:**
+```sql
+CREATE TABLE pending_curator_promotions (
+    pending_id   VARCHAR(255) PRIMARY KEY,
+    learner_id   VARCHAR(255) NOT NULL,
+    module_id    VARCHAR(255) NOT NULL,
+    cohort_id    VARCHAR(255) NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL,
+    UNIQUE (learner_id, module_id, cohort_id)
+);
+```
+
+**Tests:** 25-30 (TDD)
+
+---
+
+#### Stage 17+18: Shared Infrastructure
+
+**Alembic migration** (single migration for both tables):
+- `migrations/versions/{hash}_add_pending_eligibility_tables.py`
+- down_revision = `"7bc3de4fa512"` (commissions table)
+
+**app.py additions:**
+```python
+bus.subscribe(CompetencyPrerequisitesMet, CompetencyPrerequisitesMetHandler(cohort_uow_factory()))
+bus.subscribe(CuratorPromotionEligible,   CuratorPromotionEligibleHandler(cohort_uow_factory()))
+```
 
 ---
 
@@ -605,5 +760,8 @@ All stages follow strict RED-GREEN-REFACTOR cycle:
 ---
 
 **Author:** OpenCode Agent  
-**Date:** April 15, 2026  
-**Version:** 1.0
+**Date:** April 16, 2026  
+**Version:** 1.2  
+**Changelog:**
+- v1.1: Stages 10–16 added (Phase C + D) — all completed
+- v1.2: Stages 17–18 added (Phase E: Eligibility Notifications)

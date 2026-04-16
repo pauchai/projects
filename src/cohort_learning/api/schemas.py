@@ -273,3 +273,28 @@ class LeaderboardEntryResponse(BaseModel):
     learner_id: str
     total_xp: int
     rank: int
+
+
+# ---------------------------------------------------------------------------
+# Response schemas — Eligibility Notifications (Stage 17-18)
+# ---------------------------------------------------------------------------
+
+
+class PendingCompetencyValidationResponse(BaseModel):
+    """Serialized PendingCompetencyValidation — a learner awaiting knowledge-check."""
+
+    pending_id: str
+    learner_id: str
+    topic_id: str
+    cohort_id: str
+    created_at: datetime
+
+
+class PendingCuratorPromotionResponse(BaseModel):
+    """Serialized PendingCuratorPromotion — a learner eligible for curator promotion."""
+
+    pending_id: str
+    learner_id: str
+    module_id: str
+    cohort_id: str
+    created_at: datetime

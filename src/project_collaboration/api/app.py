@@ -24,6 +24,12 @@ from cohort_learning.api.routes.cohorts import router as cohorts_router
 from cohort_learning.api.routes.progression import router as progression_router
 from cohort_learning.api.routes.rewards import router as rewards_router
 from cohort_learning.api.routes.tasks import router as tasks_router
+from cohort_learning.application.event_handlers.competency_prerequisites_met_handler import (
+    CompetencyPrerequisitesMetHandler,
+)
+from cohort_learning.application.event_handlers.curator_promotion_eligible_handler import (
+    CuratorPromotionEligibleHandler,
+)
 from cohort_learning.application.event_handlers.reward_auto_grant import (
     HelperMetricsUpdatedRewardHandler,
     PeerReviewSubmittedRewardHandler,
@@ -37,6 +43,8 @@ from cohort_learning.application.sagas.curator_promotion_saga import (
 )
 from cohort_learning.domain.events import (
     CohortGraduated,
+    CompetencyPrerequisitesMet,
+    CuratorPromotionEligible,
     HelperMetricsUpdated,
     PeerReviewSubmitted,
     TopicExpertPromoted,
@@ -111,6 +119,16 @@ async def lifespan(app: FastAPI):
     bus.subscribe(
         HelperMetricsUpdated,
         CuratorPromotionSaga(uow=cohort_uow_factory(), event_bus=bus),
+    )
+
+    # ---- Eligibility notification handlers (Stage 17-18) ----
+    bus.subscribe(
+        CompetencyPrerequisitesMet,
+        CompetencyPrerequisitesMetHandler(cohort_uow_factory()),
+    )
+    bus.subscribe(
+        CuratorPromotionEligible,
+        CuratorPromotionEligibleHandler(cohort_uow_factory()),
     )
 
     # ---- Partnership: commission on cohort graduation ----

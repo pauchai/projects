@@ -6,6 +6,10 @@ from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.pending_competency_validation import (
+    PendingCompetencyValidation,
+)
+from cohort_learning.domain.pending_curator_promotion import PendingCuratorPromotion
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
@@ -234,6 +238,68 @@ class _FakeRewardLedgerRepository:
         self._storage = snapshot
 
 
+class _FakePendingCompetencyValidationRepository:
+    """In-memory PendingCompetencyValidationRepository used within FakeUnitOfWork."""
+
+    def __init__(self) -> None:
+        self._storage: dict[str, PendingCompetencyValidation] = {}
+
+    def save(self, record: PendingCompetencyValidation) -> None:
+        self._storage[record.pending_id] = record
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCompetencyValidation]:
+        return [r for r in self._storage.values() if r.cohort_id == cohort_id]
+
+    def find_by_learner_topic_cohort(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> PendingCompetencyValidation | None:
+        for record in self._storage.values():
+            if (
+                record.learner_id == learner_id
+                and record.topic_id == topic_id
+                and record.cohort_id == cohort_id
+            ):
+                return record
+        return None
+
+    def snapshot(self) -> dict[str, PendingCompetencyValidation]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, PendingCompetencyValidation]) -> None:
+        self._storage = snapshot
+
+
+class _FakePendingCuratorPromotionRepository:
+    """In-memory PendingCuratorPromotionRepository used within FakeUnitOfWork."""
+
+    def __init__(self) -> None:
+        self._storage: dict[str, PendingCuratorPromotion] = {}
+
+    def save(self, record: PendingCuratorPromotion) -> None:
+        self._storage[record.pending_id] = record
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCuratorPromotion]:
+        return [r for r in self._storage.values() if r.cohort_id == cohort_id]
+
+    def find_by_learner_module_cohort(
+        self, learner_id: str, module_id: str, cohort_id: str
+    ) -> PendingCuratorPromotion | None:
+        for record in self._storage.values():
+            if (
+                record.learner_id == learner_id
+                and record.module_id == module_id
+                and record.cohort_id == cohort_id
+            ):
+                return record
+        return None
+
+    def snapshot(self) -> dict[str, PendingCuratorPromotion]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, PendingCuratorPromotion]) -> None:
+        self._storage = snapshot
+
+
 class FakeUnitOfWork:
     """Fake UoW for testing: in-memory with commit/rollback semantics.
 
@@ -251,6 +317,10 @@ class FakeUnitOfWork:
         self.module_curators = _FakeModuleCuratorRepository(self)
         self.topic_competencies = _FakeTopicCompetencyRepository(self)
         self.reward_ledgers = _FakeRewardLedgerRepository(self)
+        self.pending_competency_validations = (
+            _FakePendingCompetencyValidationRepository()
+        )
+        self.pending_curator_promotions = _FakePendingCuratorPromotionRepository()
         self.committed = False
         self._snapshots: dict[str, object] | None = None
         self._event_bus = event_bus
@@ -267,6 +337,8 @@ class FakeUnitOfWork:
             "module_curators": self.module_curators.snapshot(),
             "topic_competencies": self.topic_competencies.snapshot(),
             "reward_ledgers": self.reward_ledgers.snapshot(),
+            "pending_competency_validations": self.pending_competency_validations.snapshot(),
+            "pending_curator_promotions": self.pending_curator_promotions.snapshot(),
         }
         return self
 
@@ -292,6 +364,12 @@ class FakeUnitOfWork:
             self.module_curators.restore(self._snapshots["module_curators"])  # type: ignore[arg-type]
             self.topic_competencies.restore(self._snapshots["topic_competencies"])  # type: ignore[arg-type]
             self.reward_ledgers.restore(self._snapshots["reward_ledgers"])  # type: ignore[arg-type]
+            self.pending_competency_validations.restore(
+                self._snapshots["pending_competency_validations"]
+            )  # type: ignore[arg-type]
+            self.pending_curator_promotions.restore(
+                self._snapshots["pending_curator_promotions"]
+            )  # type: ignore[arg-type]
             self._snapshots = None
         self._pending_events.clear()
 

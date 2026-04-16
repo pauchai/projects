@@ -6,6 +6,10 @@ from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
+from cohort_learning.domain.pending_competency_validation import (
+    PendingCompetencyValidation,
+)
+from cohort_learning.domain.pending_curator_promotion import PendingCuratorPromotion
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
@@ -100,6 +104,30 @@ class RewardLedgerRepository(Protocol):
     def save(self, ledger: RewardLedger) -> None: ...
 
 
+class PendingCompetencyValidationRepository(Protocol):
+    """Port for persisting and querying PendingCompetencyValidation records."""
+
+    def save(self, record: PendingCompetencyValidation) -> None: ...
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCompetencyValidation]: ...
+
+    def find_by_learner_topic_cohort(
+        self, learner_id: str, topic_id: str, cohort_id: str
+    ) -> PendingCompetencyValidation | None: ...
+
+
+class PendingCuratorPromotionRepository(Protocol):
+    """Port for persisting and querying PendingCuratorPromotion records."""
+
+    def save(self, record: PendingCuratorPromotion) -> None: ...
+
+    def find_by_cohort(self, cohort_id: str) -> list[PendingCuratorPromotion]: ...
+
+    def find_by_learner_module_cohort(
+        self, learner_id: str, module_id: str, cohort_id: str
+    ) -> PendingCuratorPromotion | None: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -124,6 +152,8 @@ class UnitOfWork(Protocol):
     module_curators: ModuleCuratorRepository
     topic_competencies: TopicCompetencyRepository
     reward_ledgers: RewardLedgerRepository
+    pending_competency_validations: PendingCompetencyValidationRepository
+    pending_curator_promotions: PendingCuratorPromotionRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

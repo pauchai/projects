@@ -10,10 +10,18 @@ from cohort_learning.api.schemas import (
     HelperMetricsResponse,
     MessageResponse,
     ModuleCuratorResponse,
+    PendingCompetencyValidationResponse,
+    PendingCuratorPromotionResponse,
     PromoteToModuleCuratorRequest,
     PromoteToTopicExpertRequest,
     TopicExpertResponse,
     ValidateTopicCompetencyRequest,
+)
+from cohort_learning.application.get_pending_competency_validations import (
+    GetPendingCompetencyValidationsUseCase,
+)
+from cohort_learning.application.get_pending_curator_promotions import (
+    GetPendingCuratorPromotionsUseCase,
 )
 from cohort_learning.application.promote_to_module_curator import (
     PromoteToModuleCuratorUseCase,
@@ -265,3 +273,76 @@ def get_cohort_topic_experts(
         # Retrieve all topic experts
         experts = uow.topic_experts.find_by_cohort(cohort_id)
         return [_topic_expert_to_response(e) for e in experts]
+
+
+@router.get(
+    "/{cohort_id}/pending-competency-validations",
+    response_model=list[PendingCompetencyValidationResponse],
+)
+def get_pending_competency_validations(
+    cohort_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_cohort_uow),
+) -> list[PendingCompetencyValidationResponse]:
+    """
+    List learners waiting for competency knowledge-check validation.
+
+    Returns PendingCompetencyValidation records where the learner has not yet
+    been granted a TopicCompetency for the corresponding topic. Stale records
+    (already validated) are filtered out dynamically.
+
+    Authorization: Master or Module Curator only.
+    """
+    use_case = GetPendingCompetencyValidationsUseCase(uow)
+    try:
+        records = use_case.execute(cohort_id=cohort_id, caller_id=caller_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return [
+        PendingCompetencyValidationResponse(
+            pending_id=r.pending_id,
+            learner_id=r.learner_id,
+            topic_id=r.topic_id,
+            cohort_id=r.cohort_id,
+            created_at=r.created_at,
+        )
+        for r in records
+    ]
+
+
+@router.get(
+    "/{cohort_id}/pending-curator-promotions",
+    response_model=list[PendingCuratorPromotionResponse],
+)
+def get_pending_curator_promotions(
+    cohort_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_cohort_uow),
+) -> list[PendingCuratorPromotionResponse]:
+    """
+    List learners eligible for Module Curator promotion.
+
+    Returns PendingCuratorPromotion records where the learner has not yet been
+    formally promoted to ModuleCurator. Stale records are filtered dynamically.
+
+    Authorization: Master only.
+    """
+    use_case = GetPendingCuratorPromotionsUseCase(uow)
+    try:
+        records = use_case.execute(cohort_id=cohort_id, caller_id=caller_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return [
+        PendingCuratorPromotionResponse(
+            pending_id=r.pending_id,
+            learner_id=r.learner_id,
+            module_id=r.module_id,
+            cohort_id=r.cohort_id,
+            created_at=r.created_at,
+        )
+        for r in records
+    ]
