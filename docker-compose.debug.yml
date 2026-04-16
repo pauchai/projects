@@ -1,0 +1,27 @@
+# =============================================================================
+# Debug overlay — overrides backend command to run under debugpy.
+#
+# Usage:
+#   ./scripts/debug-start.sh
+#
+# Or manually:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.debug.yml --env-file .env.temp up
+# =============================================================================
+
+services:
+  backend:
+    ports:
+      - "5678:5678"
+    command:
+      - python
+      - -m
+      - debugpy
+      - --listen
+      - "0.0.0.0:5678"
+      - -m
+      - uvicorn
+      - project_collaboration.api.app:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
