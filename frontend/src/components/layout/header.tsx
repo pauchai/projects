@@ -69,6 +69,12 @@ export function Header() {
                   Rewards
                 </Link>
                 <Link
+                  to="/me/earnings"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Earnings
+                </Link>
+                <Link
                   to="/profile"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -161,6 +167,13 @@ export function Header() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Rewards
+                </Link>
+                <Link
+                  to="/me/earnings"
+                  onClick={closeMenu}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Earnings
                 </Link>
                 <Link
                   to="/profile"

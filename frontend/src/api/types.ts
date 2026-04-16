@@ -453,3 +453,32 @@ export interface AddTopicRequest {
   position: number
   description: string
 }
+
+// ---------------------------------------------------------------------------
+// Partnership / Earnings
+// ---------------------------------------------------------------------------
+
+export type CommissionStatus = "pending" | "released"
+
+/** Single curator commission (GET /me/earnings, GET /me/earnings/history) */
+export interface CommissionResponse {
+  commission_id: string
+  curator_id: string
+  cohort_id: string
+  module_id: string
+  base_amount: number
+  bonus_amount: number
+  total_amount: number
+  status: CommissionStatus
+  earned_at: string
+  release_eligible_at: string
+  released_at: string | null
+}
+
+/** GET /me/earnings — aggregated summary */
+export interface EarningsSummaryResponse {
+  curator_id: string
+  total_pending: number
+  total_released: number
+  commissions: CommissionResponse[]
+}

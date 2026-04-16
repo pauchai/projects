@@ -24,6 +24,7 @@ import { ModulesListPage } from "@/pages/modules-list"
 import { CreateModulePage } from "@/pages/create-module"
 import { ModuleDetailPage } from "@/pages/module-detail"
 import { RewardsPage } from "@/pages/rewards"
+import { EarningsPage } from "@/pages/earnings"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -151,6 +152,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <RewardsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/me/earnings"
+                element={
+                  <ProtectedRoute>
+                    <EarningsPage />
                   </ProtectedRoute>
                 }
               />
