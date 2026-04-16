@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from cohort_learning.application._helpers import get_cohort_or_raise
+from cohort_learning.domain.events import HelperMetricsUpdated
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.ports import UnitOfWork
 
@@ -35,7 +36,9 @@ class RecordHelperActivityUseCase:
             get_cohort_or_raise(uow, cohort_id)
 
             # Get or create helper metrics
-            metrics = uow.helper_metrics.find_by_learner_and_cohort(learner_id, cohort_id)
+            metrics = uow.helper_metrics.find_by_learner_and_cohort(
+                learner_id, cohort_id
+            )
             if metrics is None:
                 metrics = HelperMetrics(
                     learner_id=learner_id,
@@ -68,5 +71,18 @@ class RecordHelperActivityUseCase:
                 raise ValueError(f"Invalid activity_type: '{activity_type}'")
 
             uow.helper_metrics.save(metrics)
+
+            # Emit HelperMetricsUpdated for downstream reward handlers
+            uow.collect_events(
+                [
+                    HelperMetricsUpdated(
+                        learner_id=learner_id,
+                        cohort_id=cohort_id,
+                        learners_helped=metrics.learners_helped,
+                        tasks_reviewed=metrics.tasks_reviewed,
+                    )
+                ]
+            )
+
             uow.commit()
             return metrics

@@ -7,6 +7,7 @@ from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
+from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 from shared_kernel.events import DomainEvent, EventBus
@@ -211,6 +212,28 @@ class _FakeModuleCuratorRepository:
         self._storage = snapshot
 
 
+class _FakeRewardLedgerRepository:
+    """In-memory RewardLedgerRepository used within FakeUnitOfWork."""
+
+    def __init__(self, uow: "FakeUnitOfWork") -> None:
+        self._storage: dict[str, RewardLedger] = {}
+        self._uow = uow
+
+    def find_by_learner(self, learner_id: str) -> RewardLedger | None:
+        return self._storage.get(learner_id)
+
+    def save(self, ledger: RewardLedger) -> None:
+        events = ledger.collect_events()
+        self._uow.collect_events(events)
+        self._storage[ledger.learner_id] = ledger
+
+    def snapshot(self) -> dict[str, RewardLedger]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, RewardLedger]) -> None:
+        self._storage = snapshot
+
+
 class FakeUnitOfWork:
     """Fake UoW for testing: in-memory with commit/rollback semantics.
 
@@ -227,6 +250,7 @@ class FakeUnitOfWork:
         self.helper_metrics = _FakeHelperMetricsRepository(self)
         self.module_curators = _FakeModuleCuratorRepository(self)
         self.topic_competencies = _FakeTopicCompetencyRepository(self)
+        self.reward_ledgers = _FakeRewardLedgerRepository(self)
         self.committed = False
         self._snapshots: dict[str, object] | None = None
         self._event_bus = event_bus
@@ -242,6 +266,7 @@ class FakeUnitOfWork:
             "helper_metrics": self.helper_metrics.snapshot(),
             "module_curators": self.module_curators.snapshot(),
             "topic_competencies": self.topic_competencies.snapshot(),
+            "reward_ledgers": self.reward_ledgers.snapshot(),
         }
         return self
 
@@ -266,6 +291,7 @@ class FakeUnitOfWork:
             self.helper_metrics.restore(self._snapshots["helper_metrics"])  # type: ignore[arg-type]
             self.module_curators.restore(self._snapshots["module_curators"])  # type: ignore[arg-type]
             self.topic_competencies.restore(self._snapshots["topic_competencies"])  # type: ignore[arg-type]
+            self.reward_ledgers.restore(self._snapshots["reward_ledgers"])  # type: ignore[arg-type]
             self._snapshots = None
         self._pending_events.clear()
 

@@ -122,3 +122,18 @@ class ExpertRewardGranted(DomainEvent):
     reward_type: str  # 'xp', 'badge', 'credits'
     amount: int | None  # None for badge entries
     cohort_id: str | None
+
+
+@dataclass(frozen=True)
+class HelperMetricsUpdated(DomainEvent):
+    """Emitted after a learner's HelperMetrics are updated.
+
+    Used to trigger automatic reward calculations:
+    - Reputation recalculation
+    - Learning credits milestones (every 10 learners helped → +5%)
+    """
+
+    learner_id: str
+    cohort_id: str
+    learners_helped: int
+    tasks_reviewed: int
