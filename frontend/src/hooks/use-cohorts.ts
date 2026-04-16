@@ -286,6 +286,38 @@ export function usePromoteExpert() {
   })
 }
 
+/** Activate a practice task */
+export function useActivateTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cohortId, taskId }: { cohortId: string; taskId: string }) =>
+      cohortsApi.activateTask(cohortId, taskId),
+    onSuccess: (_data, { cohortId }) => {
+      queryClient.invalidateQueries({ queryKey: cohortKeys.tasks(cohortId) })
+    },
+  })
+}
+
+/** Close a practice task */
+export function useCloseTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cohortId, taskId }: { cohortId: string; taskId: string }) =>
+      cohortsApi.closeTask(cohortId, taskId),
+    onSuccess: (_data, { cohortId }) => {
+      queryClient.invalidateQueries({ queryKey: cohortKeys.tasks(cohortId) })
+    },
+  })
+}
+
+/** Authenticated user's reward history */
+export function useMyRewardHistory() {
+  return useQuery({
+    queryKey: cohortKeys.myRewardHistory(),
+    queryFn: () => cohortsApi.getMyRewardHistory(),
+  })
+}
+
 /** Promote to module curator */
 export function usePromoteCurator() {
   const queryClient = useQueryClient()

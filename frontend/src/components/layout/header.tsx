@@ -63,6 +63,12 @@ export function Header() {
                   Create
                 </Link>
                 <Link
+                  to="/me/rewards"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Rewards
+                </Link>
+                <Link
                   to="/profile"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -148,6 +154,13 @@ export function Header() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Create
+                </Link>
+                <Link
+                  to="/me/rewards"
+                  onClick={closeMenu}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Rewards
                 </Link>
                 <Link
                   to="/profile"

@@ -23,6 +23,7 @@ import { CohortDashboardPage } from "@/pages/cohort-dashboard"
 import { ModulesListPage } from "@/pages/modules-list"
 import { CreateModulePage } from "@/pages/create-module"
 import { ModuleDetailPage } from "@/pages/module-detail"
+import { RewardsPage } from "@/pages/rewards"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -142,6 +143,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/me/rewards"
+                element={
+                  <ProtectedRoute>
+                    <RewardsPage />
                   </ProtectedRoute>
                 }
               />
