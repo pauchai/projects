@@ -5,13 +5,14 @@ domain events collected during ``save()`` are published **after** a
 successful ``commit()``.  If no bus is given, events are silently
 discarded — this keeps the system backward-compatible and testable.
 
-Exposes six repositories:
+Exposes seven repositories:
 - ``cohorts`` — SqlAlchemyCohortRepository
 - ``practice_tasks`` — SqlAlchemyPracticeTaskRepository
 - ``peer_reviews`` — SqlAlchemyPeerReviewRepository
 - ``topic_experts`` — SqlAlchemyTopicExpertRepository
 - ``helper_metrics`` — SqlAlchemyHelperMetricsRepository
 - ``module_curators`` — SqlAlchemyModuleCuratorRepository
+- ``reward_ledgers`` — SqlAlchemyRewardLedgerRepository
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from cohort_learning.infrastructure.sqlalchemy_repository import (
     SqlAlchemyModuleCuratorRepository,
     SqlAlchemyPeerReviewRepository,
     SqlAlchemyPracticeTaskRepository,
+    SqlAlchemyRewardLedgerRepository,
     SqlAlchemyTopicCompetencyRepository,
     SqlAlchemyTopicExpertRepository,
 )
@@ -55,6 +57,7 @@ class SqlAlchemyUnitOfWork:
         self.helper_metrics = SqlAlchemyHelperMetricsRepository(self._session)
         self.module_curators = SqlAlchemyModuleCuratorRepository(self._session)
         self.topic_competencies = SqlAlchemyTopicCompetencyRepository(self._session)
+        self.reward_ledgers = SqlAlchemyRewardLedgerRepository(self._session, self)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

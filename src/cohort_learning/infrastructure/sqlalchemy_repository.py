@@ -14,6 +14,8 @@ Repositories:
 - ``SqlAlchemyTopicExpertRepository`` — TopicExpert entity (no events)
 - ``SqlAlchemyHelperMetricsRepository`` — HelperMetrics entity (with Decimal conversion)
 - ``SqlAlchemyModuleCuratorRepository`` — ModuleCurator entity (no events)
+- ``SqlAlchemyRewardLedgerRepository`` — RewardLedger aggregate (append-only, reconstructed
+  from RewardEntryRecord rows; metadata dict serialised as JSON text)
 """
 
 from __future__ import annotations
@@ -29,9 +31,10 @@ from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
+from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
-from cohort_learning.infrastructure.orm import ReviewScoreRecord
+from cohort_learning.infrastructure.orm import ReviewScoreRecord, RewardEntryRecord
 
 
 class SqlAlchemyCohortRepository:
@@ -417,4 +420,64 @@ class SqlAlchemyTopicCompetencyRepository:
     def save(self, competency: TopicCompetency) -> None:
         """Persist a TopicCompetency record."""
         self._session.merge(competency)
+        self._session.flush()
+
+
+class SqlAlchemyRewardLedgerRepository:
+    """Implements RewardLedgerRepository Protocol using SQLAlchemy ORM.
+
+    RewardLedger is an append-only aggregate with no single ORM-mapped row.
+    It is reconstructed from all RewardEntryRecord rows that share the same
+    ``learner_id``. ``RewardEntry`` is a frozen dataclass (value object), so
+    ``RewardEntryRecord`` acts as the mutable ORM proxy; the ``metadata``
+    dict[str, str] is serialised as JSON text in the database.
+
+    On ``save()``, each entry in the ledger is merged individually.  Because
+    the ledger is append-only, existing rows are never updated — merge is
+    idempotent and INSERT-only in practice.
+    """
+
+    def __init__(self, session: Session, uow: object | None = None) -> None:
+        self._session = session
+        self._uow = uow
+
+    # ------------------------------------------------------------------
+    # Public interface (matches RewardLedgerRepository Protocol)
+    # ------------------------------------------------------------------
+
+    def find_by_learner(self, learner_id: str) -> RewardLedger | None:
+        """Load a RewardLedger for a learner by reconstructing it from all entry rows.
+
+        Returns ``None`` when no entries exist for the learner (ledger not yet
+        created).
+        """
+        stmt = select(RewardEntryRecord).where(
+            RewardEntryRecord.learner_id == learner_id  # type: ignore[attr-defined]
+        )
+        records: list[RewardEntryRecord] = list(self._session.scalars(stmt).all())
+
+        if not records:
+            return None
+
+        # Reconstruct the aggregate without calling __init__ (bypasses event init)
+        ledger: RewardLedger = RewardLedger.__new__(RewardLedger)
+        ledger.learner_id = learner_id
+        ledger._entries = [record.to_domain() for record in records]  # type: ignore[attr-defined]
+        ledger._events = []  # type: ignore[attr-defined]
+        return ledger
+
+    def save(self, ledger: RewardLedger) -> None:
+        """Persist a RewardLedger by merging each entry as a RewardEntryRecord.
+
+        Collects domain events from the aggregate and passes them to the UoW
+        for publishing after commit.
+        """
+        events = ledger.collect_events()
+        if events and self._uow is not None and hasattr(self._uow, "collect_events"):
+            self._uow.collect_events(events)
+
+        for entry in ledger.entries:
+            record = RewardEntryRecord.from_domain(entry)
+            self._session.merge(record)
+
         self._session.flush()

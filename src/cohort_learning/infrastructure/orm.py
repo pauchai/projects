@@ -15,10 +15,15 @@ Key design decisions:
 - ReviewScore is mapped as a composite value object via a child table.
 - HelperMetrics.average_satisfaction (Decimal) is stored as String(10) and
   converted by the repository layer.
+- RewardEntry is a frozen dataclass (value object) and cannot be mapped
+  directly. RewardEntryRecord is the mutable ORM proxy; metadata (dict[str,str])
+  is serialised as JSON text and converted by the repository layer.
 """
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -47,6 +52,7 @@ from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
 from cohort_learning.domain.review_score import ReviewScore
 from cohort_learning.domain.review_status import ReviewStatus
+from cohort_learning.domain.reward_entry import RewardEntry
 from cohort_learning.domain.task_status import SubmissionStatus, TaskStatus
 from cohort_learning.domain.task_submission import TaskSubmission
 from cohort_learning.domain.topic import Topic
@@ -243,6 +249,21 @@ module_curators_table = Table(
     Column("promoted_by", String(255), nullable=False),
 )
 
+# --- Rewards tables ---
+
+reward_ledger_table = Table(
+    "reward_ledger",
+    metadata,
+    Column("entry_id", String(255), primary_key=True),
+    Column("learner_id", String(255), nullable=False, index=True),
+    Column("reward_type", String(50), nullable=False, index=True),
+    Column("amount", Integer, nullable=True),
+    Column("metadata_json", Text, nullable=False, default="{}"),
+    Column("granted_at", DateTime(timezone=True), nullable=False),
+    Column("triggering_event", String(255), nullable=True),
+    Column("cohort_id", String(255), nullable=True),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
@@ -356,3 +377,70 @@ mapper_registry.map_imperatively(TopicExpert, topic_experts_table)
 mapper_registry.map_imperatively(HelperMetrics, helper_metrics_table)
 
 mapper_registry.map_imperatively(ModuleCurator, module_curators_table)
+
+
+# --- Rewards mappings ---
+
+
+class RewardEntryRecord:
+    """ORM-mapped row for reward_ledger table.
+
+    RewardEntry is a frozen dataclass (value object) and cannot be mapped
+    directly by SQLAlchemy's imperative mapping. This mutable record acts
+    as the persistence representation. Conversion to/from the domain
+    RewardEntry is handled in the repository layer.
+
+    The ``metadata`` dict[str, str] field is serialised as JSON text in
+    ``metadata_json`` and deserialised on load.
+    """
+
+    def __init__(
+        self,
+        entry_id: str = "",
+        learner_id: str = "",
+        reward_type: str = "",
+        amount: int | None = None,
+        metadata_json: str = "{}",
+        granted_at: datetime | None = None,
+        triggering_event: str | None = None,
+        cohort_id: str | None = None,
+    ) -> None:
+        self.entry_id = entry_id
+        self.learner_id = learner_id
+        self.reward_type = reward_type
+        self.amount = amount
+        self.metadata_json = metadata_json
+        self.granted_at = granted_at
+        self.triggering_event = triggering_event
+        self.cohort_id = cohort_id
+
+    def to_domain(self) -> RewardEntry:
+        """Convert ORM record to domain RewardEntry frozen dataclass."""
+        metadata: dict[str, str] = json.loads(self.metadata_json or "{}")
+        return RewardEntry(
+            entry_id=self.entry_id,
+            learner_id=self.learner_id,
+            reward_type=self.reward_type,
+            amount=self.amount,
+            metadata=metadata,
+            granted_at=self.granted_at,  # type: ignore[arg-type]
+            triggering_event=self.triggering_event,
+            cohort_id=self.cohort_id,
+        )
+
+    @staticmethod
+    def from_domain(entry: RewardEntry) -> "RewardEntryRecord":
+        """Create ORM record from a domain RewardEntry frozen dataclass."""
+        return RewardEntryRecord(
+            entry_id=entry.entry_id,
+            learner_id=entry.learner_id,
+            reward_type=entry.reward_type,
+            amount=entry.amount,
+            metadata_json=json.dumps(entry.metadata),
+            granted_at=entry.granted_at,
+            triggering_event=entry.triggering_event,
+            cohort_id=entry.cohort_id,
+        )
+
+
+mapper_registry.map_imperatively(RewardEntryRecord, reward_ledger_table)

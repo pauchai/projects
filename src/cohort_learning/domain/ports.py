@@ -7,6 +7,7 @@ from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.peer_review import PeerReview
 from cohort_learning.domain.practice_task import PracticeTask
+from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
 
@@ -91,6 +92,14 @@ class TopicCompetencyRepository(Protocol):
     def save(self, competency: TopicCompetency) -> None: ...
 
 
+class RewardLedgerRepository(Protocol):
+    """Port for persisting and querying RewardLedgers (one per learner)."""
+
+    def find_by_learner(self, learner_id: str) -> RewardLedger | None: ...
+
+    def save(self, ledger: RewardLedger) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -114,6 +123,7 @@ class UnitOfWork(Protocol):
     helper_metrics: HelperMetricsRepository
     module_curators: ModuleCuratorRepository
     topic_competencies: TopicCompetencyRepository
+    reward_ledgers: RewardLedgerRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...
