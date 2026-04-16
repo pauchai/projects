@@ -111,6 +111,25 @@ class PeerReviewSubmitted(DomainEvent):
     cohort_id: str
 
 
+# --- Saga events ---
+
+
+@dataclass(frozen=True)
+class CompetencyPrerequisitesMet(DomainEvent):
+    """Emitted when a learner has completed all tasks and received enough peer
+    reviews for a topic, signalling they are eligible for competency validation.
+
+    This is NOT a competency grant — it is a notification that the automatic
+    prerequisites are satisfied. A Master or Curator must still call
+    ``ValidateTopicCompetencyUseCase`` with ``knowledge_check_score`` and
+    ``mentor_approved`` to finalise the competency.
+    """
+
+    cohort_id: str
+    learner_id: str
+    topic_id: str
+
+
 # --- Reward events ---
 
 
