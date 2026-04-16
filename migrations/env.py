@@ -1,8 +1,8 @@
 """Alembic environment configuration.
 
-Combines MetaData from both bounded contexts (auth + project_collaboration)
-into a single target for autogenerate support. Both contexts share the same
-PostgreSQL database but maintain separate ORM registries.
+Combines MetaData from all bounded contexts (auth, project_collaboration,
+cohort_learning) into a single target for autogenerate support. All contexts
+share the same PostgreSQL database but maintain separate ORM registries.
 
 Database URL resolution (in priority order):
 1. DATABASE_URL environment variable
@@ -47,10 +47,10 @@ if config.config_file_name is not None:
 # Importing the ORM modules triggers imperative mappings and populates
 # the MetaData objects with table definitions.
 from auth.infrastructure.orm import metadata as auth_metadata
+from cohort_learning.infrastructure.orm import metadata as cohort_metadata
 from project_collaboration.infrastructure.orm import metadata as collab_metadata
 
-# Merge both MetaData into a single target for autogenerate.
-# We use the collab metadata as base and add auth tables to it.
+# Merge all MetaData into a single target for autogenerate.
 from sqlalchemy import MetaData
 
 target_metadata = MetaData()
@@ -59,6 +59,9 @@ for table in auth_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 for table in collab_metadata.tables.values():
+    table.to_metadata(target_metadata)
+
+for table in cohort_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 # Tables that exist in the DB but are NOT managed by Alembic.
