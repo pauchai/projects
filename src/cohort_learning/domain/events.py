@@ -109,3 +109,16 @@ class PeerReviewSubmitted(DomainEvent):
     reviewer_id: str
     task_id: str
     cohort_id: str
+
+
+# --- Reward events ---
+
+
+@dataclass(frozen=True)
+class ExpertRewardGranted(DomainEvent):
+    """Emitted when any reward (XP, badge, credits) is granted to a learner."""
+
+    learner_id: str
+    reward_type: str  # 'xp', 'badge', 'credits'
+    amount: int | None  # None for badge entries
+    cohort_id: str | None
