@@ -38,7 +38,12 @@ from cohort_learning.domain.review_score import ReviewScore
 from cohort_learning.domain.reward_ledger import RewardLedger
 from cohort_learning.domain.topic_competency import TopicCompetency
 from cohort_learning.domain.topic_expert import TopicExpert
-from cohort_learning.infrastructure.orm import ReviewScoreRecord, RewardEntryRecord
+from cohort_learning.infrastructure.orm import (
+    ReviewScoreRecord,
+    RewardEntryRecord,
+    cohort_memberships_table,
+    learning_cohorts_table,
+)
 
 
 class SqlAlchemyCohortRepository:
@@ -82,6 +87,45 @@ class SqlAlchemyCohortRepository:
         self._session.merge(cohort)
         # Flush to ensure the cohort row exists
         self._session.flush()
+
+    def find_by_master(self, master_id: str) -> list[LearningCohort]:
+        """Return all LearningCohorts where the caller is the master."""
+        stmt = (
+            select(LearningCohort)
+            .where(
+                learning_cohorts_table.c.master_id == master_id,
+            )
+            .options(
+                selectinload(LearningCohort.memberships),  # type: ignore[attr-defined]
+            )
+        )
+        cohorts = list(self._session.scalars(stmt).all())
+        for cohort in cohorts:
+            self._init_transient(cohort)
+        return cohorts
+
+    def find_by_learner(self, learner_id: str) -> list[LearningCohort]:
+        """Return all LearningCohorts where the caller is an active member."""
+        stmt = (
+            select(LearningCohort)
+            .join(
+                cohort_memberships_table,
+                cohort_memberships_table.c.cohort_id
+                == learning_cohorts_table.c.cohort_id,
+            )
+            .where(
+                cohort_memberships_table.c.learner_id == learner_id,
+                cohort_memberships_table.c.is_active.is_(True),
+            )
+            .options(
+                selectinload(LearningCohort.memberships),  # type: ignore[attr-defined]
+            )
+            .distinct()
+        )
+        cohorts = list(self._session.scalars(stmt).all())
+        for cohort in cohorts:
+            self._init_transient(cohort)
+        return cohorts
 
     # ------------------------------------------------------------------
     # Private helpers

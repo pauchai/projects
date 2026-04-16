@@ -16,6 +16,10 @@ import { SecuritySettingsPage } from "@/pages/settings/security"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
 import { OAuthCallbackPage } from "@/pages/oauth-callback"
+import { CohortsListPage } from "@/pages/cohorts-list"
+import { CreateCohortPage } from "@/pages/create-cohort"
+import { CohortDetailPage } from "@/pages/cohort-detail"
+import { CohortDashboardPage } from "@/pages/cohort-dashboard"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +78,38 @@ export default function App() {
                 }
               />
               <Route path="/features/:requestId" element={<FeatureDetailPage />} />
+              <Route
+                path="/cohorts"
+                element={
+                  <ProtectedRoute>
+                    <CohortsListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cohorts/new"
+                element={
+                  <ProtectedRoute>
+                    <CreateCohortPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cohorts/:cohortId"
+                element={
+                  <ProtectedRoute>
+                    <CohortDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cohorts/:cohortId/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <CohortDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/profile"
                 element={

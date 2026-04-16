@@ -23,6 +23,10 @@ class CohortRepository(Protocol):
 
     def save(self, cohort: LearningCohort) -> None: ...
 
+    def find_by_master(self, master_id: str) -> list[LearningCohort]: ...
+
+    def find_by_learner(self, learner_id: str) -> list[LearningCohort]: ...
+
 
 class PracticeTaskRepository(Protocol):
     """Port for persisting and querying PracticeTasks."""

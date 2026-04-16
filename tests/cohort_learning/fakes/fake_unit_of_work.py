@@ -32,6 +32,16 @@ class _FakeCohortRepository:
         self._uow.collect_events(events)
         self._storage[cohort.cohort_id] = cohort
 
+    def find_by_master(self, master_id: str) -> list[LearningCohort]:
+        return [c for c in self._storage.values() if c.master_id == master_id]
+
+    def find_by_learner(self, learner_id: str) -> list[LearningCohort]:
+        return [
+            c
+            for c in self._storage.values()
+            if any(m.learner_id == learner_id and m.is_active for m in c.memberships)
+        ]
+
     def snapshot(self) -> dict[str, LearningCohort]:
         """Return a deep copy of the storage for rollback support."""
         return copy.deepcopy(self._storage)

@@ -20,6 +20,7 @@ from cohort_learning.application.change_cohort_status import (
 )
 from cohort_learning.application.enrol_learner import EnrolLearnerUseCase
 from cohort_learning.application.form_cohort import FormCohortUseCase
+from cohort_learning.application.list_my_cohorts import ListMyCohortsUseCase
 from cohort_learning.application.remove_learner import RemoveLearnerUseCase
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.infrastructure.sqlalchemy_unit_of_work import (
@@ -74,6 +75,17 @@ def form_cohort(
         module_id=body.module_id,
     )
     return _cohort_to_response(cohort)
+
+
+@router.get("", response_model=list[CohortResponse])
+def list_my_cohorts(
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_cohort_uow),
+) -> list[CohortResponse]:
+    """List all cohorts where the caller is master or active member."""
+    use_case = ListMyCohortsUseCase(uow)
+    cohorts = use_case.execute(caller_id=caller_id)
+    return [_cohort_to_response(c) for c in cohorts]
 
 
 @router.get("/{cohort_id}", response_model=CohortResponse)

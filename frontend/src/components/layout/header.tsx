@@ -41,6 +41,12 @@ export function Header() {
             >
               Features
             </Link>
+            <Link
+              to="/cohorts"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cohorts
+            </Link>
 
             {isAuthenticated ? (
               <>
@@ -112,6 +118,13 @@ export function Header() {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Features
+            </Link>
+            <Link
+              to="/cohorts"
+              onClick={closeMenu}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cohorts
             </Link>
 
             {isAuthenticated ? (
