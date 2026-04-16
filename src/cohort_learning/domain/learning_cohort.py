@@ -16,7 +16,7 @@ from cohort_learning.domain.events import (
 )
 from shared_kernel.events import DomainEvent
 
-MIN_LEARNERS = 5
+MIN_LEARNERS = 1
 MAX_LEARNERS = 15
 
 

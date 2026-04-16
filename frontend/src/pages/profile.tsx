@@ -32,6 +32,9 @@ export function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold">{displayName ?? "User"}</h1>
         <p className="text-sm text-muted-foreground">{email}</p>
+        {userId && (
+          <p className="mt-1 font-mono text-xs text-muted-foreground">ID: {userId}</p>
+        )}
         <Link
           to="/settings/security"
           className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
