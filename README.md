@@ -267,30 +267,104 @@ links the Google credential to an existing account with the same email.
 
 ## Running Tests
 
-### Backend (433 tests)
+### Backend unit + integration tests
+
+Requires the test database:
+
+```bash
+docker compose --profile test up -d postgres-test
+```
 
 ```bash
 # Full suite
 poetry run pytest
 
-# Specific test file
+# Single file
 poetry run pytest tests/project_collaboration/application/test_search_projects.py
 
 # By test name
 poetry run pytest -k test_confirm_sets_confirmed_flag
 
-# Verbose with output
+# Verbose with live output
 poetry run pytest -xvs
 ```
 
-Requires the test database to be running (`docker compose up -d postgres-test`).
-
-### Frontend (type-check + build)
+### Frontend type-check + build
 
 ```bash
 cd frontend
 npm run build
 ```
+
+### Frontend E2E tests (Playwright)
+
+E2E tests run against a **real backend** and a real test database. Three
+services must be running before the tests start.
+
+#### Step 1 — Start the test database
+
+```bash
+docker compose --profile test up -d postgres-test
+```
+
+This starts PostgreSQL on port **5433** with database
+`project_collaboration_test` / user `collab_test`.
+
+#### Step 2 — Start the backend pointed at the test database
+
+```bash
+DATABASE_URL="postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test" \
+JWT_SECRET="dev-secret-change-me-in-production" \
+PYTHONPATH=src \
+uvicorn project_collaboration.api.app:app --port 8000
+```
+
+> The backend must stay running in a separate terminal for the duration of the
+> test run.
+
+#### Step 3 — Run the tests
+
+```bash
+cd frontend
+npm run test:e2e          # headless Chromium, list reporter
+```
+
+Playwright starts the Vite dev server automatically (port 5173) if it is not
+already running. `global-setup.ts` resets the test database via Alembic
+migrations and registers four test personas on every run.
+
+#### Useful variants
+
+```bash
+# Interactive UI mode (visual test runner, time-travel debugger)
+npm run test:e2e:ui
+
+# Headed — watch Chromium execute the tests
+npm run test:e2e:headed
+
+# Single spec file
+npx playwright test e2e/scenarios/task-flow.spec.ts
+
+# Single test by name pattern
+npx playwright test --grep "master creates a task"
+
+# Show the HTML report from the last run
+npx playwright show-report
+```
+
+#### Test personas
+
+`global-setup.ts` creates these users in the test database on every run:
+
+| Persona    | Email                  | Password       | Role                         |
+|------------|------------------------|----------------|------------------------------|
+| `master`   | `master@e2e.test`      | `e2epassword`  | Cohort creator               |
+| `learner1` | `learner1@e2e.test`    | `e2epassword`  | Active cohort member         |
+| `learner2` | `learner2@e2e.test`    | `e2epassword`  | Active cohort member         |
+| `outsider` | `outsider@e2e.test`    | `e2epassword`  | Authenticated, not in cohort |
+
+Authenticated sessions are stored in `frontend/e2e/.auth/` (git-ignored) and
+reused across all tests in a run without going through the login UI.
 
 ## Docker (Full Stack)
 
