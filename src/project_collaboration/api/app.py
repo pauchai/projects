@@ -43,9 +43,7 @@ from partnership.api.routes.earnings import router as earnings_router
 from partnership.application.calculate_curation_commission import (
     CalculateCurationCommissionUseCase,
 )
-from partnership.application.event_handlers.cohort_graduated_handler import (
-    CohortGraduatedHandler,
-)
+from partnership.application.sagas.cohort_graduation_saga import CohortGraduationSaga
 from partnership.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork as PartnershipSqlAlchemyUnitOfWork,
 )
@@ -105,7 +103,7 @@ async def lifespan(app: FastAPI):
     )
     bus.subscribe(
         CohortGraduated,
-        CohortGraduatedHandler(cohort_uow_factory(), calculate_commission_uc),
+        CohortGraduationSaga(cohort_uow_factory(), calculate_commission_uc),
     )
 
     # ---- Wire bus into both bounded contexts' dependency modules ----
