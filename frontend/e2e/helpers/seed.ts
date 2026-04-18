@@ -357,3 +357,64 @@ export async function createFeatureRequest(api: APIRequestContext): Promise<stri
   await assertOk(resp, `createFeatureRequest(${requestId})`)
   return requestId
 }
+
+// ---------------------------------------------------------------------------
+// Auth helpers (for standalone users, not linked to personas)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new user with email+password (local credential).
+ * Returns `{ userId, email, password }`.
+ * Does NOT authenticate the API context.
+ */
+export async function createUserWithPassword(
+  api: APIRequestContext,
+  email?: string,
+): Promise<{ userId: string; email: string; password: string }> {
+  const userId = crypto.randomUUID()
+  const password = crypto.randomUUID().slice(0, 8)
+  const finalEmail = email ?? `e2e-${userId.slice(0, 8)}@test.example`
+
+  const resp = await api.post("auth/register", {
+    data: {
+      user_id: userId,
+      email: finalEmail,
+      password,
+      display_name: `E2E User ${userId.slice(0, 8)}`,
+    },
+  })
+  await assertOk(resp, `createUserWithPassword(${userId})`)
+
+  return { userId, email: finalEmail, password }
+}
+
+/**
+ * Login with email+password and return the access token.
+ * Requires an unauthenticated API context.
+ */
+export async function login(
+  api: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<string> {
+  const resp = await api.post("auth/login", {
+    data: { email, password },
+  })
+  await assertOk(resp, `login(${email})`)
+  const body = JSON.parse(await resp.text()) as { access_token: string }
+  return body.access_token
+}
+
+/**
+ * Set a password for an existing user (no local credential yet).
+ * The API context must be authenticated as that user.
+ */
+export async function setPassword(
+  api: APIRequestContext,
+  password: string,
+): Promise<void> {
+  const resp = await api.post("auth/local/set-password", {
+    data: { password },
+  })
+  await assertOk(resp, `setPassword`)
+}

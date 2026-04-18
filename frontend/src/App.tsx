@@ -13,6 +13,7 @@ import { SubmitFeaturePage } from "@/pages/submit-feature"
 import { FeatureDetailPage } from "@/pages/feature-detail"
 import { ProfilePage } from "@/pages/profile"
 import { SecuritySettingsPage } from "@/pages/settings/security"
+import { SetPasswordPage } from "@/pages/settings/set-password"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
 import { OAuthCallbackPage } from "@/pages/oauth-callback"
@@ -168,6 +169,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <SecuritySettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/password"
+                element={
+                  <ProtectedRoute>
+                    <SetPasswordPage />
                   </ProtectedRoute>
                 }
               />

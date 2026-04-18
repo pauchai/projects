@@ -31,6 +31,11 @@ export interface LoginRequest {
   password: string
 }
 
+/** POST /auth/local/set-password — request body */
+export interface SetPasswordRequest {
+  password: string
+}
+
 /** POST /auth/login — response */
 export interface TokenResponse {
   access_token: string

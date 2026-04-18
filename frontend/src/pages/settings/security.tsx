@@ -82,6 +82,7 @@ export function SecuritySettingsPage() {
   )
   const hasGoogle = connectedProviders.has("google")
   const hasTelegram = connectedProviders.has("telegram")
+  const hasLocal = data?.has_local_credential ?? false
 
   // Show "Add provider" section if at least one linkable provider is available
   // and not yet connected
@@ -147,12 +148,26 @@ export function SecuritySettingsPage() {
         )}
       </section>
 
-      {data && hasLinkableProviders && (
+      {data && (hasLinkableProviders || !hasLocal) && (
         <>
           <Separator />
 
           <section>
             <h2 className="mb-4 text-lg font-semibold">Add Sign-in Method</h2>
+
+            {!hasLocal && (
+              <div className="mb-4">
+                <Link to="/settings/password">
+                  <Button variant="outline">
+                    <LockIcon />
+                    Set Password
+                  </Button>
+                </Link>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Create a password to sign in with email
+                </p>
+              </div>
+            )}
 
             {linkingError && (
               <p className="mb-3 text-sm text-destructive">{linkingError}</p>

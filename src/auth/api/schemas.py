@@ -25,6 +25,12 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class SetPasswordRequest(BaseModel):
+    """POST /auth/local/set-password"""
+
+    password: str = Field(min_length=1)
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------

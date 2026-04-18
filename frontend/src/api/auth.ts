@@ -5,10 +5,12 @@
 import { get, post } from "./client"
 import type {
   LoginRequest,
+  MessageResponse,
   OAuthAvailableResponse,
   OAuthAuthorizeResponse,
   OAuthCallbackRequest,
   RegisterRequest,
+  SetPasswordRequest,
   TelegramAuthorizeResponse,
   TokenResponse,
   UserResponse,
@@ -22,6 +24,11 @@ export function register(data: RegisterRequest): Promise<UserResponse> {
 /** POST /auth/login */
 export function login(data: LoginRequest): Promise<TokenResponse> {
   return post<TokenResponse>("/auth/login", data)
+}
+
+/** POST /auth/local/set-password — set password for authenticated user */
+export function setPassword(data: SetPasswordRequest): Promise<MessageResponse> {
+  return post<MessageResponse>("/auth/local/set-password", data)
 }
 
 /** GET /auth/me — requires valid JWT.

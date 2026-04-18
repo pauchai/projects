@@ -10,9 +10,17 @@ from auth.api.dependencies import (
     get_password_hasher,
     get_token_service,
 )
-from auth.api.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from auth.api.schemas import (
+    LoginRequest,
+    MessageResponse,
+    RegisterRequest,
+    SetPasswordRequest,
+    TokenResponse,
+    UserResponse,
+)
 from auth.application.authenticate import AuthenticateUseCase
 from auth.application.register_user import RegisterUserUseCase
+from auth.application.set_password import SetPasswordUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
@@ -75,3 +83,16 @@ def get_me(
             email=user.email,
             display_name=user.display_name,
         )
+
+
+@router.post("/local/set-password", response_model=MessageResponse)
+def set_password(
+    body: SetPasswordRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
+) -> MessageResponse:
+    """Set password for an authenticated user who doesn't have local credentials."""
+    use_case = SetPasswordUseCase(uow, password_hasher)
+    use_case.execute(user_id=caller_id, password=body.password)
+    return MessageResponse(message="Password set successfully")
