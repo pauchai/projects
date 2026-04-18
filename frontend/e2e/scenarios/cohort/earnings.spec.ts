@@ -16,7 +16,7 @@
  *   - Unauthenticated: should be redirected to /login
  */
 
-import { test, expect } from "../fixtures"
+import { test, expect } from "../../fixtures"
 
 test.describe("Earnings Page", () => {
   // -------------------------------------------------------------------------

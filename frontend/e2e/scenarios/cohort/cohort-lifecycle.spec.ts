@@ -9,13 +9,13 @@
  *   - learner1: enrolled member, sees the cohort in their list
  */
 
-import { test, expect } from "../fixtures"
+import { test, expect } from "../../fixtures"
 import {
   createModule,
   formCohort,
   enrollLearner,
   getUserId,
-} from "../helpers/seed"
+} from "../../helpers/seed"
 
 test.describe("Cohort Lifecycle", () => {
   // -------------------------------------------------------------------------

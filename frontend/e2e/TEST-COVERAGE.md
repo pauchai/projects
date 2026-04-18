@@ -1,7 +1,8 @@
 # E2E Test Coverage — Visual Overview
 
-30 tests across 5 spec files covering the complete user journey from authentication
-to cohort management, task execution, peer review, competency validation, and earnings.
+52 tests across 9 spec files covering the complete user journey from authentication
+to cohort management, task execution, peer review, competency validation, earnings,
+module/topic management, project collaboration, and feature request lifecycle.
 
 ## Test Personas
 
@@ -17,14 +18,18 @@ all tests in a run without going through the login UI.
 
 ## Test Summary
 
-| Spec file                          | Tests | What it covers                                    |
-|------------------------------------|------:|---------------------------------------------------|
-| `access-control.spec.ts`           |     7 | Route guards, role-based UI visibility            |
-| `cohort-lifecycle.spec.ts`         |     6 | Create → enrol → activate → cancel               |
-| `task-flow.spec.ts`                |     5 | Create task → submit → peer review → master view  |
-| `dashboard-validation.spec.ts`     |     4 | Pending competency card, validate, access denied  |
-| `earnings.spec.ts`                 |     5 | Page structure, zero state, route protection      |
-| **Total**                          |**30** |                                                   |
+| Spec file                                  | Tests | What it covers                                    |
+|--------------------------------------------|------:|---------------------------------------------------|
+| `cohort/access-control.spec.ts`            |     7 | Route guards, role-based UI visibility            |
+| `cohort/cohort-lifecycle.spec.ts`          |     6 | Create → enrol → activate → cancel               |
+| `cohort/task-flow.spec.ts`                 |     5 | Create task → submit → peer review → master view  |
+| `cohort/dashboard-validation.spec.ts`      |     4 | Pending competency card, validate, access denied  |
+| `cohort/earnings.spec.ts`                  |     5 | Page structure, zero state, route protection      |
+| `learning/module-lifecycle.spec.ts`        |     5 | Create module, list, add/remove topic, auth guard |
+| `projects/project-lifecycle.spec.ts`       |     6 | Create, publish, public list, search, filter, activate |
+| `projects/project-applications.spec.ts`    |     5 | Apply, accept, reject, change role, remove member |
+| `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
+| **Total**                                  |**52** |                                                   |
 
 ---
 
@@ -39,6 +44,14 @@ erDiagram
     SUBMISSION ||--o{ REVIEW : "receives"
     USER ||--o{ SUBMISSION : "submits"
     USER ||--o{ REVIEW : "writes"
+    USER ||--o{ PROJECT : "owns"
+    PROJECT ||--o{ APPLICATION : "receives"
+    PROJECT ||--o{ MEMBERSHIP : "has"
+    USER ||--o{ APPLICATION : "submits"
+    USER ||--o{ MEMBERSHIP : "holds"
+    USER ||--o{ FEATURE_REQUEST : "authors"
+    MODULE ||--o{ TOPIC : "contains"
+    USER ||--o{ MODULE : "masters"
 
     USER {
         string user_id PK
@@ -94,6 +107,50 @@ erDiagram
         string status "pending | released"
     }
 
+    MODULE {
+        string module_id PK
+        string master_id FK
+        string title
+        int topic_count
+    }
+
+    TOPIC {
+        string topic_id PK
+        string module_id FK
+        string title
+        int position
+    }
+
+    PROJECT {
+        string project_id PK
+        string owner_id FK
+        string title
+        string status "draft | recruiting | active | suspended | completed | cancelled"
+    }
+
+    APPLICATION {
+        string application_id PK
+        string project_id FK
+        string applicant_id FK
+        string desired_role
+        string status "pending | accepted | rejected"
+    }
+
+    MEMBERSHIP {
+        string membership_id PK
+        string project_id FK
+        string user_id FK
+        string role "owner | admin | mentor | member | observer"
+        bool is_active
+    }
+
+    FEATURE_REQUEST {
+        string request_id PK
+        string author_id FK
+        string title
+        string status "submitted | planned | in_progress | done | rejected"
+    }
+
     USER ||--o{ PENDING_VALIDATION : "subject_of"
     COHORT ||--o{ PENDING_VALIDATION : "scoped_to"
     USER ||--o{ COMMISSION : "earns"
@@ -105,7 +162,7 @@ erDiagram
 
 ```mermaid
 flowchart TB
-    subgraph Auth["🔒 Access Control  ·  access-control.spec.ts  (7 tests)"]
+    subgraph Auth["🔒 Access Control  ·  cohort/access-control.spec.ts  (7 tests)"]
         A1([Unauthenticated]) -->|GET /cohorts| A2[/Redirect → /login/]
         A1 -->|GET /cohorts/new| A2
         A1 -->|GET /me/earnings| A2
@@ -119,7 +176,7 @@ flowchart TB
         A3 -->|GET /cohorts/:id/dashboard| A11[Dashboard page loads]
     end
 
-    subgraph Cohort["📋 Cohort Lifecycle  ·  cohort-lifecycle.spec.ts  (6 tests)"]
+    subgraph Cohort["📋 Cohort Lifecycle  ·  cohort/cohort-lifecycle.spec.ts  (6 tests)"]
         C1([master]) -->|/cohorts/new form| C2[Cohort created]
         C2 --> C3[Status: forming]
         C3 -->|Enrol form| C4[learner1 added to members list]
@@ -131,7 +188,7 @@ flowchart TB
         C9 -->|cohort page| C10[active badge visible]
     end
 
-    subgraph Task["✅ Task Flow  ·  task-flow.spec.ts  (5 tests)"]
+    subgraph Task["✅ Task Flow  ·  cohort/task-flow.spec.ts  (5 tests)"]
         T1([master]) -->|+ Create Task form| T2[Task created]
         T2 --> T3[Status: draft]
         T3 -->|learner1 on tasks tab| T4[No Submit Solution button]
@@ -144,7 +201,7 @@ flowchart TB
         T10 -->|tasks tab| T11[Sees learner1 + learner2 user IDs]
     end
 
-    subgraph Dashboard["📊 Dashboard Validation  ·  dashboard-validation.spec.ts  (4 tests)"]
+    subgraph Dashboard["📊 Dashboard Validation  ·  cohort/dashboard-validation.spec.ts  (4 tests)"]
         D1([learner1]) -->|submits solution ×2| D2[2 submissions]
         D3([learner2]) -->|reviews both| D4[2 peer reviews]
         D2 & D4 --> D5[Pending Competency Validation created]
@@ -156,7 +213,7 @@ flowchart TB
         D11([learner1]) -->|/dashboard| D12[Access denied message]
     end
 
-    subgraph Earnings["💰 Earnings Page  ·  earnings.spec.ts  (5 tests)"]
+    subgraph Earnings["💰 Earnings Page  ·  cohort/earnings.spec.ts  (5 tests)"]
         E1([master]) -->|/me/earnings| E2[My Earnings heading]
         E2 --> E3[Pending 0.00 · Released 0.00]
         E2 --> E4[No commissions yet.]
@@ -165,8 +222,51 @@ flowchart TB
         E7 --> E8[No commissions yet.]
     end
 
+    subgraph Modules["📚 Module Lifecycle  ·  learning/module-lifecycle.spec.ts  (5 tests)"]
+        ML1([master]) -->|/modules/new form| ML2[Module created]
+        ML2 --> ML3[Redirect → /modules/:id]
+        ML4([master]) -->|/modules list| ML5[New module card visible]
+        ML3 -->|Add Topic form| ML6[Topic added — appears in list]
+        ML3 -->|Remove button| ML7[Topic removed — disappears]
+        ML8([Unauthenticated]) -->|GET /modules| ML9[/Redirect → /login/]
+    end
+
+    subgraph Projects["🚀 Project Lifecycle  ·  projects/project-lifecycle.spec.ts  (6 tests)"]
+        PL1([master]) -->|/projects/new form| PL2[Project created]
+        PL2 --> PL3[Status: draft]
+        PL3 -->|Publish button| PL4[Status: recruiting]
+        PL5([Unauthenticated]) -->|GET /| PL6[Projects page loads]
+        PL7([learner1]) -->|keyword search| PL8[Matching project visible]
+        PL7 -->|Recruiting filter| PL9[Only recruiting projects shown]
+        PL4 -->|Activate button| PL10[Status: active]
+    end
+
+    subgraph Applications["📝 Project Applications  ·  projects/project-applications.spec.ts  (5 tests)"]
+        AP1([learner1]) -->|Apply to join| AP2[Application submitted]
+        AP2 --> AP3([master])
+        AP3 -->|Accept button| AP4[Status: accepted]
+        AP3 -->|Reject button| AP5[Status: rejected]
+        AP4 -->|Change role select| AP6[Role updated]
+        AP4 -->|Remove button| AP7[Member removed]
+    end
+
+    subgraph Features["✨ Feature Requests  ·  features/feature-request-lifecycle.spec.ts  (6 tests)"]
+        FR1([master]) -->|/features/new form| FR2[Feature request created]
+        FR2 --> FR3[Status: Submitted]
+        FR4([Unauthenticated]) -->|GET /features| FR5[List visible, no Submit button]
+        FR6([master]) -->|Submitted filter| FR7[Only submitted requests shown]
+        FR3 -->|Plan button| FR8[Status: Planned]
+        FR8 -->|Start Work| FR9[Status: In Progress]
+        FR9 -->|Mark Done| FR10[Status: Done]
+        FR3 -->|Reject button| FR11[Status: Rejected]
+    end
+
     Auth ~~~ Cohort
     Cohort ~~~ Task
     Task ~~~ Dashboard
     Dashboard ~~~ Earnings
+    Earnings ~~~ Modules
+    Modules ~~~ Projects
+    Projects ~~~ Applications
+    Applications ~~~ Features
 ```

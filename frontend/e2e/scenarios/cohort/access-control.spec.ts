@@ -11,11 +11,11 @@
  *   - master (cohort creator)
  */
 
-import { test, expect } from "../fixtures"
+import { test, expect } from "../../fixtures"
 import {
   setupActiveCohort,
   getUserId,
-} from "../helpers/seed"
+} from "../../helpers/seed"
 
 test.describe("Access Control", () => {
   // -------------------------------------------------------------------------
@@ -84,7 +84,7 @@ test.describe("Access Control", () => {
   }) => {
     // Need a forming cohort — formCohort without activating
     const learner1UserId = getUserId("learner1")
-    const { formCohort, enrollLearner, createModule } = await import("../helpers/seed")
+    const { formCohort, enrollLearner, createModule } = await import("../../helpers/seed")
     const { moduleId } = await createModule(masterRequest)
     const cohortId = await formCohort(masterRequest, moduleId)
     await enrollLearner(masterRequest, cohortId, learner1UserId)
@@ -127,7 +127,7 @@ test.describe("Access Control", () => {
     masterRequest,
   }) => {
     const learner1UserId = getUserId("learner1")
-    const { formCohort, enrollLearner, createModule } = await import("../helpers/seed")
+    const { formCohort, enrollLearner, createModule } = await import("../../helpers/seed")
     const { moduleId } = await createModule(masterRequest)
     const cohortId = await formCohort(masterRequest, moduleId)
     await enrollLearner(masterRequest, cohortId, learner1UserId)

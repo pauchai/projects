@@ -19,8 +19,8 @@
  *   - outsider: should not be able to access the dashboard at all
  */
 
-import { test, expect } from "../fixtures"
-import { setupPendingValidation } from "../helpers/seed"
+import { test, expect } from "../../fixtures"
+import { setupPendingValidation } from "../../helpers/seed"
 
 test.describe("Dashboard — Pending Competency Validations", () => {
   // -------------------------------------------------------------------------

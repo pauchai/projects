@@ -11,7 +11,7 @@
  *   - learner1: verifies the submission shows up after submission
  */
 
-import { test, expect } from "../fixtures"
+import { test, expect } from "../../fixtures"
 import {
   createModule,
   formCohort,
@@ -21,7 +21,7 @@ import {
   activateTask,
   getUserId,
   setupActiveCohortWithTask,
-} from "../helpers/seed"
+} from "../../helpers/seed"
 
 test.describe("Task Flow", () => {
   // -------------------------------------------------------------------------

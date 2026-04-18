@@ -285,3 +285,75 @@ export async function setupPendingValidation(
 
   return { cohortId, topicId, learner1UserId }
 }
+
+// ---------------------------------------------------------------------------
+// Project Collaboration
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a project (status: draft) and return its project_id.
+ * The caller's API context becomes the project owner.
+ */
+export async function createProject(api: APIRequestContext): Promise<string> {
+  const projectId = crypto.randomUUID()
+  const resp = await api.post("projects", {
+    data: {
+      project_id: projectId,
+      title: `E2E Project ${projectId.slice(0, 8)}`,
+      description: "Auto-generated project for E2E tests",
+      required_skills: [],
+    },
+  })
+  await assertOk(resp, `createProject(${projectId})`)
+  return projectId
+}
+
+/** Publish a project (draft → recruiting). */
+export async function publishProject(
+  api: APIRequestContext,
+  projectId: string,
+): Promise<void> {
+  const resp = await api.post(`projects/${projectId}/publish`)
+  await assertOk(resp, `publishProject(${projectId})`)
+}
+
+/**
+ * Apply to a project and return the application_id.
+ * The caller's API context becomes the applicant.
+ */
+export async function applyToProject(
+  api: APIRequestContext,
+  projectId: string,
+): Promise<string> {
+  const applicationId = crypto.randomUUID()
+  const resp = await api.post(`projects/${projectId}/applications`, {
+    data: {
+      application_id: applicationId,
+      desired_role: "member",
+      motivation: "E2E test application",
+    },
+  })
+  await assertOk(resp, `applyToProject(${applicationId} → ${projectId})`)
+  return applicationId
+}
+
+// ---------------------------------------------------------------------------
+// Feature Requests
+// ---------------------------------------------------------------------------
+
+/**
+ * Submit a feature request (status: submitted) and return its request_id.
+ * The caller's API context becomes the author.
+ */
+export async function createFeatureRequest(api: APIRequestContext): Promise<string> {
+  const requestId = crypto.randomUUID()
+  const resp = await api.post("features", {
+    data: {
+      request_id: requestId,
+      title: `E2E Feature ${requestId.slice(0, 8)}`,
+      description: "Auto-generated feature request for E2E tests",
+    },
+  })
+  await assertOk(resp, `createFeatureRequest(${requestId})`)
+  return requestId
+}
