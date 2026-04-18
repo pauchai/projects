@@ -137,7 +137,7 @@ test.describe("Task Flow", () => {
     // learner1 submits a solution via API so learner2 can review it
     const submissionId = crypto.randomUUID()
     const submissionsResp = await learner1Api.post(
-      `/cohorts/${cohortId}/tasks/${taskId}/submissions`,
+      `cohorts/${cohortId}/tasks/${taskId}/submissions`,
       { data: { submission_id: submissionId, content: "Learner1 solution for review" } },
     )
     if (!submissionsResp.ok()) {
@@ -177,10 +177,10 @@ test.describe("Task Flow", () => {
     const { cohortId, taskId } = await setupActiveCohortWithTask(masterRequest, learner1Api)
 
     // Both learners submit solutions via API
-    await learner1Api.post(`/cohorts/${cohortId}/tasks/${taskId}/submissions`, {
+    await learner1Api.post(`cohorts/${cohortId}/tasks/${taskId}/submissions`, {
       data: { submission_id: crypto.randomUUID(), content: "Learner1 solution" },
     })
-    await learner2Api.post(`/cohorts/${cohortId}/tasks/${taskId}/submissions`, {
+    await learner2Api.post(`cohorts/${cohortId}/tasks/${taskId}/submissions`, {
       data: { submission_id: crypto.randomUUID(), content: "Learner2 solution" },
     })
 

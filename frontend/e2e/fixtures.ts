@@ -17,6 +17,7 @@
  * storageState produced by global-setup.ts and cleans up after the test.
  */
 
+import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { test as base, type BrowserContext, type Page, request as pwRequest } from "@playwright/test"
@@ -24,7 +25,7 @@ import { test as base, type BrowserContext, type Page, request as pwRequest } fr
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const AUTH_DIR = path.join(__dirname, ".auth")
 
-export const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8000"
+export const BACKEND_URL = (process.env.E2E_BACKEND_URL ?? "http://localhost:8000").replace(/\/?$/, "/")
 
 // ---------------------------------------------------------------------------
 // Auth state paths (written by global-setup.ts)
@@ -86,9 +87,8 @@ async function makeAuthPage(
 // ---------------------------------------------------------------------------
 
 function tokenFromStorageState(role: Persona): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const state = JSON.parse(
-    require("node:fs").readFileSync(authFile(role), "utf8"),
+    fs.readFileSync(authFile(role), "utf8"),
   ) as {
     origins: { origin: string; localStorage: { name: string; value: string }[] }[]
   }

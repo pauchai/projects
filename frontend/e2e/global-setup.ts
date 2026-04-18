@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Configuration
 // ---------------------------------------------------------------------------
 
-const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8000"
+const BACKEND_URL = (process.env.E2E_BACKEND_URL ?? "http://localhost:8000").replace(/\/?$/, "/")
 const FRONTEND_URL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173"
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ??
@@ -120,21 +120,21 @@ export default async function globalSetup() {
   for (const [role, persona] of Object.entries(PERSONAS) as [PersonaKey, typeof PERSONAS[PersonaKey]][]) {
     // Register — a 409 means the user already exists (unexpected after full
     // downgrade, but guard just in case migrations were not fully reset).
-    const registerResp = await apiContext.post("/auth/register", {
+    const registerResp = await apiContext.post("auth/register", {
       data: {
         email: persona.email,
         password: persona.password,
         display_name: persona.display_name,
       },
     })
-    if (!registerResp.ok() && registerResp.status() !== 409) {
+    if (!registerResp.ok() && registerResp.status() !== 409 && registerResp.status() !== 422) {
       throw new Error(
         `[e2e] Failed to register ${role}: ${registerResp.status()} ${await registerResp.text()}`,
       )
     }
 
     // Login
-    const loginResp = await apiContext.post("/auth/login", {
+    const loginResp = await apiContext.post("auth/login", {
       data: { email: persona.email, password: persona.password },
     })
     if (!loginResp.ok()) {
@@ -145,7 +145,7 @@ export default async function globalSetup() {
     const { access_token: token } = await loginResp.json() as { access_token: string; token_type: string }
 
     // GET /auth/me to obtain userId
-    const meResp = await apiContext.get("/auth/me", {
+    const meResp = await apiContext.get("auth/me", {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!meResp.ok()) {

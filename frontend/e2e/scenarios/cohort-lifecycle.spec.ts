@@ -131,7 +131,7 @@ test.describe("Cohort Lifecycle", () => {
     await enrollLearner(masterRequest, cohortId, learner1UserId)
 
     // Activate via API so we don't need the master page here
-    await masterRequest.post(`/cohorts/${cohortId}/activate`)
+    await masterRequest.post(`cohorts/${cohortId}/activate`)
 
     await learner1Page.goto(`/cohorts/${cohortId}`)
 

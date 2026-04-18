@@ -63,12 +63,12 @@ export async function createModule(
   const moduleId = crypto.randomUUID()
   const topicId = crypto.randomUUID()
 
-  const modResp = await api.post("/modules", {
+  const modResp = await api.post("modules", {
     data: { module_id: moduleId, title: `E2E Module ${moduleId.slice(0, 8)}` },
   })
   await assertOk(modResp, `createModule(${moduleId})`)
 
-  const topicResp = await api.post(`/modules/${moduleId}/topics`, {
+  const topicResp = await api.post(`modules/${moduleId}/topics`, {
     data: {
       topic_id: topicId,
       title: "E2E Topic",
@@ -91,7 +91,7 @@ export async function formCohort(
   moduleId: string,
 ): Promise<string> {
   const cohortId = crypto.randomUUID()
-  const resp = await api.post("/cohorts", {
+  const resp = await api.post("cohorts", {
     data: { cohort_id: cohortId, module_id: moduleId },
   })
   await assertOk(resp, `formCohort(${cohortId})`)
@@ -105,7 +105,7 @@ export async function enrollLearner(
   learnerId: string,
 ): Promise<string> {
   const membershipId = crypto.randomUUID()
-  const resp = await api.post(`/cohorts/${cohortId}/learners`, {
+  const resp = await api.post(`cohorts/${cohortId}/learners`, {
     data: { membership_id: membershipId, learner_id: learnerId },
   })
   await assertOk(resp, `enrollLearner(${learnerId} → ${cohortId})`)
@@ -117,7 +117,7 @@ export async function activateCohort(
   api: APIRequestContext,
   cohortId: string,
 ): Promise<void> {
-  const resp = await api.post(`/cohorts/${cohortId}/activate`)
+  const resp = await api.post(`cohorts/${cohortId}/activate`)
   await assertOk(resp, `activateCohort(${cohortId})`)
 }
 
@@ -132,7 +132,7 @@ export async function createTask(
   topicId: string,
 ): Promise<string> {
   const taskId = crypto.randomUUID()
-  const resp = await api.post(`/cohorts/${cohortId}/tasks`, {
+  const resp = await api.post(`cohorts/${cohortId}/tasks`, {
     data: {
       task_id: taskId,
       topic_id: topicId,
@@ -150,7 +150,7 @@ export async function activateTask(
   cohortId: string,
   taskId: string,
 ): Promise<void> {
-  const resp = await api.post(`/cohorts/${cohortId}/tasks/${taskId}/activate`)
+  const resp = await api.post(`cohorts/${cohortId}/tasks/${taskId}/activate`)
   await assertOk(resp, `activateTask(${taskId})`)
 }
 
@@ -161,7 +161,7 @@ export async function submitSolution(
   taskId: string,
 ): Promise<string> {
   const submissionId = crypto.randomUUID()
-  const resp = await api.post(`/cohorts/${cohortId}/tasks/${taskId}/submissions`, {
+  const resp = await api.post(`cohorts/${cohortId}/tasks/${taskId}/submissions`, {
     data: { submission_id: submissionId, content: "E2E test solution content" },
   })
   await assertOk(resp, `submitSolution(${submissionId})`)
@@ -181,7 +181,7 @@ export async function submitReview(
 ): Promise<string> {
   const reviewId = crypto.randomUUID()
   const resp = await api.post(
-    `/cohorts/${cohortId}/tasks/${taskId}/submissions/${submissionId}/reviews`,
+    `cohorts/${cohortId}/tasks/${taskId}/submissions/${submissionId}/reviews`,
     {
       data: {
         review_id: reviewId,
