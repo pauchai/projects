@@ -37,7 +37,7 @@ class RegisterUserUseCase:
                 credential_id=str(uuid.uuid4()),
                 user_id=user_id,
                 provider="local",
-                provider_user_id=user.email,  # normalized email
+                provider_user_id=user_id,  # use user_id; email lives on the User entity
                 hashed_secret=hashed,
             )
             user.add_credential(credential)

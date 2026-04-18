@@ -36,7 +36,7 @@ class SetPasswordUseCase:
                 credential_id=str(uuid.uuid4()),
                 user_id=user_id,
                 provider="local",
-                provider_user_id=user.email,  # email as provider_user_id for local
+                provider_user_id=user_id,  # use user_id; email lives on the User entity
                 hashed_secret=self._password_hasher.hash(password),
             )
             user.add_credential(credential)

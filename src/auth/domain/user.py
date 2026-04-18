@@ -131,7 +131,11 @@ class User:
                 provider_display_name=_PROVIDER_DISPLAY_NAMES.get(
                     cred.provider, cred.provider.title()
                 ),
-                provider_user_id=cred.provider_user_id,
+                # For local credentials, display the user's email (human-readable).
+                # provider_user_id stores user_id (UUID) to avoid denormalisation.
+                provider_user_id=self.email
+                if cred.provider == "local"
+                else cred.provider_user_id,
                 is_removable=self.can_remove_credential(cred.provider),
             )
             for cred in self.credentials
