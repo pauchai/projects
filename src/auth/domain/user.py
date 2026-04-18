@@ -141,6 +141,35 @@ class User:
             for cred in self.credentials
         ]
 
+    def update_profile(
+        self,
+        *,
+        email: str | None = None,
+        display_name: str | None = None,
+    ) -> None:
+        """Update mutable profile fields.
+
+        Caller is responsible for ensuring email uniqueness across all users
+        before invoking this method.
+
+        # TODO: trigger email-verification flow when email is changed.
+        """
+        if email is not None:
+            email = email.strip().lower()
+            if not email:
+                raise ValueError("Email cannot be empty")
+            if "@" not in email:
+                raise ValueError("Invalid email format")
+            self.email = email
+
+        if display_name is not None:
+            display_name = display_name.strip()
+            if not display_name:
+                raise ValueError("Display name cannot be empty")
+            if len(display_name) > 100:
+                raise ValueError("Display name cannot exceed 100 characters")
+            self.display_name = display_name
+
     def can_remove_credential(self, provider: str) -> bool:
         """Check whether the credential for *provider* can be safely removed.
 

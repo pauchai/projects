@@ -31,6 +31,16 @@ class SetPasswordRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class UpdateProfileRequest(BaseModel):
+    """PATCH /auth/me — update email and/or display_name.
+
+    Both fields are optional. Omitting a field leaves it unchanged.
+    """
+
+    email: str | None = None
+    display_name: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------

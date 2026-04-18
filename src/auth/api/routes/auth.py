@@ -16,11 +16,13 @@ from auth.api.schemas import (
     RegisterRequest,
     SetPasswordRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
 )
 from auth.application.authenticate import AuthenticateUseCase
 from auth.application.register_user import RegisterUserUseCase
 from auth.application.set_password import SetPasswordUseCase
+from auth.application.update_profile import UpdateProfileUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
@@ -96,3 +98,25 @@ def set_password(
     use_case = SetPasswordUseCase(uow, password_hasher)
     use_case.execute(user_id=caller_id, password=body.password)
     return MessageResponse(message="Password set successfully")
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_me(
+    body: UpdateProfileRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> UserResponse:
+    """Update the authenticated user's email and/or display_name.
+
+    Both fields are optional — omitting a field leaves it unchanged.
+    Returns the updated user profile.
+    """
+    use_case = UpdateProfileUseCase(uow)
+    updated = use_case.execute(
+        caller_id, email=body.email, display_name=body.display_name
+    )
+    return UserResponse(
+        user_id=updated.user_id,
+        email=updated.email,
+        display_name=updated.display_name,
+    )

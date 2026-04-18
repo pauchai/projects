@@ -27,7 +27,7 @@ def upgrade() -> None:
     """Set provider_user_id = user_id for all local credentials."""
     op.execute(
         """
-        UPDATE credentials
+        UPDATE auth_credentials
         SET provider_user_id = user_id
         WHERE provider = 'local'
         """
@@ -38,10 +38,10 @@ def downgrade() -> None:
     """Restore provider_user_id = email for local credentials (from users table)."""
     op.execute(
         """
-        UPDATE credentials
+        UPDATE auth_credentials
         SET provider_user_id = u.email
-        FROM users u
-        WHERE credentials.user_id = u.user_id
-          AND credentials.provider = 'local'
+        FROM auth_users u
+        WHERE auth_credentials.user_id = u.user_id
+          AND auth_credentials.provider = 'local'
         """
     )
