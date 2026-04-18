@@ -375,7 +375,23 @@ services manually, bring up the dev overlay first:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
-Then point Playwright at the Traefik endpoints via environment variables:
+The recommended way is to store the target URLs in `frontend/.env.e2e` so you
+don't have to repeat them on every run:
+
+```bash
+cp frontend/.env.e2e.example frontend/.env.e2e
+# The example already has the Traefik profile uncommented — no edits needed
+```
+
+Then just run:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+Alternatively you can pass the variables inline (shell variables always take
+priority over `.env.e2e`):
 
 ```bash
 cd frontend
@@ -392,7 +408,8 @@ When `E2E_FRONTEND_URL` is set to anything other than `http://localhost:5173`
 Playwright skips starting the Vite dev server (the frontend is already served
 by the Docker container).
 
-See `frontend/.env.e2e.example` for a reference of all available variables.
+`.env.e2e` is git-ignored — each developer keeps their own local copy.
+See `frontend/.env.e2e.example` for the full list of available variables.
 
 ## Docker (Full Stack)
 
