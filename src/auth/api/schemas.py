@@ -149,6 +149,13 @@ class InviteCodeResponse(BaseModel):
     uses_left: int
     max_uses: int
     is_active: bool
+    created_at: str
+
+
+class ListInviteCodesResponse(BaseModel):
+    """GET /admin/invite-codes"""
+
+    codes: list[InviteCodeResponse]
 
 
 class CreateInviteCodesRequest(BaseModel):

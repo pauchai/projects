@@ -26,6 +26,7 @@ import { CreateModulePage } from "@/pages/create-module"
 import { ModuleDetailPage } from "@/pages/module-detail"
 import { RewardsPage } from "@/pages/rewards"
 import { EarningsPage } from "@/pages/earnings"
+import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ export default function App() {
           <main className="mx-auto max-w-5xl px-4 py-6">
             <Routes>
               <Route path="/" element={<ProjectsListPage />} />
+              <Route path="/admin" element={<AdminInviteCodesPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/oauth/callback" element={<OAuthCallbackPage />} />

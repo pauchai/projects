@@ -21,6 +21,11 @@ class SqlAlchemyInviteCodeRepository:
         stmt = select(InviteCode).where(invite_codes_table.c.code == normalized)
         return self._session.scalars(stmt).first()
 
+    def find_all(self) -> list[InviteCode]:
+        """Return all invite codes ordered by creation time (newest first)."""
+        stmt = select(InviteCode).order_by(invite_codes_table.c.created_at.desc())
+        return list(self._session.scalars(stmt).all())
+
     def save(self, invite_code: InviteCode) -> None:
         """Persist a single InviteCode."""
         self._session.merge(invite_code)

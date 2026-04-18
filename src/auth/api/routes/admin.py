@@ -16,6 +16,7 @@ from auth.api.schemas import (
     CreateInviteCodesRequest,
     CreateInviteCodesResponse,
     InviteCodeResponse,
+    ListInviteCodesResponse,
 )
 from auth.application.create_invite_codes import CreateInviteCodesUseCase
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
@@ -38,6 +39,37 @@ def verify_admin_secret(
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+def _to_response(c: object) -> InviteCodeResponse:  # type: ignore[type-arg]
+    from auth.domain.invite_code import (
+        InviteCode as _IC,
+    )  # local import to avoid cycles
+
+    assert isinstance(c, _IC)
+    return InviteCodeResponse(
+        code_id=c.code_id,
+        code=c.code,
+        uses_left=c.uses_left,
+        max_uses=c.max_uses,
+        is_active=c.is_active,
+        created_at=c.created_at.isoformat(),
+    )
+
+
+@router.get(
+    "/invite-codes",
+    status_code=200,
+    response_model=ListInviteCodesResponse,
+    dependencies=[Depends(verify_admin_secret)],
+)
+def list_invite_codes(
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> ListInviteCodesResponse:
+    """Return all invite codes (admin only)."""
+    with uow:
+        codes = uow.invite_codes.find_all()
+        return ListInviteCodesResponse(codes=[_to_response(c) for c in codes])
+
+
 @router.post(
     "/invite-codes",
     status_code=201,
@@ -55,15 +87,4 @@ def create_invite_codes(
         count=body.count,
         max_uses=body.max_uses,
     )
-    return CreateInviteCodesResponse(
-        codes=[
-            InviteCodeResponse(
-                code_id=c.code_id,
-                code=c.code,
-                uses_left=c.uses_left,
-                max_uses=c.max_uses,
-                is_active=c.is_active,
-            )
-            for c in codes
-        ]
-    )
+    return CreateInviteCodesResponse(codes=[_to_response(c) for c in codes])
