@@ -1,8 +1,7 @@
 # E2E Test Coverage — Visual Overview
 
-52 tests across 9 spec files covering the complete user journey from authentication
-to cohort management, task execution, peer review, competency validation, earnings,
-module/topic management, project collaboration, and feature request lifecycle.
+57 tests across 11 spec files covering the complete user journey from authentication
+(cohort, learning, projects, features) including security settings and credential management.
 
 ## Test Personas
 
@@ -20,16 +19,18 @@ all tests in a run without going through the login UI.
 
 | Spec file                                  | Tests | What it covers                                    |
 |--------------------------------------------|------:|---------------------------------------------------|
-| `cohort/access-control.spec.ts`            |     7 | Route guards, role-based UI visibility            |
+| `auth/auth.spec.ts`                        |     3 | API login, invalid login, protected route          |
+| `auth/linked-accounts.spec.ts`            |     2 | Security page, sign-in methods                   |
+| `cohort/access-control.spec.ts`          |     7 | Route guards, role-based UI visibility            |
 | `cohort/cohort-lifecycle.spec.ts`          |     6 | Create → enrol → activate → cancel               |
-| `cohort/task-flow.spec.ts`                 |     5 | Create task → submit → peer review → master view  |
+| `cohort/task-flow.spec.ts`               |     5 | Create task → submit → peer review → master view  |
 | `cohort/dashboard-validation.spec.ts`      |     4 | Pending competency card, validate, access denied  |
 | `cohort/earnings.spec.ts`                  |     5 | Page structure, zero state, route protection      |
-| `learning/module-lifecycle.spec.ts`        |     5 | Create module, list, add/remove topic, auth guard |
-| `projects/project-lifecycle.spec.ts`       |     6 | Create, publish, public list, search, filter, activate |
-| `projects/project-applications.spec.ts`    |     5 | Apply, accept, reject, change role, remove member |
+| `learning/module-lifecycle.spec.ts`      |     5 | Create module, list, add/remove topic, auth guard |
+| `projects/project-lifecycle.spec.ts`      |     6 | Create, publish, public list, search, filter, activate |
+| `projects/project-applications.spec.ts`   |     5 | Apply, accept, reject, change role, remove member |
 | `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
-| **Total**                                  |**52** |                                                   |
+| **Total**                                  |**57** |                                                   |
 
 ---
 
@@ -162,7 +163,20 @@ erDiagram
 
 ```mermaid
 flowchart TB
-    subgraph Auth["🔒 Access Control  ·  cohort/access-control.spec.ts  (7 tests)"]
+    subgraph AuthLogin["🔐 Authentication  ·  auth/auth.spec.ts  (3 tests)"]
+        AL1([New user]) -->|POST /auth/register| AL2[Account created]
+        AL2 -->|POST /auth/login| AL3[Token received]
+        AL4([Wrong password]) -->|POST /auth/login| AL5[Error: Invalid credentials]
+        AL6([Unauthenticated]) -->|GET /dashboard| AL7[Redirect → /login]
+    end
+
+    subgraph LinkedAccounts["🔒 Linked Accounts  ·  auth/linked-accounts.spec.ts  (2 tests)"]
+        LA1([master]) -->|/settings/security| LA2[Security page loads]
+        LA2 --> LA3[Credential cards visible]
+        LA2 --> LA4["Set Password" button if no local]
+    end
+
+    subgraph Access["🔒 Access Control  ·  cohort/access-control.spec.ts  (7 tests)"]
         A1([Unauthenticated]) -->|GET /cohorts| A2[/Redirect → /login/]
         A1 -->|GET /cohorts/new| A2
         A1 -->|GET /me/earnings| A2
@@ -261,7 +275,9 @@ flowchart TB
         FR3 -->|Reject button| FR11[Status: Rejected]
     end
 
-    Auth ~~~ Cohort
+    AuthLogin ~~~ LinkedAccounts
+    LinkedAccounts ~~~ Access
+    Access ~~~ Cohort
     Cohort ~~~ Task
     Task ~~~ Dashboard
     Dashboard ~~~ Earnings
