@@ -104,7 +104,7 @@ erDiagram
 ## User Journey Flowchart
 
 ```mermaid
-flowchart TD
+flowchart TB
     subgraph Auth["🔒 Access Control  ·  access-control.spec.ts  (7 tests)"]
         A1([Unauthenticated]) -->|GET /cohorts| A2[/Redirect → /login/]
         A1 -->|GET /cohorts/new| A2
@@ -164,4 +164,9 @@ flowchart TD
         E6([learner1]) -->|/me/earnings| E7[My Earnings heading]
         E7 --> E8[No commissions yet.]
     end
+
+    Auth ~~~ Cohort
+    Cohort ~~~ Task
+    Task ~~~ Dashboard
+    Dashboard ~~~ Earnings
 ```
