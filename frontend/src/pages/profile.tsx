@@ -10,7 +10,7 @@ import { useSearchProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/project-card"
 import { ApiError } from "@/api/client"
 
-function EditProfileForm({ onCancel }: { onCancel: () => void }) {
+function EditProfileForm({ onDone }: { onDone: (emailChanged: boolean) => void }) {
   const { email, displayName } = useAuthStore()
   const mutation = useUpdateProfile()
 
@@ -23,17 +23,18 @@ function EditProfileForm({ onCancel }: { onCancel: () => void }) {
     setEmailError(null)
 
     const payload: { email?: string; display_name?: string } = {}
-    if (emailValue.trim() !== email) payload.email = emailValue.trim()
+    const emailChanged = emailValue.trim() !== email
+    if (emailChanged) payload.email = emailValue.trim()
     if (displayNameValue.trim() !== displayName) payload.display_name = displayNameValue.trim()
 
     // Nothing changed — just close
     if (Object.keys(payload).length === 0) {
-      onCancel()
+      onDone(false)
       return
     }
 
     mutation.mutate(payload, {
-      onSuccess: () => onCancel(),
+      onSuccess: () => onDone(emailChanged),
       onError: (err) => {
         if (err instanceof ApiError && err.status === 422) {
           setEmailError(err.detail ?? "This email is already taken.")
@@ -77,7 +78,7 @@ function EditProfileForm({ onCancel }: { onCancel: () => void }) {
         <Button type="submit" disabled={mutation.isPending}>
           {mutation.isPending ? "Saving…" : "Save"}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" onClick={() => onDone(false)} disabled={mutation.isPending}>
           Cancel
         </Button>
       </div>
@@ -88,6 +89,12 @@ function EditProfileForm({ onCancel }: { onCancel: () => void }) {
 export function ProfilePage() {
   const { userId, email, displayName } = useAuthStore()
   const [editing, setEditing] = useState(false)
+  const [showEmailBanner, setShowEmailBanner] = useState(false)
+
+  function handleDone(emailChanged: boolean) {
+    setEditing(false)
+    if (emailChanged) setShowEmailBanner(true)
+  }
 
   const {
     data: ownedProjects,
@@ -112,8 +119,24 @@ export function ProfilePage() {
   return (
     <div className="space-y-6">
       <div>
+        {showEmailBanner && (
+          <div
+            role="status"
+            className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200"
+          >
+            Email updated. Note: email verification is not yet required — your new address is active immediately.
+            <button
+              type="button"
+              onClick={() => setShowEmailBanner(false)}
+              className="ml-3 font-medium underline underline-offset-2 hover:no-underline"
+              aria-label="Dismiss"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {editing ? (
-          <EditProfileForm onCancel={() => setEditing(false)} />
+          <EditProfileForm onDone={handleDone} />
         ) : (
           <>
             <h1 className="text-2xl font-bold">{displayName ?? "User"}</h1>
@@ -125,7 +148,7 @@ export function ProfilePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setEditing(true)}
+                onClick={() => { setEditing(true); setShowEmailBanner(false) }}
               >
                 Edit Profile
               </Button>
