@@ -1,6 +1,6 @@
 # E2E Test Coverage — Visual Overview
 
-57 tests across 11 spec files covering the complete user journey from authentication
+67 tests across 12 spec files covering the complete user journey from authentication
 (cohort, learning, projects, features) including security settings and credential management.
 
 ## Test Personas
@@ -20,17 +20,18 @@ all tests in a run without going through the login UI.
 | Spec file                                  | Tests | What it covers                                    |
 |--------------------------------------------|------:|---------------------------------------------------|
 | `auth/auth.spec.ts`                        |     3 | API login, invalid login, protected route          |
+| `auth/auth-ui.spec.ts`                     |     5 | Register form (UI), login form (UI)               |
 | `auth/linked-accounts.spec.ts`            |     2 | Security page, sign-in methods                   |
-| `cohort/access-control.spec.ts`          |     7 | Route guards, role-based UI visibility            |
+| `cohort/access-control.spec.ts`          |     9 | Route guards, role-based UI visibility            |
 | `cohort/cohort-lifecycle.spec.ts`          |     6 | Create → enrol → activate → cancel               |
-| `cohort/task-flow.spec.ts`               |     5 | Create task → submit → peer review → master view  |
+| `cohort/task-flow.spec.ts`               |     6 | Create task → submit → peer review → master view  |
 | `cohort/dashboard-validation.spec.ts`      |     4 | Pending competency card, validate, access denied  |
 | `cohort/earnings.spec.ts`                  |     5 | Page structure, zero state, route protection      |
 | `learning/module-lifecycle.spec.ts`      |     5 | Create module, list, add/remove topic, auth guard |
 | `projects/project-lifecycle.spec.ts`      |     6 | Create, publish, public list, search, filter, activate |
 | `projects/project-applications.spec.ts`   |     5 | Apply, accept, reject, change role, remove member |
 | `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
-| **Total**                                  |**57** |                                                   |
+| **Total**                                  |**67** |                                                   |
 
 ---
 
@@ -170,13 +171,21 @@ flowchart TB
         AL6([Unauthenticated]) -->|GET /dashboard| AL7[Redirect → /login]
     end
 
+    subgraph AuthUI["🖥️ Auth UI  ·  auth/auth-ui.spec.ts  (5 tests)"]
+        UI1([New user]) -->|Register form| UI2[Account created — dashboard redirect]
+        UI3([Duplicate email]) -->|Register form| UI4[Error: email already taken]
+        UI5([Existing user]) -->|Login form| UI6[Logged in — dashboard redirect]
+        UI7([Wrong password]) -->|Login form| UI8[Error: invalid credentials]
+        UI9([Unknown email]) -->|Login form| UI10[Error: invalid credentials]
+    end
+
     subgraph LinkedAccounts["🔒 Linked Accounts  ·  auth/linked-accounts.spec.ts  (2 tests)"]
         LA1([master]) -->|/settings/security| LA2[Security page loads]
         LA2 --> LA3[Credential cards visible]
         LA2 --> LA4["Set Password" button if no local]
     end
 
-    subgraph Access["🔒 Access Control  ·  cohort/access-control.spec.ts  (7 tests)"]
+    subgraph Access["🔒 Access Control  ·  cohort/access-control.spec.ts  (9 tests)"]
         A1([Unauthenticated]) -->|GET /cohorts| A2[/Redirect → /login/]
         A1 -->|GET /cohorts/new| A2
         A1 -->|GET /me/earnings| A2
@@ -202,7 +211,7 @@ flowchart TB
         C9 -->|cohort page| C10[active badge visible]
     end
 
-    subgraph Task["✅ Task Flow  ·  cohort/task-flow.spec.ts  (5 tests)"]
+    subgraph Task["✅ Task Flow  ·  cohort/task-flow.spec.ts  (6 tests)"]
         T1([master]) -->|+ Create Task form| T2[Task created]
         T2 --> T3[Status: draft]
         T3 -->|learner1 on tasks tab| T4[No Submit Solution button]
@@ -275,7 +284,8 @@ flowchart TB
         FR3 -->|Reject button| FR11[Status: Rejected]
     end
 
-    AuthLogin ~~~ LinkedAccounts
+    AuthLogin ~~~ AuthUI
+    AuthUI ~~~ LinkedAccounts
     LinkedAccounts ~~~ Access
     Access ~~~ Cohort
     Cohort ~~~ Task
