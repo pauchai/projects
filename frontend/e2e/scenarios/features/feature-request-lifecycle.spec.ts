@@ -29,9 +29,10 @@ test.describe("Feature Request Lifecycle", () => {
 
     // Should redirect to /features/<requestId>
     await expect(masterPage).toHaveURL(/\/features\/[0-9a-f-]+$/)
-    await expect(masterPage.getByText("E2E Feature Request")).toBeVisible()
-    // Status badge shows "Submitted"
-    await expect(masterPage.getByText("Submitted")).toBeVisible()
+    // Title appears as heading, not in description
+    await expect(masterPage.getByRole("heading", { name: "E2E Feature Request" })).toBeVisible()
+    // Status badge shows "Submitted" - use first() to avoid strict mode on status label
+    await expect(masterPage.getByText("Submitted").first()).toBeVisible()
   })
 
   // ---------------------------------------------------------------------------
@@ -69,9 +70,9 @@ test.describe("Feature Request Lifecycle", () => {
 
     // Our newly created feature request should appear
     await expect(masterPage.getByText(new RegExp(`E2E Feature ${requestId.slice(0, 8)}`))).toBeVisible()
-    // No "Planned" or "Done" badges should be visible
-    await expect(masterPage.getByText("Planned")).not.toBeVisible()
-    await expect(masterPage.getByText("Done")).not.toBeVisible()
+    // Badges for Planned/Done - use filter with badge to avoid strict mode
+    await expect(masterPage.locator("span").filter({ hasText: /^Planned$/ }).first()).not.toBeVisible()
+    await expect(masterPage.locator("span").filter({ hasText: /^Done$/ }).first()).not.toBeVisible()
   })
 
   // ---------------------------------------------------------------------------
@@ -86,11 +87,13 @@ test.describe("Feature Request Lifecycle", () => {
 
     await masterPage.goto(`/features/${requestId}`)
 
-    await expect(masterPage.getByText("Submitted")).toBeVisible()
+    // Status badge shows "Submitted" (first() to avoid strict mode on label text)
+    await expect(masterPage.getByText("Submitted").first()).toBeVisible()
 
     await masterPage.getByRole("button", { name: "Plan" }).click()
 
-    await expect(masterPage.getByText("Planned")).toBeVisible()
+    // Status badge changes to "Planned"
+    await expect(masterPage.locator("span").filter({ hasText: /^Planned$/ }).first()).toBeVisible()
     await expect(masterPage.getByRole("button", { name: "Plan" })).not.toBeVisible()
   })
 
@@ -108,15 +111,15 @@ test.describe("Feature Request Lifecycle", () => {
 
     // submitted → planned
     await masterPage.getByRole("button", { name: "Plan" }).click()
-    await expect(masterPage.getByText("Planned")).toBeVisible()
+    await expect(masterPage.locator("span").filter({ hasText: /^Planned$/ }).first()).toBeVisible()
 
     // planned → in_progress
     await masterPage.getByRole("button", { name: "Start Work" }).click()
-    await expect(masterPage.getByText("In Progress")).toBeVisible()
+    await expect(masterPage.locator("span").filter({ hasText: /^In Progress$/ }).first()).toBeVisible()
 
     // in_progress → done
     await masterPage.getByRole("button", { name: "Mark Done" }).click()
-    await expect(masterPage.getByText("Done")).toBeVisible()
+    await expect(masterPage.locator("span").filter({ hasText: /^Done$/ }).first()).toBeVisible()
 
     // No more transition buttons
     await expect(masterPage.getByRole("button", { name: "Mark Done" })).not.toBeVisible()
