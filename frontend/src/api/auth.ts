@@ -9,6 +9,7 @@ import type {
   OAuthAvailableResponse,
   OAuthAuthorizeResponse,
   OAuthCallbackRequest,
+  ReferralsListResponse,
   RegisterRequest,
   SetPasswordRequest,
   TelegramAuthorizeResponse,
@@ -42,6 +43,11 @@ export function getMe(token?: string): Promise<UserResponse> {
 /** PATCH /auth/me — update email and/or display_name for the authenticated user. */
 export function updateProfile(data: UpdateProfileRequest): Promise<UserResponse> {
   return patch<UserResponse>("/auth/me", data)
+}
+
+/** GET /auth/referrals — list users invited by the current user. */
+export function getReferrals(): Promise<ReferralsListResponse> {
+  return get<ReferralsListResponse>("/auth/referrals")
 }
 
 // ---------------------------------------------------------------------------

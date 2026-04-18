@@ -43,6 +43,19 @@ export interface UpdateProfileRequest {
   display_name?: string
 }
 
+/** GET /auth/referrals — a single referred user */
+export interface ReferralResponse {
+  user_id: string
+  display_name: string
+  joined_at: string
+}
+
+/** GET /auth/referrals — response */
+export interface ReferralsListResponse {
+  total: number
+  referrals: ReferralResponse[]
+}
+
 /** POST /auth/login — response */
 export interface TokenResponse {
   access_token: string

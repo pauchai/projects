@@ -74,6 +74,10 @@ class UserRepository(Protocol):
         """Find a user who has a credential for the given provider + external ID."""
         ...
 
+    def find_by_inviter_id(self, inviter_id: str) -> list[User]:
+        """Return all users who were invited by the given user_id."""
+        ...
+
     def save(self, user: User) -> None: ...
 
 

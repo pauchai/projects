@@ -62,6 +62,21 @@ class UserResponse(BaseModel):
     display_name: str
 
 
+class ReferralResponse(BaseModel):
+    """A single referred user (visible only to the inviter)."""
+
+    user_id: str
+    display_name: str
+    joined_at: str
+
+
+class ReferralsListResponse(BaseModel):
+    """GET /auth/referrals — all users invited by the current user."""
+
+    total: int
+    referrals: list[ReferralResponse]
+
+
 class OAuthCallbackRequest(BaseModel):
     """POST /auth/oauth/google/callback"""
 

@@ -19,6 +19,9 @@ export const GOOGLE_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "google", "available
 /** Query key for Telegram OAuth availability */
 export const TELEGRAM_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "telegram", "available"] as const
 
+/** Query key for referrals list */
+export const REFERRALS_QUERY_KEY = ["auth", "referrals"] as const
+
 /**
  * Fetch current user profile (GET /auth/me).
  * Only enabled when the user is authenticated.
@@ -29,6 +32,21 @@ export function useMe() {
   return useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: () => authApi.getMe(),
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+/**
+ * Fetch the list of users invited by the current user (GET /auth/referrals).
+ * Only enabled when the user is authenticated.
+ */
+export function useReferrals() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  return useQuery({
+    queryKey: REFERRALS_QUERY_KEY,
+    queryFn: () => authApi.getReferrals(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })

@@ -13,6 +13,8 @@ from auth.api.dependencies import (
 from auth.api.schemas import (
     LoginRequest,
     MessageResponse,
+    ReferralResponse,
+    ReferralsListResponse,
     RegisterRequest,
     SetPasswordRequest,
     TokenResponse,
@@ -121,3 +123,24 @@ def update_me(
         email=updated.email,
         display_name=updated.display_name,
     )
+
+
+@router.get("/referrals", response_model=ReferralsListResponse)
+def get_referrals(
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> ReferralsListResponse:
+    """Return a list of users invited by the currently authenticated user."""
+    with uow:
+        users = uow.users.find_by_inviter_id(caller_id)
+        return ReferralsListResponse(
+            total=len(users),
+            referrals=[
+                ReferralResponse(
+                    user_id=u.user_id,
+                    display_name=u.display_name,
+                    joined_at=u.created_at.isoformat(),
+                )
+                for u in users
+            ],
+        )

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuthStore } from "@/stores/auth-store"
-import { useUpdateProfile } from "@/hooks/use-auth"
+import { useUpdateProfile, useReferrals } from "@/hooks/use-auth"
 import { useSearchProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/project-card"
 import { ApiError } from "@/api/client"
@@ -110,6 +110,8 @@ export function ProfilePage() {
     userId ? { member_user_id: userId, status: "all" } : undefined,
   )
 
+  const { data: referralsData, isLoading: loadingReferrals } = useReferrals()
+
   // Exclude projects the user owns from the "member of" list
   const ownedIds = new Set(ownedProjects?.map((p) => p.project_id) ?? [])
   const otherMemberProjects = memberProjects?.filter(
@@ -199,6 +201,37 @@ export function ProfilePage() {
         ) : (
           <p className="text-sm text-muted-foreground">
             You're not a member of any other projects.
+          </p>
+        )}
+      </section>
+      <Separator />
+
+      {/* Referrals */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">
+          People I Invited
+          {referralsData && referralsData.total > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({referralsData.total})
+            </span>
+          )}
+        </h2>
+        {loadingReferrals ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : referralsData && referralsData.referrals.length > 0 ? (
+          <ul className="space-y-2">
+            {referralsData.referrals.map((r) => (
+              <li key={r.user_id} className="text-sm">
+                <span className="font-medium">{r.display_name}</span>
+                <span className="ml-2 text-muted-foreground">
+                  joined {new Date(r.joined_at).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            You haven't invited anyone yet.
           </p>
         )}
       </section>
