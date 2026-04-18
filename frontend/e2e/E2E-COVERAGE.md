@@ -1,5 +1,8 @@
 # E2E Test Coverage — Visual Overview
 
+> This file covers **end-to-end (Playwright) tests only** located in `frontend/e2e/scenarios/`.
+> Backend unit and integration tests are not described here.
+
 67 tests across 12 spec files covering the complete user journey from authentication
 (cohort, learning, projects, features) including security settings and credential management.
 
