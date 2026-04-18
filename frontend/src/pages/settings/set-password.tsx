@@ -18,7 +18,7 @@ import { ApiError } from "@/api/client"
 
 export function SetPasswordPage() {
   const navigate = useNavigate()
-  const setPassword = useSetPassword()
+  const setPasswordMutation = useSetPassword()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -37,7 +37,7 @@ export function SetPasswordPage() {
       return
     }
 
-    setPassword.mutate(password, {
+    setPasswordMutation.mutate(password, {
       onSuccess: () => {
         navigate("/settings/security")
       },
@@ -45,9 +45,9 @@ export function SetPasswordPage() {
   }
 
   const serverError =
-    setPassword.error instanceof ApiError
-      ? setPassword.error.detail
-      : setPassword.error
+    setPasswordMutation.error instanceof ApiError
+      ? setPasswordMutation.error.detail
+      : setPasswordMutation.error
         ? "Failed to set password"
         : null
 
@@ -83,7 +83,7 @@ export function SetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 6 characters"
-                disabled={setPassword.isPending}
+                disabled={setPasswordMutation.isPending}
               />
             </div>
 
@@ -95,7 +95,7 @@ export function SetPasswordPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Repeat password"
-                disabled={setPassword.isPending}
+                disabled={setPasswordMutation.isPending}
               />
             </div>
 
@@ -110,9 +110,9 @@ export function SetPasswordPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={setPassword.isPending}
+              disabled={setPasswordMutation.isPending}
             >
-              {setPassword.isPending ? "Setting password..." : "Set Password"}
+              {setPasswordMutation.isPending ? "Setting password..." : "Set Password"}
             </Button>
           </form>
         </CardContent>
