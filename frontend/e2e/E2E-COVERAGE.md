@@ -3,9 +3,9 @@
 > This file covers **end-to-end (Playwright) tests only** located in `frontend/e2e/scenarios/`.
 > Backend unit and integration tests are not described here.
 
-81 tests across 14 spec files covering the complete user journey from authentication
+86 tests across 15 spec files covering the complete user journey from authentication
 (invite-only registration, cohort, learning, projects, features) including security settings,
-credential management, and profile editing.
+credential management, profile editing, and referrals.
 
 ## Test Personas
 
@@ -27,6 +27,7 @@ all tests in a run without going through the login UI.
 | `auth/auth-ui.spec.ts`                     |     5 | Register form (UI), login form (UI)               |
 | `auth/invite.spec.ts`                      |    10 | Admin endpoint, invite-gated registration (API + UI) |
 | `auth/linked-accounts.spec.ts`            |     2 | Security page, sign-in methods                   |
+| `auth/profile-referrals.spec.ts`           |     5 | Referrals API (empty list, 401), profile UI section |
 | `auth/update-profile.spec.ts`              |     4 | Edit display name, change email, duplicate email error, cancel |
 | `cohort/access-control.spec.ts`          |     9 | Route guards, role-based UI visibility            |
 | `cohort/cohort-lifecycle.spec.ts`          |     6 | Create → enrol → activate → cancel               |
@@ -37,7 +38,7 @@ all tests in a run without going through the login UI.
 | `projects/project-lifecycle.spec.ts`      |     6 | Create, publish, public list, search, filter, activate |
 | `projects/project-applications.spec.ts`   |     5 | Apply, accept, reject, change role, remove member |
 | `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
-| **Total**                                  |**81** |                                                   |
+| **Total**                                  |**86** |                                                   |
 
 ---
 
@@ -183,6 +184,14 @@ flowchart TB
         IV19([New user]) -->|Register form, valid code → Submit| IV20[Account created — dashboard]
     end
 
+    subgraph Referrals["👥 Profile Referrals  ·  auth/profile-referrals.spec.ts  (5 tests)"]
+        RF1([Any user]) -->|GET /auth/referrals, no token| RF2[401 Unauthorized]
+        RF3([outsider]) -->|GET /auth/referrals| RF4[Empty list — total 0]
+        RF5([outsider]) -->|/profile → People I Invited| RF6["You haven't invited anyone yet."]
+        RF7([master]) -->|GET /auth/referrals| RF8[Returns list or empty]
+        RF7 -->|/profile → People I Invited| RF9[Shows count + names if any]
+    end
+
     subgraph UpdateProfile["✏️ Update Profile  ·  auth/update-profile.spec.ts  (4 tests)"]
         UP1([Any user]) -->|/profile → Edit Profile| UP2[Form opens with current values]
         UP2 -->|Change display name → Save| UP3[New name shown, form closes]
@@ -313,7 +322,8 @@ flowchart TB
 
     AuthLogin ~~~ AuthUI
     AuthUI ~~~ InviteFlow
-    InviteFlow ~~~ UpdateProfile
+    InviteFlow ~~~ Referrals
+    Referrals ~~~ UpdateProfile
     UpdateProfile ~~~ LinkedAccounts
     LinkedAccounts ~~~ Access
     Access ~~~ Cohort
