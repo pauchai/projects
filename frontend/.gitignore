@@ -16,6 +16,7 @@ dist-ssr
 e2e/.auth/
 playwright-report/
 test-results/
+.env.e2e
 
 # Editor directories and files
 .vscode/*

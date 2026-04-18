@@ -1,23 +1,24 @@
 import { defineConfig, devices } from "@playwright/test"
+import { config as loadEnv } from "dotenv"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+// Load .env.e2e if it exists. Variables already set in the shell take priority
+// (override: false), so inline env vars still work: E2E_BACKEND_URL=... npm run test:e2e
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+loadEnv({ path: path.join(__dirname, ".env.e2e"), override: false })
 
 /**
  * Playwright E2E configuration.
  *
- * Prerequisites before running:
- *   1. docker compose --profile test up -d postgres-test
- *   2. DATABASE_URL="postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test" \
- *      JWT_SECRET="dev-secret-change-me-in-production" \
- *      PYTHONPATH=src uvicorn project_collaboration.api.app:app --port 8000
+ * Copy frontend/.env.e2e.example → frontend/.env.e2e and edit as needed.
+ * Then simply run:
+ *   cd frontend && npm run test:e2e
  *
- * Then:
- *   cd frontend && npx playwright test
+ * You can still override individual variables inline:
+ *   E2E_BACKEND_URL=http://other-host/api npm run test:e2e
  *
- * To run against the Docker dev stack (Traefik at app.localhost):
- *   E2E_FRONTEND_URL=http://app.localhost \
- *   E2E_BACKEND_URL=http://app.localhost/api \
- *   npm run test:e2e
- *
- * See .env.e2e.example for all available env variables.
+ * See .env.e2e.example for all available variables and profile examples.
  */
 
 const FRONTEND_URL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173"
