@@ -88,6 +88,7 @@ class User:
         self.is_active: bool = True
         self.created_at: datetime = datetime.now(timezone.utc)
         self.credentials: list[Credential] = []
+        self.inviter_id: str | None = None  # set at registration if invited
 
     def add_credential(self, credential: Credential) -> None:
         """Add a credential. Only one credential per provider is allowed."""

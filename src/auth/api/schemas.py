@@ -16,6 +16,7 @@ class RegisterRequest(BaseModel):
     email: str = Field(min_length=1)
     password: str = Field(min_length=1)
     display_name: str = Field(min_length=1, max_length=100)
+    invite_code: str = Field(min_length=1)
 
 
 class LoginRequest(BaseModel):
@@ -133,3 +134,31 @@ class CredentialsListResponse(BaseModel):
     credentials: list[CredentialSchema]
     total_count: int
     has_local_credential: bool
+
+
+# ---------------------------------------------------------------------------
+# Invite codes
+# ---------------------------------------------------------------------------
+
+
+class InviteCodeResponse(BaseModel):
+    """A single invite code returned to admin."""
+
+    code_id: str
+    code: str
+    uses_left: int
+    max_uses: int
+    is_active: bool
+
+
+class CreateInviteCodesRequest(BaseModel):
+    """POST /admin/invite-codes"""
+
+    count: int = Field(ge=1, le=500, default=10)
+    max_uses: int = Field(ge=1, default=1)
+
+
+class CreateInviteCodesResponse(BaseModel):
+    """Response after generating invite codes."""
+
+    codes: list[InviteCodeResponse]

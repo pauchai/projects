@@ -20,7 +20,7 @@ from auth.api.schemas import (
     UserResponse,
 )
 from auth.application.authenticate import AuthenticateUseCase
-from auth.application.register_user import RegisterUserUseCase
+from auth.application.register_user_with_invite import RegisterUserWithInviteUseCase
 from auth.application.set_password import SetPasswordUseCase
 from auth.application.update_profile import UpdateProfileUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
@@ -41,14 +41,15 @@ def register(
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
     password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
 ) -> UserResponse:
-    """Register a new user with email and password."""
-    use_case = RegisterUserUseCase(uow, password_hasher)
+    """Register a new user with email, password and a valid invite code."""
+    use_case = RegisterUserWithInviteUseCase(uow, password_hasher)
     user_id = str(uuid.uuid4())
     use_case.execute(
         user_id=user_id,
         email=body.email,
         password=body.password,
         display_name=body.display_name,
+        invite_code=body.invite_code,
     )
     return UserResponse(
         user_id=user_id,

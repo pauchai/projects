@@ -16,6 +16,7 @@ export interface RegisterRequest {
   email: string
   password: string
   display_name: string
+  invite_code: string
 }
 
 /** POST /auth/register — response */
