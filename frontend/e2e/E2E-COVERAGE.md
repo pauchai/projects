@@ -3,8 +3,9 @@
 > This file covers **end-to-end (Playwright) tests only** located in `frontend/e2e/scenarios/`.
 > Backend unit and integration tests are not described here.
 
-67 tests across 12 spec files covering the complete user journey from authentication
-(cohort, learning, projects, features) including security settings and credential management.
+71 tests across 13 spec files covering the complete user journey from authentication
+(cohort, learning, projects, features) including security settings, credential management,
+and profile editing.
 
 ## Test Personas
 
@@ -34,7 +35,8 @@ all tests in a run without going through the login UI.
 | `projects/project-lifecycle.spec.ts`      |     6 | Create, publish, public list, search, filter, activate |
 | `projects/project-applications.spec.ts`   |     5 | Apply, accept, reject, change role, remove member |
 | `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
-| **Total**                                  |**67** |                                                   |
+| `auth/update-profile.spec.ts`                |     4 | Edit display name, change email, duplicate email error, cancel |
+| **Total**                                  |**71** |                                                   |
 
 ---
 
@@ -167,6 +169,14 @@ erDiagram
 
 ```mermaid
 flowchart TB
+    subgraph UpdateProfile["✏️ Update Profile  ·  auth/update-profile.spec.ts  (4 tests)"]
+        UP1([Any user]) -->|/profile → Edit Profile| UP2[Form opens with current values]
+        UP2 -->|Change display name → Save| UP3[New name shown, form closes]
+        UP2 -->|Change email → Save| UP4[New email shown in store and UI]
+        UP2 -->|Email already taken → Save| UP5[Inline error, form stays open]
+        UP2 -->|Cancel| UP6[Original values restored, form closes]
+    end
+
     subgraph AuthLogin["🔐 Authentication  ·  auth/auth.spec.ts  (3 tests)"]
         AL1([New user]) -->|POST /auth/register| AL2[Account created]
         AL2 -->|POST /auth/login| AL3[Token received]
@@ -288,7 +298,8 @@ flowchart TB
     end
 
     AuthLogin ~~~ AuthUI
-    AuthUI ~~~ LinkedAccounts
+    AuthUI ~~~ UpdateProfile
+    UpdateProfile ~~~ LinkedAccounts
     LinkedAccounts ~~~ Access
     Access ~~~ Cohort
     Cohort ~~~ Task

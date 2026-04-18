@@ -36,6 +36,12 @@ export interface SetPasswordRequest {
   password: string
 }
 
+/** PATCH /auth/me — request body (both fields optional) */
+export interface UpdateProfileRequest {
+  email?: string
+  display_name?: string
+}
+
 /** POST /auth/login — response */
 export interface TokenResponse {
   access_token: string

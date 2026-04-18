@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "@/stores/auth-store"
 import * as authApi from "@/api/auth"
-import type { LoginRequest, RegisterRequest } from "@/api/types"
+import type { LoginRequest, RegisterRequest, UpdateProfileRequest } from "@/api/types"
 
 /** Query key for current user profile */
 export const ME_QUERY_KEY = ["auth", "me"] as const
@@ -79,6 +79,27 @@ export function useLogin() {
     onError: () => {
       // Ensure clean state on failure
       useAuthStore.getState().logout()
+    },
+  })
+}
+
+/**
+ * Update current user profile (PATCH /auth/me).
+ * On success, updates auth store so email/displayName reflect immediately.
+ */
+export function useUpdateProfile() {
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const { token, userId } = useAuthStore.getState()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: UpdateProfileRequest) => authApi.updateProfile(data),
+    onSuccess: (user) => {
+      // Keep the existing token and userId; only update email/displayName
+      if (token && userId) {
+        setAuth(token, userId, user.email, user.display_name)
+      }
+      queryClient.setQueryData(ME_QUERY_KEY, user)
     },
   })
 }

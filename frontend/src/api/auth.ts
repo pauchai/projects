@@ -2,7 +2,7 @@
  * Auth API functions: register, login, get current user.
  */
 
-import { get, post } from "./client"
+import { get, patch, post } from "./client"
 import type {
   LoginRequest,
   MessageResponse,
@@ -13,6 +13,7 @@ import type {
   SetPasswordRequest,
   TelegramAuthorizeResponse,
   TokenResponse,
+  UpdateProfileRequest,
   UserResponse,
 } from "./types"
 
@@ -36,6 +37,11 @@ export function setPassword(data: SetPasswordRequest): Promise<MessageResponse> 
  */
 export function getMe(token?: string): Promise<UserResponse> {
   return get<UserResponse>("/auth/me", undefined, token)
+}
+
+/** PATCH /auth/me — update email and/or display_name for the authenticated user. */
+export function updateProfile(data: UpdateProfileRequest): Promise<UserResponse> {
+  return patch<UserResponse>("/auth/me", data)
 }
 
 // ---------------------------------------------------------------------------
