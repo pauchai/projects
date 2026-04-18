@@ -3,9 +3,9 @@
 > This file covers **end-to-end (Playwright) tests only** located in `frontend/e2e/scenarios/`.
 > Backend unit and integration tests are not described here.
 
-71 tests across 13 spec files covering the complete user journey from authentication
-(cohort, learning, projects, features) including security settings, credential management,
-and profile editing.
+81 tests across 14 spec files covering the complete user journey from authentication
+(invite-only registration, cohort, learning, projects, features) including security settings,
+credential management, and profile editing.
 
 ## Test Personas
 
@@ -25,7 +25,9 @@ all tests in a run without going through the login UI.
 |--------------------------------------------|------:|---------------------------------------------------|
 | `auth/auth.spec.ts`                        |     3 | API login, invalid login, protected route          |
 | `auth/auth-ui.spec.ts`                     |     5 | Register form (UI), login form (UI)               |
+| `auth/invite.spec.ts`                      |    10 | Admin endpoint, invite-gated registration (API + UI) |
 | `auth/linked-accounts.spec.ts`            |     2 | Security page, sign-in methods                   |
+| `auth/update-profile.spec.ts`              |     4 | Edit display name, change email, duplicate email error, cancel |
 | `cohort/access-control.spec.ts`          |     9 | Route guards, role-based UI visibility            |
 | `cohort/cohort-lifecycle.spec.ts`          |     6 | Create → enrol → activate → cancel               |
 | `cohort/task-flow.spec.ts`               |     6 | Create task → submit → peer review → master view  |
@@ -35,8 +37,7 @@ all tests in a run without going through the login UI.
 | `projects/project-lifecycle.spec.ts`      |     6 | Create, publish, public list, search, filter, activate |
 | `projects/project-applications.spec.ts`   |     5 | Apply, accept, reject, change role, remove member |
 | `features/feature-request-lifecycle.spec.ts` |   6 | Submit, public list, filter, plan, full lifecycle, reject |
-| `auth/update-profile.spec.ts`                |     4 | Edit display name, change email, duplicate email error, cancel |
-| **Total**                                  |**71** |                                                   |
+| **Total**                                  |**81** |                                                   |
 
 ---
 
@@ -169,6 +170,19 @@ erDiagram
 
 ```mermaid
 flowchart TB
+    subgraph InviteFlow["🎟️ Invite Flow  ·  auth/invite.spec.ts  (10 tests)"]
+        IV1([Admin]) -->|POST /admin/invite-codes + valid secret| IV2[Batch of codes returned]
+        IV3([Admin]) -->|POST /admin/invite-codes, no secret| IV4[403 Forbidden]
+        IV5([Admin]) -->|POST /admin/invite-codes, wrong secret| IV6[403 Forbidden]
+        IV7([New user]) -->|POST /auth/register + valid invite_code| IV8[Account created]
+        IV9([New user]) -->|POST /auth/register, no invite_code| IV10[422 Unprocessable]
+        IV11([New user]) -->|POST /auth/register, unknown code| IV12[422 Unprocessable]
+        IV13([New user]) -->|POST /auth/register, used code| IV14[422 Unprocessable]
+        IV15([New user]) -->|Register form, empty invite field → Submit| IV16[Inline error shown]
+        IV17([New user]) -->|Register form, invalid code → Submit| IV18[Inline error shown]
+        IV19([New user]) -->|Register form, valid code → Submit| IV20[Account created — dashboard]
+    end
+
     subgraph UpdateProfile["✏️ Update Profile  ·  auth/update-profile.spec.ts  (4 tests)"]
         UP1([Any user]) -->|/profile → Edit Profile| UP2[Form opens with current values]
         UP2 -->|Change display name → Save| UP3[New name shown, form closes]
@@ -298,7 +312,8 @@ flowchart TB
     end
 
     AuthLogin ~~~ AuthUI
-    AuthUI ~~~ UpdateProfile
+    AuthUI ~~~ InviteFlow
+    InviteFlow ~~~ UpdateProfile
     UpdateProfile ~~~ LinkedAccounts
     LinkedAccounts ~~~ Access
     Access ~~~ Cohort
