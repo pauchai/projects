@@ -11,11 +11,20 @@
 import { test, expect, BACKEND_URL } from "../../fixtures"
 import { request as pwRequest } from "@playwright/test"
 
+const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET ?? "change-me"
+
 /** Create a fresh unauthenticated API context and register a new user. */
 async function createUser(email: string, displayName: string, password = "TestPass123!") {
   const api = await pwRequest.newContext({ baseURL: BACKEND_URL })
+  // Obtain a fresh invite code before registering
+  const invResp = await api.post("admin/invite-codes", {
+    headers: { "X-Admin-Secret": ADMIN_SECRET },
+    data: { count: 1 },
+  })
+  const invBody = (await invResp.json()) as { codes: { code: string }[] }
+  const inviteCode = invBody.codes[0]?.code
   const res = await api.post("auth/register", {
-    data: { email, password, display_name: displayName },
+    data: { email, password, display_name: displayName, invite_code: inviteCode },
   })
   await api.dispose()
   return res
@@ -42,8 +51,8 @@ async function loginAndOpenProfile(
   await page.goto("/login")
   await page.getByLabel(/email/i).fill(email)
   await page.getByLabel(/password/i).fill(password)
-  await page.getByRole("button", { name: /log.?in|sign.?in/i }).click()
-  await expect(page).toHaveURL(/dashboard|\//, { timeout: 10_000 })
+  await page.locator('button[type="submit"]').click()
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
 
   await page.goto("/profile")
   await expect(page.getByRole("button", { name: /edit profile/i })).toBeVisible({ timeout: 8_000 })
@@ -73,7 +82,7 @@ test.describe("Edit Profile form", () => {
 
     // Form closes and new name is displayed
     await expect(page.getByRole("button", { name: /edit profile/i })).toBeVisible({ timeout: 8_000 })
-    await expect(page.getByText("Updated Name")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Updated Name" })).toBeVisible()
 
     await ctx.close()
   })
@@ -148,8 +157,8 @@ test.describe("Edit Profile form", () => {
 
     // Original name is still shown, form closed
     await expect(page.getByRole("button", { name: /edit profile/i })).toBeVisible()
-    await expect(page.getByText("Stable Name")).toBeVisible()
-    await expect(page.getByText("Discarded Name")).not.toBeVisible()
+    await expect(page.getByRole("heading", { name: "Stable Name" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Discarded Name" })).not.toBeVisible()
 
     await ctx.close()
   })

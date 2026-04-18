@@ -362,6 +362,28 @@ export async function createFeatureRequest(api: APIRequestContext): Promise<stri
 // Auth helpers (for standalone users, not linked to personas)
 // ---------------------------------------------------------------------------
 
+const BACKEND_URL = (process.env.E2E_BACKEND_URL ?? "http://localhost:8000").replace(/\/?$/, "/")
+const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET ?? "change-me"
+
+/**
+ * Create a single invite code via the admin endpoint.
+ * Returns the raw code string (e.g. "AB3DEFGH").
+ *
+ * Uses an unauthenticated request context — the endpoint is protected only
+ * by the X-Admin-Secret header, not by a user JWT.
+ */
+export async function createInviteCode(api: APIRequestContext): Promise<string> {
+  const resp = await api.post("admin/invite-codes", {
+    headers: { "X-Admin-Secret": ADMIN_SECRET },
+    data: { count: 1 },
+  })
+  await assertOk(resp, "createInviteCode")
+  const body = (await resp.json()) as { codes: { code: string }[] }
+  const code = body.codes[0]?.code
+  if (!code) throw new Error("[seed] createInviteCode: response contained no codes")
+  return code
+}
+
 /**
  * Create a new user with email+password (local credential).
  * Returns `{ userId, email, password }`.
@@ -375,12 +397,15 @@ export async function createUserWithPassword(
   const password = crypto.randomUUID().slice(0, 8)
   const finalEmail = email ?? `e2e-${userId.slice(0, 8)}@test.example`
 
+  const inviteCode = await createInviteCode(api)
+
   const resp = await api.post("auth/register", {
     data: {
       user_id: userId,
       email: finalEmail,
       password,
       display_name: `E2E User ${userId.slice(0, 8)}`,
+      invite_code: inviteCode,
     },
   })
   await assertOk(resp, `createUserWithPassword(${userId})`)

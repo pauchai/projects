@@ -29,6 +29,7 @@ const FRONTEND_URL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173"
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ??
   "postgresql://collab_test:collab_test@localhost:5433/project_collaboration_test"
+const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET ?? "change-me"
 const AUTH_DIR = path.join(__dirname, ".auth")
 
 /** Test personas used across all E2E scenarios. */
@@ -118,6 +119,20 @@ export default async function globalSetup() {
   const apiContext = await request.newContext({ baseURL: BACKEND_URL })
 
   for (const [role, persona] of Object.entries(PERSONAS) as [PersonaKey, typeof PERSONAS[PersonaKey]][]) {
+    // Obtain a fresh invite code for this persona registration.
+    const inviteResp = await apiContext.post("admin/invite-codes", {
+      headers: { "X-Admin-Secret": ADMIN_SECRET },
+      data: { count: 1 },
+    })
+    if (!inviteResp.ok()) {
+      throw new Error(
+        `[e2e] Failed to create invite code for ${role}: ${inviteResp.status()} ${await inviteResp.text()}`,
+      )
+    }
+    const inviteBody = await inviteResp.json() as { codes: { code: string }[] }
+    const inviteCode = inviteBody.codes[0]?.code
+    if (!inviteCode) throw new Error(`[e2e] No invite code in response for ${role}`)
+
     // Register — a 409 means the user already exists (unexpected after full
     // downgrade, but guard just in case migrations were not fully reset).
     const registerResp = await apiContext.post("auth/register", {
@@ -125,6 +140,7 @@ export default async function globalSetup() {
         email: persona.email,
         password: persona.password,
         display_name: persona.display_name,
+        invite_code: inviteCode,
       },
     })
     if (!registerResp.ok() && registerResp.status() !== 409 && registerResp.status() !== 422) {

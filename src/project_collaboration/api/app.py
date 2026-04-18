@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from auth.api.dependencies import AuthenticationError as AuthAuthenticationError
+from auth.api.routes.admin import router as admin_router
 from auth.api.routes.auth import router as auth_router
 from auth.api.routes.credentials import router as credentials_router
 from auth.api.routes.oauth import router as oauth_router
@@ -214,6 +215,7 @@ def create_app() -> FastAPI:
 
     # ----- Routes -----
 
+    app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(credentials_router)
     app.include_router(oauth_router)
