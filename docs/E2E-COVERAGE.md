@@ -1,3 +1,7 @@
+---
+title: E2E Coverage
+---
+
 # E2E Test Coverage — Visual Overview
 
 > This file covers **end-to-end (Playwright) tests only** located in `frontend/e2e/scenarios/`.
