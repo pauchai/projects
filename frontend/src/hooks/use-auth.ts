@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "@/stores/auth-store"
 import * as authApi from "@/api/auth"
-import type { LoginRequest, RegisterRequest } from "@/api/types"
+import type { LoginRequest, RegisterRequest, UpdateProfileRequest } from "@/api/types"
 
 /** Query key for current user profile */
 export const ME_QUERY_KEY = ["auth", "me"] as const
@@ -18,6 +18,9 @@ export const GOOGLE_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "google", "available
 
 /** Query key for Telegram OAuth availability */
 export const TELEGRAM_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "telegram", "available"] as const
+
+/** Query key for referrals list */
+export const REFERRALS_QUERY_KEY = ["auth", "referrals"] as const
 
 /**
  * Fetch current user profile (GET /auth/me).
@@ -29,6 +32,21 @@ export function useMe() {
   return useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: () => authApi.getMe(),
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+/**
+ * Fetch the list of users invited by the current user (GET /auth/referrals).
+ * Only enabled when the user is authenticated.
+ */
+export function useReferrals() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  return useQuery({
+    queryKey: REFERRALS_QUERY_KEY,
+    queryFn: () => authApi.getReferrals(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -79,6 +97,27 @@ export function useLogin() {
     onError: () => {
       // Ensure clean state on failure
       useAuthStore.getState().logout()
+    },
+  })
+}
+
+/**
+ * Update current user profile (PATCH /auth/me).
+ * On success, updates auth store so email/displayName reflect immediately.
+ */
+export function useUpdateProfile() {
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const { token, userId } = useAuthStore.getState()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: UpdateProfileRequest) => authApi.updateProfile(data),
+    onSuccess: (user) => {
+      // Keep the existing token and userId; only update email/displayName
+      if (token && userId) {
+        setAuth(token, userId, user.email, user.display_name)
+      }
+      queryClient.setQueryData(ME_QUERY_KEY, user)
     },
   })
 }

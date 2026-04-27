@@ -14,15 +14,64 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from auth.api.dependencies import AuthenticationError as AuthAuthenticationError
+from auth.api.routes.admin import router as admin_router
 from auth.api.routes.auth import router as auth_router
 from auth.api.routes.credentials import router as credentials_router
 from auth.api.routes.oauth import router as oauth_router
 from auth.api.routes.telegram import router as telegram_router
 from auth.domain.oauth import OAuthAccountAlreadyLinkedError, OAuthError
+from cohort_learning.api.dependencies import set_event_bus as set_cohort_event_bus
+from cohort_learning.api.routes.cohorts import router as cohorts_router
+from cohort_learning.api.routes.modules import router as modules_router
+from cohort_learning.api.routes.progression import router as progression_router
+from cohort_learning.api.routes.rewards import router as rewards_router
+from cohort_learning.api.routes.tasks import router as tasks_router
+from cohort_learning.application.event_handlers.competency_prerequisites_met_handler import (
+    CompetencyPrerequisitesMetHandler,
+)
+from cohort_learning.application.event_handlers.curator_promotion_eligible_handler import (
+    CuratorPromotionEligibleHandler,
+)
+from cohort_learning.application.event_handlers.reward_auto_grant import (
+    HelperMetricsUpdatedRewardHandler,
+    PeerReviewSubmittedRewardHandler,
+    TopicExpertPromotedRewardHandler,
+)
+from cohort_learning.application.sagas.competency_achievement_saga import (
+    CompetencyAchievementSaga,
+)
+from cohort_learning.application.sagas.curator_promotion_saga import (
+    CuratorPromotionSaga,
+)
+from cohort_learning.domain.events import (
+    CohortGraduated,
+    CompetencyPrerequisitesMet,
+    CuratorPromotionEligible,
+    HelperMetricsUpdated,
+    PeerReviewSubmitted,
+    TopicExpertPromoted,
+)
+from cohort_learning.infrastructure.sqlalchemy_unit_of_work import (
+    SqlAlchemyUnitOfWork as CohortSqlAlchemyUnitOfWork,
+)
+from partnership.api.dependencies import set_event_bus as set_partnership_event_bus
+from partnership.api.routes.earnings import router as earnings_router
+from partnership.application.calculate_curation_commission import (
+    CalculateCurationCommissionUseCase,
+)
+from partnership.application.sagas.cohort_graduation_saga import CohortGraduationSaga
+from partnership.infrastructure.sqlalchemy_unit_of_work import (
+    SqlAlchemyUnitOfWork as PartnershipSqlAlchemyUnitOfWork,
+)
+import partnership.infrastructure.orm  # noqa: F401 — registers Partnership ORM mappings
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
 from project_collaboration.api.routes.projects import router as projects_router
-from project_collaboration.infrastructure.database import get_engine
+from project_collaboration.infrastructure.database import (
+    get_engine,
+    get_session_factory,
+)
+from shared_kernel.in_process_event_bus import InProcessEventBus
 from shared_kernel.migration import run_migrations
 
 # CORS origins: allow frontend dev server and any custom origins.
@@ -36,10 +85,72 @@ CORS_ORIGINS: list[str] = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run Alembic migrations on startup (idempotent)."""
+    """Run Alembic migrations on startup and wire up the EventBus."""
     engine = get_engine()
     run_migrations(engine)
+    session_factory = get_session_factory(engine)
+
+    # ---- Build shared InProcessEventBus ----
+    bus = InProcessEventBus()
+
+    # Cohort UoW factory (used by reward handlers)
+    cohort_uow_factory = lambda: CohortSqlAlchemyUnitOfWork(
+        session_factory, event_bus=bus
+    )  # noqa: E731
+    # Partnership UoW factory (used by CohortGraduatedHandler)
+    partnership_uow_factory = lambda: PartnershipSqlAlchemyUnitOfWork(
+        session_factory, event_bus=bus
+    )  # noqa: E731
+
+    # ---- Cohort reward auto-grant handlers ----
+    bus.subscribe(
+        PeerReviewSubmitted, PeerReviewSubmittedRewardHandler(cohort_uow_factory())
+    )
+    bus.subscribe(
+        TopicExpertPromoted, TopicExpertPromotedRewardHandler(cohort_uow_factory())
+    )
+    bus.subscribe(
+        HelperMetricsUpdated, HelperMetricsUpdatedRewardHandler(cohort_uow_factory())
+    )
+
+    # ---- Cohort sagas ----
+    bus.subscribe(
+        PeerReviewSubmitted,
+        CompetencyAchievementSaga(uow=cohort_uow_factory(), event_bus=bus),
+    )
+    bus.subscribe(
+        HelperMetricsUpdated,
+        CuratorPromotionSaga(uow=cohort_uow_factory(), event_bus=bus),
+    )
+
+    # ---- Eligibility notification handlers (Stage 17-18) ----
+    bus.subscribe(
+        CompetencyPrerequisitesMet,
+        CompetencyPrerequisitesMetHandler(cohort_uow_factory()),
+    )
+    bus.subscribe(
+        CuratorPromotionEligible,
+        CuratorPromotionEligibleHandler(cohort_uow_factory()),
+    )
+
+    # ---- Partnership: commission on cohort graduation ----
+    calculate_commission_uc = CalculateCurationCommissionUseCase(
+        partnership_uow_factory()
+    )
+    bus.subscribe(
+        CohortGraduated,
+        CohortGraduationSaga(cohort_uow_factory(), calculate_commission_uc),
+    )
+
+    # ---- Wire bus into both bounded contexts' dependency modules ----
+    set_cohort_event_bus(bus)
+    set_partnership_event_bus(bus)
+
     yield
+
+    # Cleanup: detach bus so tests/reloads start fresh
+    set_cohort_event_bus(None)
+    set_partnership_event_bus(None)
 
 
 def create_app() -> FastAPI:
@@ -104,11 +215,18 @@ def create_app() -> FastAPI:
 
     # ----- Routes -----
 
+    app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(credentials_router)
     app.include_router(oauth_router)
     app.include_router(projects_router)
     app.include_router(features_router)
+    app.include_router(cohorts_router)
+    app.include_router(modules_router)
+    app.include_router(tasks_router)
+    app.include_router(progression_router)
+    app.include_router(rewards_router)
+    app.include_router(earnings_router)
     app.include_router(telegram_router)
 
     return app

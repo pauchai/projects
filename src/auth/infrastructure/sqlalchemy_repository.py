@@ -63,6 +63,16 @@ class SqlAlchemyUserRepository:
         )
         return self._session.scalars(stmt).first()
 
+    def find_by_inviter_id(self, inviter_id: str) -> list[User]:
+        """Return all users invited by the given inviter_id, ordered by signup date."""
+        stmt = (
+            select(User)
+            .where(users_table.c.inviter_id == inviter_id)
+            .order_by(users_table.c.created_at.asc())
+            .options(selectinload(User.credentials))  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
     def save(self, user: User) -> None:
         """Persist a User aggregate (user + credentials handled by ORM cascade)."""
         self._session.merge(user)

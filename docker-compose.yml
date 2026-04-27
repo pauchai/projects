@@ -25,6 +25,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    ports:
+      - "5432:5432"
 
   postgres-test:
     image: postgres:16-alpine

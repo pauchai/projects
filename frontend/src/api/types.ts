@@ -16,6 +16,7 @@ export interface RegisterRequest {
   email: string
   password: string
   display_name: string
+  invite_code: string
 }
 
 /** POST /auth/register — response */
@@ -29,6 +30,30 @@ export interface UserResponse {
 export interface LoginRequest {
   email: string
   password: string
+}
+
+/** POST /auth/local/set-password — request body */
+export interface SetPasswordRequest {
+  password: string
+}
+
+/** PATCH /auth/me — request body (both fields optional) */
+export interface UpdateProfileRequest {
+  email?: string
+  display_name?: string
+}
+
+/** GET /auth/referrals — a single referred user */
+export interface ReferralResponse {
+  user_id: string
+  display_name: string
+  joined_at: string
+}
+
+/** GET /auth/referrals — response */
+export interface ReferralsListResponse {
+  total: number
+  referrals: ReferralResponse[]
 }
 
 /** POST /auth/login — response */
@@ -232,4 +257,253 @@ export interface CredentialsListResponse {
   credentials: CredentialResponse[]
   total_count: number
   has_local_credential: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Cohorts
+// ---------------------------------------------------------------------------
+
+export type CohortStatus = "forming" | "active" | "completing" | "graduated" | "cancelled"
+
+/** POST /cohorts — request body */
+export interface FormCohortRequest {
+  cohort_id: string
+  module_id: string
+}
+
+/** POST /cohorts/{id}/learners — request body */
+export interface EnrolLearnerRequest {
+  membership_id: string
+  learner_id: string
+}
+
+/** A single cohort membership */
+export interface CohortMembershipResponse {
+  membership_id: string
+  learner_id: string
+  cohort_id: string
+  role: string
+  is_active: boolean
+  joined_at: string
+}
+
+/** Full cohort response */
+export interface CohortResponse {
+  cohort_id: string
+  master_id: string
+  module_id: string
+  status: CohortStatus
+  formed_at: string
+  memberships: CohortMembershipResponse[]
+}
+
+/** POST /cohorts/{id}/tasks — request body */
+export interface CreatePracticeTaskRequest {
+  task_id: string
+  topic_id: string
+  title: string
+  description?: string
+}
+
+/** Task submission */
+export interface TaskSubmissionResponse {
+  submission_id: string
+  task_id: string
+  learner_id: string
+  content: string
+  status: string
+  submitted_at: string
+}
+
+/** Full practice task response */
+export interface PracticeTaskResponse {
+  task_id: string
+  cohort_id: string
+  topic_id: string
+  creator_id: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+  submissions: TaskSubmissionResponse[]
+}
+
+/** POST /cohorts/{id}/tasks/{tid}/submissions — request body */
+export interface SubmitTaskSolutionRequest {
+  submission_id: string
+  content: string
+}
+
+/** A single score within a peer review */
+export interface ReviewScoreResponse {
+  criterion: string
+  score: number
+  comment: string
+}
+
+/** Full peer review response */
+export interface PeerReviewResponse {
+  review_id: string
+  submission_id: string
+  reviewer_id: string
+  task_id: string
+  cohort_id: string
+  status: string
+  overall_feedback: string
+  created_at: string
+  reviewed_at: string | null
+  scores: ReviewScoreResponse[]
+}
+
+/** POST /cohorts/{id}/tasks/{tid}/submissions/{sid}/reviews — request body */
+export interface SubmitPeerReviewRequest {
+  review_id: string
+  scores: { criterion: string; score: number; comment?: string }[]
+  overall_feedback?: string
+}
+
+/** Leaderboard entry */
+export interface LeaderboardEntryResponse {
+  learner_id: string
+  total_xp: number
+  rank: number
+}
+
+/** Helper metrics */
+export interface HelperMetricsResponse {
+  learner_id: string
+  cohort_id: string
+  learners_helped: number
+  questions_answered: number
+  tasks_reviewed: number
+  average_satisfaction: number | null
+  updated_at: string
+}
+
+/** Topic expert */
+export interface TopicExpertResponse {
+  expert_id: string
+  learner_id: string
+  topic_id: string
+  cohort_id: string
+  validated_at: string
+  validator_id: string
+}
+
+/** Pending competency validation */
+export interface PendingCompetencyValidationResponse {
+  pending_id: string
+  learner_id: string
+  topic_id: string
+  cohort_id: string
+  created_at: string
+}
+
+/** Pending curator promotion */
+export interface PendingCuratorPromotionResponse {
+  pending_id: string
+  learner_id: string
+  module_id: string
+  cohort_id: string
+  created_at: string
+}
+
+/** POST /cohorts/{id}/members/{lid}/validate-competency — request body */
+export interface ValidateTopicCompetencyRequest {
+  topic_id: string
+  knowledge_check_score: number
+  mentor_approved: boolean
+}
+
+/** POST /cohorts/{id}/members/{lid}/promote-expert — request body */
+export interface PromoteToTopicExpertRequest {
+  expert_id: string
+  topic_id: string
+}
+
+/** POST /cohorts/{id}/members/{lid}/promote-curator — request body */
+export interface PromoteToModuleCuratorRequest {
+  curator_id: string
+  module_id: string
+}
+
+/** Reward balance */
+export interface RewardBalanceResponse {
+  learner_id: string
+  total_xp: number
+  total_credits: number
+  badges: string[]
+  reputation_score: number | null
+}
+
+/** Reward entry */
+export interface RewardEntryResponse {
+  entry_id: string
+  learner_id: string
+  reward_type: string
+  amount: number | null
+  metadata: Record<string, string>
+  granted_at: string
+  triggering_event: string | null
+  cohort_id: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Modules & Topics
+// ---------------------------------------------------------------------------
+
+export interface TopicResponse {
+  topic_id: string
+  title: string
+  position: number
+  description: string
+}
+
+export interface ModuleResponse {
+  module_id: string
+  title: string
+  master_id: string
+  topics: TopicResponse[]
+  topic_count: number
+}
+
+export interface CreateModuleRequest {
+  module_id: string
+  title: string
+}
+
+export interface AddTopicRequest {
+  topic_id: string
+  title: string
+  position: number
+  description: string
+}
+
+// ---------------------------------------------------------------------------
+// Partnership / Earnings
+// ---------------------------------------------------------------------------
+
+export type CommissionStatus = "pending" | "released"
+
+/** Single curator commission (GET /me/earnings, GET /me/earnings/history) */
+export interface CommissionResponse {
+  commission_id: string
+  curator_id: string
+  cohort_id: string
+  module_id: string
+  base_amount: number
+  bonus_amount: number
+  total_amount: number
+  status: CommissionStatus
+  earned_at: string
+  release_eligible_at: string
+  released_at: string | null
+}
+
+/** GET /me/earnings — aggregated summary */
+export interface EarningsSummaryResponse {
+  curator_id: string
+  total_pending: number
+  total_released: number
+  commissions: CommissionResponse[]
 }

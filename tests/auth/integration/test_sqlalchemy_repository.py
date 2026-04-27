@@ -24,7 +24,7 @@ def _make_user(
         credential_id=f"cred-{user_id}",
         user_id=user_id,
         provider="local",
-        provider_user_id=email,
+        provider_user_id=user_id,  # user_id stored in DB; email shown via list_credential_summaries()
         hashed_secret="hashed:password123",
     )
     user.add_credential(credential)
@@ -66,7 +66,7 @@ class TestSqlAlchemyUserRepositorySaveAndFindById:
         cred = found.credentials[0]
         assert cred.credential_id == "cred-user-1"
         assert cred.provider == "local"
-        assert cred.provider_user_id == "alice@example.com"
+        assert cred.provider_user_id == "user-1"  # user_id stored in DB
         assert cred.hashed_secret == "hashed:password123"
         assert isinstance(cred.created_at, datetime)
 

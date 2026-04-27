@@ -41,6 +41,18 @@ export function Header() {
             >
               Features
             </Link>
+            <Link
+              to="/modules"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Modules
+            </Link>
+            <Link
+              to="/cohorts"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cohorts
+            </Link>
 
             {isAuthenticated ? (
               <>
@@ -49,6 +61,18 @@ export function Header() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Create
+                </Link>
+                <Link
+                  to="/me/rewards"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Rewards
+                </Link>
+                <Link
+                  to="/me/earnings"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Earnings
                 </Link>
                 <Link
                   to="/profile"
@@ -113,6 +137,20 @@ export function Header() {
             >
               Features
             </Link>
+            <Link
+              to="/modules"
+              onClick={closeMenu}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Modules
+            </Link>
+            <Link
+              to="/cohorts"
+              onClick={closeMenu}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cohorts
+            </Link>
 
             {isAuthenticated ? (
               <>
@@ -122,6 +160,20 @@ export function Header() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Create
+                </Link>
+                <Link
+                  to="/me/rewards"
+                  onClick={closeMenu}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Rewards
+                </Link>
+                <Link
+                  to="/me/earnings"
+                  onClick={closeMenu}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Earnings
                 </Link>
                 <Link
                   to="/profile"

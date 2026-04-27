@@ -47,7 +47,7 @@ class TestRegisterUserUseCase:
         cred = user.find_credential_by_provider("local")
         assert cred is not None
         assert cred.hashed_secret == "hashed:secret123"
-        assert cred.provider_user_id == "alice@example.com"
+        assert cred.provider_user_id == "u1"  # user_id; email lives on User entity
 
     def test_commits_transaction(self) -> None:
         uow = FakeUnitOfWork()

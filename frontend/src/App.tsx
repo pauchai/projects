@@ -13,9 +13,20 @@ import { SubmitFeaturePage } from "@/pages/submit-feature"
 import { FeatureDetailPage } from "@/pages/feature-detail"
 import { ProfilePage } from "@/pages/profile"
 import { SecuritySettingsPage } from "@/pages/settings/security"
+import { SetPasswordPage } from "@/pages/settings/set-password"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
 import { OAuthCallbackPage } from "@/pages/oauth-callback"
+import { CohortsListPage } from "@/pages/cohorts-list"
+import { CreateCohortPage } from "@/pages/create-cohort"
+import { CohortDetailPage } from "@/pages/cohort-detail"
+import { CohortDashboardPage } from "@/pages/cohort-dashboard"
+import { ModulesListPage } from "@/pages/modules-list"
+import { CreateModulePage } from "@/pages/create-module"
+import { ModuleDetailPage } from "@/pages/module-detail"
+import { RewardsPage } from "@/pages/rewards"
+import { EarningsPage } from "@/pages/earnings"
+import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +47,7 @@ export default function App() {
           <main className="mx-auto max-w-5xl px-4 py-6">
             <Routes>
               <Route path="/" element={<ProjectsListPage />} />
+              <Route path="/admin" element={<AdminInviteCodesPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
@@ -75,6 +87,62 @@ export default function App() {
               />
               <Route path="/features/:requestId" element={<FeatureDetailPage />} />
               <Route
+                path="/cohorts"
+                element={
+                  <ProtectedRoute>
+                    <CohortsListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cohorts/new"
+                element={
+                  <ProtectedRoute>
+                    <CreateCohortPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cohorts/:cohortId"
+                element={
+                  <ProtectedRoute>
+                    <CohortDetailPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/cohorts/:cohortId/dashboard"
+                 element={
+                   <ProtectedRoute>
+                     <CohortDashboardPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules"
+                 element={
+                   <ProtectedRoute>
+                     <ModulesListPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules/new"
+                 element={
+                   <ProtectedRoute>
+                     <CreateModulePage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/modules/:moduleId"
+                 element={
+                   <ProtectedRoute>
+                     <ModuleDetailPage />
+                   </ProtectedRoute>
+                 }
+               />
+              <Route
                 path="/profile"
                 element={
                   <ProtectedRoute>
@@ -83,10 +151,34 @@ export default function App() {
                 }
               />
               <Route
+                path="/me/rewards"
+                element={
+                  <ProtectedRoute>
+                    <RewardsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/me/earnings"
+                element={
+                  <ProtectedRoute>
+                    <EarningsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/settings/security"
                 element={
                   <ProtectedRoute>
                     <SecuritySettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/password"
+                element={
+                  <ProtectedRoute>
+                    <SetPasswordPage />
                   </ProtectedRoute>
                 }
               />

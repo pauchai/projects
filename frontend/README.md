@@ -1,73 +1,70 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript SPA for the Project Collaboration Platform.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Tool | Purpose |
+|------|---------|
+| React 19 + Vite 8 | UI framework + dev server |
+| TypeScript 5.9 (strict) | Type safety |
+| Tailwind CSS 4 + shadcn/ui | Styling + component primitives |
+| TanStack Query v5 | Server state + caching |
+| Zustand v5 | Auth state (persisted to `localStorage`) |
+| React Router v7 | Client-side routing |
+| Playwright | E2E tests |
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev      # Vite dev server → http://localhost:5173
+npm run build    # Type-check + production build
+npm run lint     # ESLint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server proxies all `/api` requests to the backend at `localhost:8000`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## E2E Tests
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+See the root [README — Running Tests](../README.md#running-tests) for the full
+setup guide. Quick reference:
+
+```bash
+# Prerequisites: postgres-test container + backend on :8000 (see root README)
+
+npm run test:e2e           # headless, list reporter
+npm run test:e2e:ui        # interactive UI mode
+npm run test:e2e:headed    # headed Chromium
+
+# Single file / test
+npx playwright test e2e/scenarios/task-flow.spec.ts
+npx playwright test --grep "master creates a task"
+
+# Open last HTML report
+npx playwright show-report
+```
+
+### Test layout
+
+```
+e2e/
+├── global-setup.ts          # DB reset (Alembic) + persona registration
+├── fixtures.ts              # Per-role page + APIRequestContext fixtures
+├── helpers/
+│   └── seed.ts              # API helpers for seeding test data
+└── scenarios/
+    ├── access-control.spec.ts        # Route guards, role visibility
+    ├── cohort-lifecycle.spec.ts      # Create / enrol / activate / cancel cohort
+    ├── task-flow.spec.ts             # Create → activate → submit → review task
+    ├── dashboard-validation.spec.ts  # Pending competency validation UI
+    └── earnings.spec.ts             # /me/earnings page structure + auth guard
+```
+
+Generated files (git-ignored):
+
+```
+e2e/.auth/           # storageState JSON per persona
+playwright-report/   # HTML test report
+test-results/        # Artifacts from failed tests (screenshots, traces)
 ```

@@ -10,9 +10,21 @@ from auth.api.dependencies import (
     get_password_hasher,
     get_token_service,
 )
-from auth.api.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from auth.api.schemas import (
+    LoginRequest,
+    MessageResponse,
+    ReferralResponse,
+    ReferralsListResponse,
+    RegisterRequest,
+    SetPasswordRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    UserResponse,
+)
 from auth.application.authenticate import AuthenticateUseCase
-from auth.application.register_user import RegisterUserUseCase
+from auth.application.register_user_with_invite import RegisterUserWithInviteUseCase
+from auth.application.set_password import SetPasswordUseCase
+from auth.application.update_profile import UpdateProfileUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
@@ -31,14 +43,15 @@ def register(
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
     password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
 ) -> UserResponse:
-    """Register a new user with email and password."""
-    use_case = RegisterUserUseCase(uow, password_hasher)
+    """Register a new user with email, password and a valid invite code."""
+    use_case = RegisterUserWithInviteUseCase(uow, password_hasher)
     user_id = str(uuid.uuid4())
     use_case.execute(
         user_id=user_id,
         email=body.email,
         password=body.password,
         display_name=body.display_name,
+        invite_code=body.invite_code,
     )
     return UserResponse(
         user_id=user_id,
@@ -74,4 +87,60 @@ def get_me(
             user_id=user.user_id,
             email=user.email,
             display_name=user.display_name,
+        )
+
+
+@router.post("/local/set-password", response_model=MessageResponse)
+def set_password(
+    body: SetPasswordRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
+) -> MessageResponse:
+    """Set password for an authenticated user who doesn't have local credentials."""
+    use_case = SetPasswordUseCase(uow, password_hasher)
+    use_case.execute(user_id=caller_id, password=body.password)
+    return MessageResponse(message="Password set successfully")
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_me(
+    body: UpdateProfileRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> UserResponse:
+    """Update the authenticated user's email and/or display_name.
+
+    Both fields are optional — omitting a field leaves it unchanged.
+    Returns the updated user profile.
+    """
+    use_case = UpdateProfileUseCase(uow)
+    updated = use_case.execute(
+        caller_id, email=body.email, display_name=body.display_name
+    )
+    return UserResponse(
+        user_id=updated.user_id,
+        email=updated.email,
+        display_name=updated.display_name,
+    )
+
+
+@router.get("/referrals", response_model=ReferralsListResponse)
+def get_referrals(
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> ReferralsListResponse:
+    """Return a list of users invited by the currently authenticated user."""
+    with uow:
+        users = uow.users.find_by_inviter_id(caller_id)
+        return ReferralsListResponse(
+            total=len(users),
+            referrals=[
+                ReferralResponse(
+                    user_id=u.user_id,
+                    display_name=u.display_name,
+                    joined_at=u.created_at.isoformat(),
+                )
+                for u in users
+            ],
         )

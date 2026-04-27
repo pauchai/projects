@@ -13,6 +13,7 @@ interface FormErrors {
   password?: string
   confirmPassword?: string
   displayName?: string
+  inviteCode?: string
 }
 
 function validate(
@@ -20,6 +21,7 @@ function validate(
   password: string,
   confirmPassword: string,
   displayName: string,
+  inviteCode: string,
 ): FormErrors {
   const errors: FormErrors = {}
 
@@ -47,6 +49,10 @@ function validate(
     errors.displayName = "Display name cannot exceed 100 characters"
   }
 
+  if (inviteCode.trim().length === 0) {
+    errors.inviteCode = "Invite code is required"
+  }
+
   return errors
 }
 
@@ -62,12 +68,13 @@ export function RegisterPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [displayName, setDisplayName] = useState("")
+  const [inviteCode, setInviteCode] = useState("")
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const errors = validate(email, password, confirmPassword, displayName)
+    const errors = validate(email, password, confirmPassword, displayName, inviteCode)
     setFieldErrors(errors)
 
     if (Object.keys(errors).length > 0) {
@@ -79,6 +86,7 @@ export function RegisterPage() {
         email: email.trim(),
         password,
         display_name: displayName.trim(),
+        invite_code: inviteCode.trim().toUpperCase(),
       },
       {
         onSuccess: () => {
@@ -220,6 +228,22 @@ export function RegisterPage() {
               />
               {fieldErrors.confirmPassword && (
                 <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="inviteCode">Invite code</Label>
+              <Input
+                id="inviteCode"
+                type="text"
+                placeholder="Enter your 8-character invite code"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                aria-invalid={!!fieldErrors.inviteCode}
+                maxLength={8}
+              />
+              {fieldErrors.inviteCode && (
+                <p className="text-sm text-destructive">{fieldErrors.inviteCode}</p>
               )}
             </div>
 

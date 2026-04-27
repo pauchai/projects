@@ -6,6 +6,7 @@ Domain never depends on infrastructure — only on these abstractions (DIP).
 
 from typing import Protocol
 
+from auth.domain.invite_code import InviteCode
 from auth.domain.oauth import OAuthUserInfo
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User
@@ -73,7 +74,23 @@ class UserRepository(Protocol):
         """Find a user who has a credential for the given provider + external ID."""
         ...
 
+    def find_by_inviter_id(self, inviter_id: str) -> list[User]:
+        """Return all users who were invited by the given user_id."""
+        ...
+
     def save(self, user: User) -> None: ...
+
+
+class InviteCodeRepository(Protocol):
+    """Port for persisting and querying InviteCodes."""
+
+    def find_by_code(self, code: str) -> InviteCode | None: ...
+
+    def find_all(self) -> list[InviteCode]: ...
+
+    def save(self, invite_code: InviteCode) -> None: ...
+
+    def save_all(self, invite_codes: list[InviteCode]) -> None: ...
 
 
 class TelegramAuthRequestRepository(Protocol):
@@ -118,6 +135,7 @@ class UnitOfWork(Protocol):
     """
 
     users: UserRepository
+    invite_codes: InviteCodeRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

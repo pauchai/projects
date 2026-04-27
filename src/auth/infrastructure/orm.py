@@ -18,6 +18,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Integer,
     MetaData,
     String,
     Table,
@@ -25,6 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import registry, relationship
 
+from auth.domain.invite_code import InviteCode
 from auth.domain.user import Credential, User
 
 # ---------------------------------------------------------------------------
@@ -46,6 +48,12 @@ users_table = Table(
     Column("display_name", String(100), nullable=False),
     Column("is_active", Boolean, nullable=False, default=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Column(
+        "inviter_id",
+        String(255),
+        ForeignKey("auth_users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    ),
 )
 
 credentials_table = Table(
@@ -65,11 +73,32 @@ credentials_table = Table(
     UniqueConstraint("user_id", "provider", name="uq_user_provider"),
 )
 
+invite_codes_table = Table(
+    "auth_invite_codes",
+    metadata,
+    Column("code_id", String(255), primary_key=True),
+    Column("code", String(20), nullable=False, unique=True),
+    Column("issued_by", String(255), nullable=False),
+    Column(
+        "inviter_id",
+        String(255),
+        ForeignKey("auth_users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    ),
+    Column("max_uses", Integer, nullable=False, default=1),
+    Column("uses_left", Integer, nullable=False, default=1),
+    Column("is_active", Boolean, nullable=False, default=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=True),
+)
+
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
 
 mapper_registry.map_imperatively(Credential, credentials_table)
+
+mapper_registry.map_imperatively(InviteCode, invite_codes_table)
 
 mapper_registry.map_imperatively(
     User,

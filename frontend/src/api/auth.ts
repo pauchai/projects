@@ -2,15 +2,19 @@
  * Auth API functions: register, login, get current user.
  */
 
-import { get, post } from "./client"
+import { get, patch, post } from "./client"
 import type {
   LoginRequest,
+  MessageResponse,
   OAuthAvailableResponse,
   OAuthAuthorizeResponse,
   OAuthCallbackRequest,
+  ReferralsListResponse,
   RegisterRequest,
+  SetPasswordRequest,
   TelegramAuthorizeResponse,
   TokenResponse,
+  UpdateProfileRequest,
   UserResponse,
 } from "./types"
 
@@ -24,11 +28,26 @@ export function login(data: LoginRequest): Promise<TokenResponse> {
   return post<TokenResponse>("/auth/login", data)
 }
 
+/** POST /auth/local/set-password — set password for authenticated user */
+export function setPassword(data: SetPasswordRequest): Promise<MessageResponse> {
+  return post<MessageResponse>("/auth/local/set-password", data)
+}
+
 /** GET /auth/me — requires valid JWT.
  *  @param token - Explicit JWT to use instead of reading from the auth store.
  */
 export function getMe(token?: string): Promise<UserResponse> {
   return get<UserResponse>("/auth/me", undefined, token)
+}
+
+/** PATCH /auth/me — update email and/or display_name for the authenticated user. */
+export function updateProfile(data: UpdateProfileRequest): Promise<UserResponse> {
+  return patch<UserResponse>("/auth/me", data)
+}
+
+/** GET /auth/referrals — list users invited by the current user. */
+export function getReferrals(): Promise<ReferralsListResponse> {
+  return get<ReferralsListResponse>("/auth/referrals")
 }
 
 // ---------------------------------------------------------------------------

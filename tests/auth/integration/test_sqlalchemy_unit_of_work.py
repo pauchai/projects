@@ -21,7 +21,7 @@ def _make_user(
         credential_id=f"cred-{user_id}",
         user_id=user_id,
         provider="local",
-        provider_user_id=email,
+        provider_user_id=user_id,  # user_id stored in DB
         hashed_secret="hashed:password123",
     )
     user.add_credential(credential)

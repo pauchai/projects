@@ -1,3 +1,7 @@
+---
+title: Project Collaboration Spec
+---
+
 # Project Collaboration — Design Specification
 
 ## 1. Bounded Context

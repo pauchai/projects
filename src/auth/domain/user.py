@@ -88,6 +88,7 @@ class User:
         self.is_active: bool = True
         self.created_at: datetime = datetime.now(timezone.utc)
         self.credentials: list[Credential] = []
+        self.inviter_id: str | None = None  # set at registration if invited
 
     def add_credential(self, credential: Credential) -> None:
         """Add a credential. Only one credential per provider is allowed."""
@@ -131,11 +132,44 @@ class User:
                 provider_display_name=_PROVIDER_DISPLAY_NAMES.get(
                     cred.provider, cred.provider.title()
                 ),
-                provider_user_id=cred.provider_user_id,
+                # For local credentials, display the user's email (human-readable).
+                # provider_user_id stores user_id (UUID) to avoid denormalisation.
+                provider_user_id=self.email
+                if cred.provider == "local"
+                else cred.provider_user_id,
                 is_removable=self.can_remove_credential(cred.provider),
             )
             for cred in self.credentials
         ]
+
+    def update_profile(
+        self,
+        *,
+        email: str | None = None,
+        display_name: str | None = None,
+    ) -> None:
+        """Update mutable profile fields.
+
+        Caller is responsible for ensuring email uniqueness across all users
+        before invoking this method.
+
+        # TODO: trigger email-verification flow when email is changed.
+        """
+        if email is not None:
+            email = email.strip().lower()
+            if not email:
+                raise ValueError("Email cannot be empty")
+            if "@" not in email:
+                raise ValueError("Invalid email format")
+            self.email = email
+
+        if display_name is not None:
+            display_name = display_name.strip()
+            if not display_name:
+                raise ValueError("Display name cannot be empty")
+            if len(display_name) > 100:
+                raise ValueError("Display name cannot exceed 100 characters")
+            self.display_name = display_name
 
     def can_remove_credential(self, provider: str) -> bool:
         """Check whether the credential for *provider* can be safely removed.
