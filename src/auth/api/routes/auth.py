@@ -19,9 +19,11 @@ from auth.api.schemas import (
     SetPasswordRequest,
     TokenResponse,
     UpdateProfileRequest,
+    UserInviteCodeResponse,
     UserResponse,
 )
 from auth.application.authenticate import AuthenticateUseCase
+from auth.application.create_user_invite_code import CreateUserInviteCodeUseCase
 from auth.application.register_user_with_invite import RegisterUserWithInviteUseCase
 from auth.application.set_password import SetPasswordUseCase
 from auth.application.update_profile import UpdateProfileUseCase
@@ -122,6 +124,28 @@ def update_me(
         user_id=updated.user_id,
         email=updated.email,
         display_name=updated.display_name,
+    )
+
+
+@router.post("/invite-codes", status_code=201, response_model=UserInviteCodeResponse)
+def create_invite_code(
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+) -> UserInviteCodeResponse:
+    """Create a personal invite code for the authenticated user.
+
+    The code expires in 7 days and is single-use by default.
+    """
+    use_case = CreateUserInviteCodeUseCase(uow)
+    invite = use_case.execute(user_id=caller_id)
+    return UserInviteCodeResponse(
+        code_id=invite.code_id,
+        code=invite.code,
+        uses_left=invite.uses_left,
+        max_uses=invite.max_uses,
+        is_active=invite.is_active,
+        expires_at=invite.expires_at.isoformat(),  # type: ignore[union-attr]
+        created_at=invite.created_at.isoformat(),
     )
 
 

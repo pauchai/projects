@@ -184,3 +184,15 @@ class CreateInviteCodesResponse(BaseModel):
     """Response after generating invite codes."""
 
     codes: list[InviteCodeResponse]
+
+
+class UserInviteCodeResponse(BaseModel):
+    """POST /auth/invite-codes — a single invite code created by a user."""
+
+    code_id: str
+    code: str
+    uses_left: int
+    max_uses: int
+    is_active: bool
+    expires_at: str
+    created_at: str

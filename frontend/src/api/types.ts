@@ -43,6 +43,13 @@ export interface UpdateProfileRequest {
   display_name?: string
 }
 
+/** POST /auth/invite-codes — response */
+export interface UserInviteCodeResponse {
+  code: string
+  expires_at: string
+  max_uses: number
+}
+
 /** GET /auth/referrals — a single referred user */
 export interface ReferralResponse {
   user_id: string

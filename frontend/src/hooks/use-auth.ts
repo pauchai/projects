@@ -23,6 +23,15 @@ export const TELEGRAM_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "telegram", "avail
 export const REFERRALS_QUERY_KEY = ["auth", "referrals"] as const
 
 /**
+ * Generate a new invite code for the current user (POST /auth/invite-codes).
+ */
+export function useCreateInviteCode() {
+  return useMutation({
+    mutationFn: () => authApi.createInviteCode(),
+  })
+}
+
+/**
  * Fetch current user profile (GET /auth/me).
  * Only enabled when the user is authenticated.
  */

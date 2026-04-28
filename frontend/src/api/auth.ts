@@ -15,6 +15,7 @@ import type {
   TelegramAuthorizeResponse,
   TokenResponse,
   UpdateProfileRequest,
+  UserInviteCodeResponse,
   UserResponse,
 } from "./types"
 
@@ -48,6 +49,11 @@ export function updateProfile(data: UpdateProfileRequest): Promise<UserResponse>
 /** GET /auth/referrals — list users invited by the current user. */
 export function getReferrals(): Promise<ReferralsListResponse> {
   return get<ReferralsListResponse>("/auth/referrals")
+}
+
+/** POST /auth/invite-codes — generate a new invite code for the current user. */
+export function createInviteCode(): Promise<UserInviteCodeResponse> {
+  return post<UserInviteCodeResponse>("/auth/invite-codes", {})
 }
 
 // ---------------------------------------------------------------------------

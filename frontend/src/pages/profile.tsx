@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuthStore } from "@/stores/auth-store"
-import { useUpdateProfile, useReferrals } from "@/hooks/use-auth"
+import { useUpdateProfile, useReferrals, useCreateInviteCode } from "@/hooks/use-auth"
 import { useSearchProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/project-card"
 import { ApiError } from "@/api/client"
@@ -111,6 +111,27 @@ export function ProfilePage() {
   )
 
   const { data: referralsData, isLoading: loadingReferrals } = useReferrals()
+
+  const inviteMutation = useCreateInviteCode()
+  const [generatedCode, setGeneratedCode] = useState<{ code: string; expires_at: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  function handleGenerateInvite() {
+    inviteMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        setGeneratedCode({ code: data.code, expires_at: data.expires_at })
+        setCopied(false)
+      },
+    })
+  }
+
+  function handleCopyCode() {
+    if (!generatedCode) return
+    navigator.clipboard.writeText(generatedCode.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   // Exclude projects the user owns from the "member of" list
   const ownedIds = new Set(ownedProjects?.map((p) => p.project_id) ?? [])
@@ -233,6 +254,43 @@ export function ProfilePage() {
           <p className="text-sm text-muted-foreground">
             You haven't invited anyone yet.
           </p>
+        )}
+      </section>
+      <Separator />
+
+      {/* Invite Code */}
+      <section>
+        <h2 className="mb-1 text-lg font-semibold">Invite Someone</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Generate a single-use invite code valid for 7 days.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGenerateInvite}
+          disabled={inviteMutation.isPending}
+        >
+          {inviteMutation.isPending ? "Generating…" : "Generate Invite Code"}
+        </Button>
+        {inviteMutation.isError && (
+          <p className="mt-2 text-sm text-destructive">
+            {inviteMutation.error instanceof Error
+              ? inviteMutation.error.message
+              : "Failed to generate code."}
+          </p>
+        )}
+        {generatedCode && (
+          <div className="mt-3 flex items-center gap-2">
+            <code className="rounded bg-muted px-3 py-1.5 font-mono text-sm">
+              {generatedCode.code}
+            </code>
+            <Button variant="ghost" size="sm" onClick={handleCopyCode}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              expires {new Date(generatedCode.expires_at).toLocaleDateString()}
+            </span>
+          </div>
         )}
       </section>
     </div>
