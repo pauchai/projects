@@ -27,6 +27,7 @@ import { ModuleDetailPage } from "@/pages/module-detail"
 import { RewardsPage } from "@/pages/rewards"
 import { EarningsPage } from "@/pages/earnings"
 import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
+import { ActivationPage } from "@/pages/activate"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/activate" element={<ActivationPage />} />
               <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
               <Route
                 path="/projects/:projectId/edit"

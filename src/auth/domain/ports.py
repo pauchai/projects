@@ -23,10 +23,14 @@ class PasswordHasher(Protocol):
 class TokenService(Protocol):
     """Port for creating and decoding authentication tokens (e.g., JWT)."""
 
-    def create_access_token(self, user_id: str) -> str: ...
+    def create_access_token(self, user_id: str, status: str = "active") -> str: ...
 
     def decode_token(self, token: str) -> str:
         """Decode a token and return the user_id. Raises ValueError if invalid."""
+        ...
+
+    def decode_token_full(self, token: str) -> dict:
+        """Decode a token and return the full payload dict. Raises ValueError if invalid."""
         ...
 
 

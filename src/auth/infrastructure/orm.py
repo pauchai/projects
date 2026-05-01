@@ -47,6 +47,7 @@ users_table = Table(
     Column("email", String(320), nullable=False, unique=True),
     Column("display_name", String(100), nullable=False),
     Column("is_active", Boolean, nullable=False, default=True),
+    Column("status", String(20), nullable=False, server_default="active"),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column(
         "inviter_id",

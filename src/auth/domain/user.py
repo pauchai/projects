@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Literal
 
 # Display names for known auth providers.
 _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
@@ -86,6 +87,7 @@ class User:
         self.email = email
         self.display_name = display_name
         self.is_active: bool = True
+        self.status: Literal["pending", "active"] = "active"
         self.created_at: datetime = datetime.now(timezone.utc)
         self.credentials: list[Credential] = []
         self.inviter_id: str | None = None  # set at registration if invited
@@ -120,6 +122,12 @@ class User:
         if self.is_active:
             raise ValueError("User is already active")
         self.is_active = True
+
+    def activate(self) -> None:
+        """Promote a pending user to active. Raises if already active."""
+        if self.status == "active":
+            raise ValueError("User is already active")
+        self.status = "active"
 
     # -- Credential summary & inspection --------------------------------
 

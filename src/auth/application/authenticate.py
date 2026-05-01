@@ -44,4 +44,4 @@ class AuthenticateUseCase:
             ):
                 raise ValueError("Invalid email or password")
 
-            return self._token_service.create_access_token(user.user_id)
+            return self._token_service.create_access_token(user.user_id, status=user.status)

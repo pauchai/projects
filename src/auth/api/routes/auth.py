@@ -1,16 +1,21 @@
 """Auth routes: REST endpoints for user registration, authentication, and profile."""
 
+import os
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from auth.api.dependencies import (
     get_auth_uow,
     get_current_user_id,
     get_password_hasher,
+    get_pending_user_id,
     get_token_service,
+    require_active_user,
 )
 from auth.api.schemas import (
+    ActivateAccountRequest,
     LoginRequest,
     MessageResponse,
     ReferralResponse,
@@ -23,6 +28,7 @@ from auth.api.schemas import (
     UserResponse,
 )
 from auth.application.authenticate import AuthenticateUseCase
+from auth.application.activate_user_with_invite import ActivateUserWithInviteUseCase
 from auth.application.create_user_invite_code import CreateUserInviteCodeUseCase
 from auth.application.register_user_with_invite import RegisterUserWithInviteUseCase
 from auth.application.set_password import SetPasswordUseCase
@@ -95,7 +101,7 @@ def get_me(
 @router.post("/local/set-password", response_model=MessageResponse)
 def set_password(
     body: SetPasswordRequest,
-    caller_id: str = Depends(get_current_user_id),
+    caller_id: str = Depends(require_active_user),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
     password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
 ) -> MessageResponse:
@@ -108,7 +114,7 @@ def set_password(
 @router.patch("/me", response_model=UserResponse)
 def update_me(
     body: UpdateProfileRequest,
-    caller_id: str = Depends(get_current_user_id),
+    caller_id: str = Depends(require_active_user),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
 ) -> UserResponse:
     """Update the authenticated user's email and/or display_name.
@@ -129,7 +135,7 @@ def update_me(
 
 @router.post("/invite-codes", status_code=201, response_model=UserInviteCodeResponse)
 def create_invite_code(
-    caller_id: str = Depends(get_current_user_id),
+    caller_id: str = Depends(require_active_user),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
 ) -> UserInviteCodeResponse:
     """Create a personal invite code for the authenticated user.
@@ -151,7 +157,7 @@ def create_invite_code(
 
 @router.get("/referrals", response_model=ReferralsListResponse)
 def get_referrals(
-    caller_id: str = Depends(get_current_user_id),
+    caller_id: str = Depends(require_active_user),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
 ) -> ReferralsListResponse:
     """Return a list of users invited by the currently authenticated user."""
@@ -168,3 +174,46 @@ def get_referrals(
                 for u in users
             ],
         )
+
+
+@router.post("/activate", response_model=TokenResponse)
+def activate_account(
+    body: ActivateAccountRequest,
+    caller_id: str = Depends(get_pending_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    token_service: JwtTokenService = Depends(get_token_service),
+) -> TokenResponse:
+    """Activate a pending account by redeeming a valid invite code.
+
+    Accepts a JWT from a pending user (i.e. registered via OAuth without a code).
+    On success returns a new access token with status='active'.
+    """
+    use_case = ActivateUserWithInviteUseCase(uow, token_service)
+    access_token = use_case.execute(user_id=caller_id, invite_code=body.invite_code)
+    return TokenResponse(access_token=access_token)
+
+
+# ---------------------------------------------------------------------------
+# Test-only endpoint (E2E helpers)
+# ---------------------------------------------------------------------------
+
+
+class _PendingTokenRequest(BaseModel):
+    user_id: str
+
+
+@router.post("/test/pending-token", include_in_schema=False, response_model=TokenResponse)
+def test_pending_token(
+    body: _PendingTokenRequest,
+    token_service: JwtTokenService = Depends(get_token_service),
+) -> TokenResponse:
+    """Return a JWT with status='pending' for the given user_id.
+
+    ONLY available when E2E_ALLOW_PENDING_TOKEN=1 is set in the environment.
+    Used exclusively by Playwright E2E tests to simulate an OAuth-created
+    pending account without needing a real OAuth provider.
+    """
+    if os.getenv("E2E_ALLOW_PENDING_TOKEN") != "1":
+        raise HTTPException(status_code=404, detail="Not found")
+    access_token = token_service.create_access_token(body.user_id, status="pending")
+    return TokenResponse(access_token=access_token)

@@ -32,6 +32,13 @@ class SetPasswordRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class ActivateAccountRequest(BaseModel):
+    """POST /auth/activate"""
+
+    invite_code: str = Field(min_length=1)
+
+
+
 class UpdateProfileRequest(BaseModel):
     """PATCH /auth/me — update email and/or display_name.
 

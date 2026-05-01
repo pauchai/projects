@@ -4,6 +4,7 @@
 
 import { get, patch, post } from "./client"
 import type {
+  ActivateAccountRequest,
   LoginRequest,
   MessageResponse,
   OAuthAvailableResponse,
@@ -54,6 +55,11 @@ export function getReferrals(): Promise<ReferralsListResponse> {
 /** POST /auth/invite-codes — generate a new invite code for the current user. */
 export function createInviteCode(): Promise<UserInviteCodeResponse> {
   return post<UserInviteCodeResponse>("/auth/invite-codes", {})
+}
+
+/** POST /auth/activate — activate a pending account with a user-generated invite code. */
+export function activateAccount(data: ActivateAccountRequest): Promise<TokenResponse> {
+  return post<TokenResponse>("/auth/activate", data)
 }
 
 // ---------------------------------------------------------------------------

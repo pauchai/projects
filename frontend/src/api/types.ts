@@ -24,6 +24,8 @@ export interface UserResponse {
   user_id: string
   email: string
   display_name: string
+  /** Account status: 'pending' for new OAuth users, 'active' after invite code activation */
+  status?: "pending" | "active"
 }
 
 /** POST /auth/login — request body */
@@ -35,6 +37,11 @@ export interface LoginRequest {
 /** POST /auth/local/set-password — request body */
 export interface SetPasswordRequest {
   password: string
+}
+
+/** POST /auth/activate — request body */
+export interface ActivateAccountRequest {
+  invite_code: string
 }
 
 /** PATCH /auth/me — request body (both fields optional) */

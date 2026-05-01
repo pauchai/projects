@@ -38,6 +38,10 @@ class FakeUserRepository:
                     return user
         return None
 
+    def find_by_inviter_id(self, inviter_id: str) -> list[User]:
+        """Return all users who were invited by the given user_id."""
+        return [u for u in self._storage.values() if u.inviter_id == inviter_id]
+
     def save(self, user: User) -> None:
         self._storage[user.user_id] = user
 
@@ -65,6 +69,9 @@ class FakeInviteCodeRepository:
     def save_all(self, invites: list[InviteCode]) -> None:
         for invite in invites:
             self.save(invite)
+
+    def find_all(self) -> list[InviteCode]:
+        return list(self._storage.values())
 
     def snapshot(self) -> dict[str, InviteCode]:
         return copy.deepcopy(self._storage)
@@ -166,15 +173,29 @@ class FakePasswordHasher:
 class FakeTokenService:
     """Fake token service: returns a predictable token for testing."""
 
-    def create_access_token(self, user_id: str) -> str:
-        return f"fake-token:{user_id}"
+    def create_access_token(self, user_id: str, status: str = "active") -> str:
+        return f"fake-token:{user_id}:{status}"
 
     def decode_token(self, token: str) -> str:
         """Decode a fake token. Raises ValueError if format is invalid."""
         prefix = "fake-token:"
         if not token.startswith(prefix):
             raise ValueError("Invalid token")
-        return token[len(prefix) :]
+        # format: fake-token:<user_id>:<status>
+        rest = token[len(prefix):]
+        return rest.split(":")[0]
+
+    def decode_token_full(self, token: str) -> dict:
+        """Decode a fake token and return full payload dict."""
+        prefix = "fake-token:"
+        if not token.startswith(prefix):
+            raise ValueError("Invalid token")
+        rest = token[len(prefix):]
+        parts = rest.split(":", 1)
+        return {
+            "user_id": parts[0],
+            "status": parts[1] if len(parts) > 1 else "active",
+        }
 
 
 class FakeOAuthClient:
