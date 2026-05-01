@@ -102,8 +102,8 @@ export function Header() {
                   <Link to="/settings/security" className="w-full">Security</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleLogout}>
-                  Log out
+                <DropdownMenuItem>
+                  <button onClick={handleLogout} className="w-full text-left">Log out</button>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
