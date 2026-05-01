@@ -69,6 +69,27 @@ export function Header() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Zone 3: Schedule dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <span className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none">
+                Schedule
+                <ChevronDown className="h-3.5 w-3.5" />
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem>
+                <Link to="/schedule/curators" className="w-full">Curators</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link to="/schedule/requests" className="w-full">Requests</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link to="/schedule/offers" className="w-full">Offers</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Zone 3: Right side — auth */}
@@ -176,6 +197,34 @@ export function Header() {
                 className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 Cohorts
+              </Link>
+            </div>
+
+            {/* Zone 3: Schedule */}
+            <div className="mt-2">
+              <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Schedule
+              </p>
+              <Link
+                to="/schedule/curators"
+                onClick={closeMenu}
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                Curators
+              </Link>
+              <Link
+                to="/schedule/requests"
+                onClick={closeMenu}
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                Requests
+              </Link>
+              <Link
+                to="/schedule/offers"
+                onClick={closeMenu}
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                Offers
               </Link>
             </div>
 
