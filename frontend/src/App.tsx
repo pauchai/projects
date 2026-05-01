@@ -28,6 +28,8 @@ import { RewardsPage } from "@/pages/rewards"
 import { EarningsPage } from "@/pages/earnings"
 import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
 import { ActivationPage } from "@/pages/activate"
+import { CuratorsPage } from "@/pages/schedule/curators"
+import { RequestsPage } from "@/pages/schedule/requests"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -177,13 +179,29 @@ export default function App() {
                 }
               />
               <Route
-                path="/settings/password"
-                element={
-                  <ProtectedRoute>
-                    <SetPasswordPage />
-                  </ProtectedRoute>
-                }
-              />
+                 path="/settings/password"
+                 element={
+                   <ProtectedRoute>
+                     <SetPasswordPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/schedule/curators"
+                 element={
+                   <ProtectedRoute>
+                     <CuratorsPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/schedule/requests"
+                 element={
+                   <ProtectedRoute>
+                     <RequestsPage />
+                   </ProtectedRoute>
+                 }
+               />
             </Routes>
           </main>
         </div>

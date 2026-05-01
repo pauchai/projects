@@ -56,14 +56,15 @@ from cohort_learning.infrastructure.sqlalchemy_unit_of_work import (
 )
 from partnership.api.dependencies import set_event_bus as set_partnership_event_bus
 from partnership.api.routes.earnings import router as earnings_router
-from partnership.application.calculate_curation_commission import (
-    CalculateCurationCommissionUseCase,
+from schedule.api.routes.schedule import router as schedule_router
+from partnership.application.calculate_curation_commission import (    CalculateCurationCommissionUseCase,
 )
 from partnership.application.sagas.cohort_graduation_saga import CohortGraduationSaga
 from partnership.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork as PartnershipSqlAlchemyUnitOfWork,
 )
 import partnership.infrastructure.orm  # noqa: F401 — registers Partnership ORM mappings
+import schedule.infrastructure.orm  # noqa: F401 — registers Schedule ORM mappings
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
 from project_collaboration.api.routes.projects import router as projects_router
@@ -228,6 +229,7 @@ def create_app() -> FastAPI:
     app.include_router(rewards_router)
     app.include_router(earnings_router)
     app.include_router(telegram_router)
+    app.include_router(schedule_router)
 
     return app
 

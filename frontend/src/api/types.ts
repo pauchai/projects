@@ -521,3 +521,74 @@ export interface EarningsSummaryResponse {
   total_released: number
   commissions: CommissionResponse[]
 }
+
+// ---------------------------------------------------------------------------
+// Schedule
+// ---------------------------------------------------------------------------
+
+export interface AvailabilitySlotResponse {
+  slot_id: string
+  weekday: number
+  start_time: string
+  end_time: string
+}
+
+export interface CuratorResponse {
+  curator_id: string
+  name: string
+  skills: string[]
+  availability_slots: AvailabilitySlotResponse[]
+}
+
+export interface CreateCuratorRequest {
+  name: string
+  skills?: string[]
+}
+
+export interface AddAvailabilitySlotRequest {
+  weekday: number
+  start_time: string
+  end_time: string
+}
+
+export interface AddAvailabilitySlotResponse {
+  slot_id: string
+}
+
+export interface SubmitConsultationRequestBody {
+  student_name: string
+  request_text: string
+}
+
+export interface ConsultationRequestResponse {
+  request_id: string
+  student_name: string
+  request_text: string
+  status: "pending" | "negotiating" | "confirmed" | "cancelled"
+  recommended_curator_ids: string[]
+}
+
+export interface StartNegotiationResponse {
+  offer_ids: string[]
+}
+
+export interface RespondToOfferRequest {
+  action: "accept" | "decline"
+}
+
+export interface RespondToOfferResponse {
+  offer_id: string
+  status: "accepted" | "declined"
+}
+
+export interface AssignAppointmentRequest {
+  scheduled_at: string
+}
+
+export interface AppointmentResponse {
+  appointment_id: string
+  request_id: string
+  curator_id: string
+  scheduled_at: string
+  status: "scheduled" | "completed" | "cancelled"
+}
