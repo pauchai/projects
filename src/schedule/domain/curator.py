@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 
 
-@dataclass(frozen=True)
+@dataclass
 class AvailabilitySlot:
     """A recurring weekly availability window for a curator.
 
