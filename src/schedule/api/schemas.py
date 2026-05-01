@@ -69,6 +69,15 @@ class StartNegotiationResponse(BaseModel):
     offer_ids: list[str]
 
 
+class OfferResponse(BaseModel):
+    offer_id: str
+    request_id: str
+    curator_id: str
+    status: Literal["pending", "accepted", "declined"]
+    student_name: str
+    request_text: str
+
+
 class RespondToOfferRequest(BaseModel):
     action: Literal["accept", "decline"]
 

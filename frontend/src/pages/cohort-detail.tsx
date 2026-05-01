@@ -426,12 +426,12 @@ export function CohortDetailPage() {
                     placeholder="Task title"
                     value={createTaskForm.title}
                     onChange={(e) => setCreateTaskForm((f) => ({ ...f, title: e.target.value }))}
-                    className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <select
                     value={createTaskForm.topicId}
                     onChange={(e) => setCreateTaskForm((f) => ({ ...f, topicId: e.target.value }))}
-                    className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="">Select a topic…</option>
                     {module?.topics.map((t) => (

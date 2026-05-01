@@ -321,7 +321,7 @@ function MemberCard({
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
-                  className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+                  className="h-8 rounded-md border border-input bg-background text-foreground px-2 text-sm"
                 >
                   {ASSIGNABLE_ROLES.map((role) => (
                     <option key={role} value={role}>

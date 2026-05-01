@@ -100,6 +100,12 @@ class SqlAlchemyConsultationOfferRepository:
         )
         return list(self._session.scalars(stmt).all())
 
+    def find_by_curator_id(self, curator_id: str) -> list[ConsultationOffer]:
+        stmt = select(ConsultationOffer).where(
+            consultation_offers_table.c.curator_id == curator_id
+        )
+        return list(self._session.scalars(stmt).all())
+
     def save(self, offer: ConsultationOffer) -> None:
         self._session.merge(offer)
 

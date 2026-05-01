@@ -13,6 +13,7 @@ import type {
   ConsultationRequestResponse,
   CreateCuratorRequest,
   CuratorResponse,
+  OfferResponse,
   RespondToOfferRequest,
   RespondToOfferResponse,
   StartNegotiationResponse,
@@ -60,6 +61,11 @@ export function respondToOffer(
   data: RespondToOfferRequest,
 ): Promise<RespondToOfferResponse> {
   return post<RespondToOfferResponse>(`/schedule/offers/${offerId}/respond`, data)
+}
+
+/** GET /schedule/offers?curator_id= */
+export function listOffers(curatorId: string): Promise<OfferResponse[]> {
+  return get<OfferResponse[]>(`/schedule/offers?curator_id=${encodeURIComponent(curatorId)}`)
 }
 
 /** POST /schedule/requests/:id/assign */

@@ -22,6 +22,7 @@ from schedule.api.schemas import (
     ConsultationRequestResponse,
     CreateCuratorRequest,
     CuratorResponse,
+    OfferResponse,
     RespondToOfferRequest,
     RespondToOfferResponse,
     StartNegotiationResponse,
@@ -163,6 +164,29 @@ def list_requests(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/offers", response_model=list[OfferResponse])
+def list_offers(
+    curator_id: str,
+    uow: SqlAlchemyScheduleUnitOfWork = Depends(get_schedule_uow),
+) -> list[OfferResponse]:
+    with uow as u:
+        offers = u.offers.find_by_curator_id(curator_id)
+        result = []
+        for offer in offers:
+            req = u.requests.find_by_id(offer.request_id)
+            result.append(
+                OfferResponse(
+                    offer_id=offer.offer_id,
+                    request_id=offer.request_id,
+                    curator_id=offer.curator_id,
+                    status=offer.status,
+                    student_name=req.student_name if req else "",
+                    request_text=req.request_text if req else "",
+                )
+            )
+    return result
+
+
 @router.post(
     "/requests/{request_id}/negotiate",
     status_code=201,
@@ -177,8 +201,7 @@ def start_negotiation(
 
 
 @router.post("/offers/{offer_id}/respond", response_model=RespondToOfferResponse)
-def respond_to_offer(
-    offer_id: str,
+def respond_to_offer(    offer_id: str,
     body: RespondToOfferRequest,
     use_case: RespondToOfferUseCase = Depends(get_respond_to_offer),
     uow: SqlAlchemyScheduleUnitOfWork = Depends(get_schedule_uow),

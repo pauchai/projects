@@ -65,7 +65,7 @@ function CuratorCard({ curator }: { curator: CuratorResponse }) {
           <div>
             <label className="block text-xs text-gray-500">Day</label>
             <select
-              className="rounded border px-2 py-1 text-sm"
+              className="rounded border px-2 py-1 text-sm bg-background text-foreground"
               value={weekday}
               onChange={(e) => setWeekday(Number(e.target.value))}
             >

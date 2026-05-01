@@ -30,6 +30,7 @@ import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
 import { ActivationPage } from "@/pages/activate"
 import { CuratorsPage } from "@/pages/schedule/curators"
 import { RequestsPage } from "@/pages/schedule/requests"
+import { OffersPage } from "@/pages/schedule/offers"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -199,6 +200,14 @@ export default function App() {
                  element={
                    <ProtectedRoute>
                      <RequestsPage />
+                   </ProtectedRoute>
+                 }
+               />
+               <Route
+                 path="/schedule/offers"
+                 element={
+                   <ProtectedRoute>
+                     <OffersPage />
                    </ProtectedRoute>
                  }
                />

@@ -19,6 +19,7 @@ import type {
 export const scheduleKeys = {
   curators: ["schedule", "curators"] as const,
   requests: ["schedule", "requests"] as const,
+  offers: (curatorId: string) => ["schedule", "offers", curatorId] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +97,21 @@ export function useRespondToOffer() {
       scheduleApi.respondToOffer(offerId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: scheduleKeys.requests })
+      // invalidate all offers queries so the curator page refreshes too
+      void queryClient.invalidateQueries({ queryKey: ["schedule", "offers"] })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Offers (curator view)
+// ---------------------------------------------------------------------------
+
+export function useOffers(curatorId: string) {
+  return useQuery({
+    queryKey: scheduleKeys.offers(curatorId),
+    queryFn: () => scheduleApi.listOffers(curatorId),
+    enabled: curatorId.length > 0,
   })
 }
 

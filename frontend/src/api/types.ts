@@ -581,6 +581,15 @@ export interface RespondToOfferResponse {
   status: "accepted" | "declined"
 }
 
+export interface OfferResponse {
+  offer_id: string
+  request_id: string
+  curator_id: string
+  status: "pending" | "accepted" | "declined"
+  student_name: string
+  request_text: string
+}
+
 export interface AssignAppointmentRequest {
   scheduled_at: string
 }
