@@ -83,6 +83,13 @@ services:
     depends_on:
       - backend
 
+  schedule-frontend:
+    build:
+      context: ./schedule-frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+
   telegram-bot:
     build:
       context: .

@@ -29,7 +29,7 @@ services:
       - ./migrations:/app/migrations
       - ./alembic.ini:/app/alembic.ini
     environment:
-      - CORS_ORIGINS=http://app.localhost,http://localhost:5173
+      - CORS_ORIGINS=http://app.localhost,http://localhost:5173,http://schedule.localhost,http://localhost:5174
       - FRONTEND_URL=http://app.localhost
     labels:
       - "traefik.enable=true"
@@ -65,3 +65,25 @@ services:
       - ./scripts:/app/scripts
     environment:
       - FRONTEND_URL=http://app.localhost
+
+  schedule-frontend:
+    build:
+      context: ./schedule-frontend
+      dockerfile: Dockerfile
+      target: build
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5174"]
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_TARGET=http://backend:8000
+    volumes:
+      - ./schedule-frontend/src:/app/src
+      - ./schedule-frontend/index.html:/app/index.html
+      - ./schedule-frontend/vite.config.ts:/app/vite.config.ts
+      - ./schedule-frontend/tsconfig.json:/app/tsconfig.json
+      - ./schedule-frontend/tsconfig.app.json:/app/tsconfig.app.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.schedule-frontend.rule=Host(`schedule.localhost`)"
+      - "traefik.http.routers.schedule-frontend.priority=1"
+      - "traefik.http.services.schedule-frontend.loadbalancer.server.port=5174"
