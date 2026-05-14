@@ -1,7 +1,7 @@
 /**
  * Project workspace layout.
  *
- * Renders tabs: Overview | Products | Fund | Tasks | Partners | Docs | Courses | Features | Modules | Cohorts
+ * Renders tabs: Overview | Products | Fund | Tasks | Partners | Docs | Features | Cohorts
  * Settings tab is visible only to owners/admins.
  * All tabs except Settings are public.
  */
@@ -25,9 +25,7 @@ function buildTabs(projectId: string): TabDef[] {
     { to: `/projects/${projectId}/tasks`, label: "Tasks" },
     { to: `/projects/${projectId}/partners`, label: "Partners" },
     { to: `/projects/${projectId}/docs`, label: "Docs" },
-    { to: `/projects/${projectId}/courses`, label: "Courses" },
     { to: `/projects/${projectId}/features`, label: "Features" },
-    { to: `/projects/${projectId}/modules`, label: "Modules" },
     { to: `/projects/${projectId}/cohorts`, label: "Cohorts" },
     { to: `/projects/${projectId}/settings`, label: "Settings", managerOnly: true },
   ]

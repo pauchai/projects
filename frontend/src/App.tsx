@@ -18,12 +18,10 @@ import { ProjectProductsPage } from "@/pages/project/products"
 import { ProjectTasksPage } from "@/pages/project/tasks"
 import { ProjectPartnersPage } from "@/pages/project/partners"
 import { ProjectDocsPage } from "@/pages/project/docs"
-import { ProjectCoursesPage } from "@/pages/project/courses"
 import { ProjectSettingsPage } from "@/pages/project/settings/index"
 import { SettingsApplicationsPage } from "@/pages/project/settings/applications"
 import { ProjectFundPage } from "@/pages/project/fund"
 import { ProjectFeaturesPage } from "@/pages/project/features"
-import { ProjectModulesPage } from "@/pages/project/modules"
 import { ProjectCohortsPage } from "@/pages/project/cohorts"
 import { GuarantorshipPage } from "@/pages/guarantorship"
 
@@ -113,13 +111,9 @@ export default function App() {
                   <Route path="tasks" element={<ProjectTasksPage />} />
                   <Route path="partners" element={<ProjectPartnersPage />} />
                   <Route path="docs" element={<ProjectDocsPage />} />
-                  <Route path="courses" element={<ProjectCoursesPage />} />
                   <Route path="features" element={<ProjectFeaturesPage />} />
                   <Route path="features/new" element={<ProtectedRoute><SubmitFeaturePage /></ProtectedRoute>} />
                   <Route path="features/:requestId" element={<FeatureDetailPage />} />
-                  <Route path="modules" element={<ProjectModulesPage />} />
-                  <Route path="modules/new" element={<ProtectedRoute><CreateModulePage /></ProtectedRoute>} />
-                  <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
                   <Route path="cohorts" element={<ProjectCohortsPage />} />
                   <Route path="cohorts/new" element={<ProtectedRoute><CreateCohortPage /></ProtectedRoute>} />
                   <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
