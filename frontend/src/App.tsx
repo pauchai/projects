@@ -21,6 +21,7 @@ import { ProjectDocsPage } from "@/pages/project/docs"
 import { ProjectCoursesPage } from "@/pages/project/courses"
 import { ProjectSettingsPage } from "@/pages/project/settings/index"
 import { SettingsApplicationsPage } from "@/pages/project/settings/applications"
+import { ProjectFundPage } from "@/pages/project/fund"
 
 // Features
 import { FeaturesListPage } from "@/pages/features-list"
@@ -104,6 +105,7 @@ export default function App() {
                   <Route index element={<Navigate to="overview" replace />} />
                   <Route path="overview" element={<ProjectOverviewPage />} />
                   <Route path="products" element={<ProjectProductsPage />} />
+                  <Route path="fund" element={<ProjectFundPage />} />
                   <Route path="tasks" element={<ProjectTasksPage />} />
                   <Route path="partners" element={<ProjectPartnersPage />} />
                   <Route path="docs" element={<ProjectDocsPage />} />
