@@ -4,6 +4,7 @@ from typing import Protocol
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
@@ -24,6 +25,16 @@ class ProjectRepository(Protocol):
         owner_id: str | None = None,
         member_user_id: str | None = None,
     ) -> list[Project]: ...
+
+
+class ProductRepository(Protocol):
+    """Port for persisting and querying Products."""
+
+    def find_by_id(self, product_id: str) -> Product | None: ...
+
+    def save(self, product: Product) -> None: ...
+
+    def find_by_project(self, project_id: str) -> list[Product]: ...
 
 
 class FeatureRequestRepository(Protocol):
@@ -58,6 +69,7 @@ class UnitOfWork(Protocol):
 
     projects: ProjectRepository
     feature_requests: FeatureRequestRepository
+    products: ProductRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

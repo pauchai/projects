@@ -152,3 +152,35 @@ class FeatureRequestResponse(BaseModel):
     admin_notes: str
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Product schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateProductRequest(BaseModel):
+    """POST /projects/{project_id}/products"""
+
+    product_id: str
+    title: str = Field(min_length=1, max_length=300)
+    product_type: str
+    description: str = Field(default="", max_length=5000)
+    price: float | None = None
+    visibility: str = "public"
+    ref_id: str | None = None
+
+
+class ProductResponse(BaseModel):
+    """Serialized Product entity."""
+
+    product_id: str
+    project_id: str
+    title: str
+    product_type: str
+    description: str
+    price: float | None
+    visibility: str
+    is_active: bool
+    ref_id: str | None
+    created_at: datetime

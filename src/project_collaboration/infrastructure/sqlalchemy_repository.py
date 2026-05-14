@@ -17,11 +17,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from project_collaboration.infrastructure.orm import (
     feature_requests_table,
+    project_products_table,
     project_skill_tags_table,
 )
 
@@ -222,3 +224,23 @@ class SqlAlchemyFeatureRequestRepository:
         """Initialise transient attributes that the ORM does not populate."""
         if not hasattr(feature_request, "_events"):
             feature_request._events = []
+
+
+class SqlAlchemyProductRepository:
+    """Implements ProductRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_id(self, product_id: str) -> Product | None:
+        return self._session.get(Product, product_id)
+
+    def save(self, product: Product) -> None:
+        self._session.merge(product)
+        self._session.flush()
+
+    def find_by_project(self, project_id: str) -> list[Product]:
+        query = select(Product).where(
+            project_products_table.c.project_id == project_id
+        )
+        return list(self._session.scalars(query).all())

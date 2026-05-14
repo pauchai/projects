@@ -24,9 +24,11 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     MetaData,
+    Numeric,
     String,
     Table,
     Text,
@@ -42,6 +44,9 @@ from project_collaboration.domain.application_form import (
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.membership import Membership
+from project_collaboration.domain.product import Product
+from project_collaboration.domain.product_type import ProductType
+from project_collaboration.domain.product_visibility import ProductVisibility
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
@@ -137,6 +142,7 @@ memberships_table = Table(
     ),
     Column("is_active", Boolean, nullable=False, default=True),
     Column("joined_at", DateTime(timezone=True), nullable=False),
+    Column("weight", Float, nullable=False, default=0.0),
 )
 
 applications_table = Table(
@@ -217,3 +223,38 @@ mapper_registry.map_imperatively(
 )
 
 mapper_registry.map_imperatively(FeatureRequest, feature_requests_table)
+
+# ---------------------------------------------------------------------------
+# Products table
+# ---------------------------------------------------------------------------
+
+project_products_table = Table(
+    "project_products",
+    metadata,
+    Column("product_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("title", String(300), nullable=False),
+    Column("description", Text, nullable=False, default=""),
+    Column(
+        "product_type",
+        Enum(ProductType, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    ),
+    Column("price", Numeric(12, 2), nullable=True),
+    Column(
+        "visibility",
+        Enum(ProductVisibility, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=ProductVisibility.PUBLIC.value,
+    ),
+    Column("is_active", Boolean, nullable=False, default=True),
+    Column("ref_id", String(255), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(Product, project_products_table)

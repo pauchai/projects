@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from shared_kernel.events import DomainEvent, EventBus
 from project_collaboration.infrastructure.sqlalchemy_repository import (
     SqlAlchemyFeatureRequestRepository,
+    SqlAlchemyProductRepository,
     SqlAlchemyProjectRepository,
 )
 
@@ -37,6 +38,7 @@ class SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.projects = SqlAlchemyProjectRepository(self._session, self)
         self.feature_requests = SqlAlchemyFeatureRequestRepository(self._session, self)
+        self.products = SqlAlchemyProductRepository(self._session)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

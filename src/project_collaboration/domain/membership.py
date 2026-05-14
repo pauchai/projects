@@ -14,11 +14,13 @@ class Membership:
         user_id: str,
         project_id: str,
         role: ProjectRole,
+        weight: float = 0.0,
     ) -> None:
         self.membership_id = membership_id
         self.user_id = user_id
         self.project_id = project_id
         self.role = role
+        self.weight = weight
         self.is_active: bool = True
         self.joined_at: datetime = datetime.now(timezone.utc)
 
