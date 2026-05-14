@@ -158,6 +158,7 @@ export interface ProjectResponse {
   max_members: number | null
   status: string
   created_at: string
+  docs_repo_url: string | null
   memberships: MembershipResponse[]
   applications: ApplicationResponse[]
 }
@@ -477,6 +478,7 @@ export interface ModuleResponse {
   module_id: string
   title: string
   master_id: string
+  repo_url: string | null
   topics: TopicResponse[]
   topic_count: number
 }
@@ -491,6 +493,27 @@ export interface AddTopicRequest {
   title: string
   position: number
   description: string
+}
+
+// ---------------------------------------------------------------------------
+// Lessons
+// ---------------------------------------------------------------------------
+
+export interface LessonResponse {
+  lesson_id: string
+  module_id: string
+  title: string
+  position: number
+  topic_id: string | null
+  content_path: string | null
+  homework_path: string | null
+  has_homework: boolean
+  created_at: string
+}
+
+export interface SyncResponse {
+  message: string
+  path: string
 }
 
 // ---------------------------------------------------------------------------

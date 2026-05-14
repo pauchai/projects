@@ -11,6 +11,7 @@ import type {
   ProjectResponse,
   ProjectSummaryResponse,
   SearchProjectsParams,
+  SyncResponse,
   UpdateProjectRequest,
 } from "./types"
 
@@ -128,4 +129,25 @@ export function removeMember(
   return del<MessageResponse>(
     `/projects/${projectId}/members/${membershipId}`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Docs repo URL & sync
+// ---------------------------------------------------------------------------
+
+export function setDocsRepoUrl(
+  projectId: string,
+  docsRepoUrl: string | null,
+): Promise<ProjectResponse> {
+  return patch<ProjectResponse>(`/projects/${projectId}/docs-repo-url`, {
+    docs_repo_url: docsRepoUrl,
+  })
+}
+
+export function syncDocsVolume(projectId: string): Promise<SyncResponse> {
+  return post<SyncResponse>(`/projects/${projectId}/sync-docs`, {})
+}
+
+export function getDocsFile(projectId: string, filePath: string): Promise<string> {
+  return get<string>(`/projects/${projectId}/docs/${filePath}`)
 }
