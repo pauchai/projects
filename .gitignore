@@ -41,3 +41,7 @@ traefik/dashboard-auth.txt
 # Node / Frontend
 node_modules/
 frontend/dist/
+
+# Content volumes (git-cloned repos) — keep directory structure, ignore content
+volumes/modules/*/
+volumes/projects/*/

@@ -75,6 +75,9 @@ services:
       - OAUTH_GOOGLE_REDIRECT_URI=${OAUTH_GOOGLE_REDIRECT_URI:-}
       - OAUTH_TELEGRAM_BOT_TOKEN=${OAUTH_TELEGRAM_BOT_TOKEN:-}
       - OAUTH_TELEGRAM_BOT_USERNAME=${OAUTH_TELEGRAM_BOT_USERNAME:-}
+      - VOLUMES_BASE_PATH=/app/volumes
+    volumes:
+      - ./volumes:/app/volumes
 
   frontend:
     build:
