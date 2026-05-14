@@ -43,7 +43,7 @@ export function Header() {
         <div className="hidden md:flex items-center gap-6 flex-1 ml-8">
           {/* Zone 1: Public content */}
           <Link
-            to="/"
+            to="/projects"
             className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
           >
             Projects
@@ -134,7 +134,7 @@ export function Header() {
           <nav className="flex flex-col gap-1">
             {/* Zone 1: Public */}
             <Link
-              to="/"
+              to="/projects"
               onClick={closeMenu}
               className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
             >

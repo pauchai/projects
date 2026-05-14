@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ProjectCard } from "@/components/project-card"
 import { useSearchProjects } from "@/hooks/use-projects"
+import { useAuthStore } from "@/stores/auth-store"
 import type { SearchProjectsParams } from "@/api/types"
 
 const STATUS_OPTIONS = [
@@ -12,56 +13,94 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "Completed" },
 ]
 
+type Tab = "all" | "mine"
+
 export function ProjectsListPage() {
+  const { isAuthenticated, userId } = useAuthStore()
+  const [tab, setTab] = useState<Tab>("all")
+
   const [keyword, setKeyword] = useState("")
   const [skills, setSkills] = useState("")
   const [status, setStatus] = useState("")
 
-  /** Build the params object for the query */
-  const searchParams: SearchProjectsParams = {
+  const allParams: SearchProjectsParams = {
     ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
     ...(skills.trim() ? { skills: skills.trim() } : {}),
     ...(status ? { status } : {}),
   }
 
-  const { data: projects, isLoading, isError, error } = useSearchProjects(searchParams)
+  const myParams: SearchProjectsParams = {
+    member_user_id: userId ?? undefined,
+  }
+
+  const { data: projects, isLoading, isError, error } = useSearchProjects(
+    tab === "mine" ? myParams : allParams,
+  )
 
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">Projects</h1>
 
-      {/* Search and filter controls */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <Input
-          placeholder="Search by keyword..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          className="sm:flex-1"
-        />
-        <Input
-          placeholder="Filter by skills (comma-separated)"
-          value={skills}
-          onChange={(e) => setSkills(e.target.value)}
-          className="sm:flex-1"
-        />
-        <div className="flex gap-2">
-          {STATUS_OPTIONS.map((opt) => (
-            <Button
-              key={opt.value}
-              variant={status === opt.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatus(opt.value)}
-            >
-              {opt.label}
-            </Button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border mb-6">
+        <button
+          onClick={() => setTab("all")}
+          className={[
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            tab === "all"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          All
+        </button>
+        {isAuthenticated && (
+          <button
+            onClick={() => setTab("mine")}
+            className={[
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              tab === "mine"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+          >
+            My Projects
+          </button>
+        )}
       </div>
 
-      {/* Results */}
-      {isLoading && (
-        <p className="text-muted-foreground">Loading projects...</p>
+      {/* Search/filter — only on All tab */}
+      {tab === "all" && (
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <Input
+            placeholder="Search by keyword..."
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="sm:flex-1"
+          />
+          <Input
+            placeholder="Filter by skills (comma-separated)"
+            value={skills}
+            onChange={(e) => setSkills(e.target.value)}
+            className="sm:flex-1"
+          />
+          <div className="flex gap-2">
+            {STATUS_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                variant={status === opt.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatus(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
+
+      {/* Results */}
+      {isLoading && <p className="text-muted-foreground">Loading projects...</p>}
 
       {isError && (
         <p className="text-destructive">
@@ -71,7 +110,9 @@ export function ProjectsListPage() {
 
       {projects && projects.length === 0 && (
         <p className="text-muted-foreground">
-          No projects found. Try adjusting your search criteria.
+          {tab === "mine"
+            ? "You are not a member of any projects yet."
+            : "No projects found. Try adjusting your search criteria."}
         </p>
       )}
 
