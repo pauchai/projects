@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.lesson import Lesson
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
@@ -640,3 +641,41 @@ class SqlAlchemyModuleProgressionRepository:
             selectinload(ModuleProgression._topics)  # type: ignore[attr-defined]
         )
         return list(self._session.scalars(stmt).all())
+
+
+class SqlAlchemyLessonRepository:
+    """Implements LessonRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_id(self, lesson_id: str) -> Lesson | None:
+        """Load a single Lesson by its ID, or return None."""
+        return self._session.get(Lesson, lesson_id)
+
+    def save(self, lesson: Lesson) -> None:
+        """Persist a single Lesson (insert or update)."""
+        self._session.merge(lesson)
+        self._session.flush()
+
+    def find_by_module(self, module_id: str) -> list[Lesson]:
+        """Return all lessons for a given module, ordered by position."""
+        stmt = (
+            select(Lesson)
+            .where(Lesson.module_id == module_id)  # type: ignore[attr-defined]
+            .order_by(Lesson.position)  # type: ignore[attr-defined]
+        )
+        return list(self._session.scalars(stmt).all())
+
+    def delete(self, lesson_id: str) -> None:
+        """Delete a lesson by ID. No-op if not found."""
+        lesson = self._session.get(Lesson, lesson_id)
+        if lesson is not None:
+            self._session.delete(lesson)
+            self._session.flush()
+
+    def save_all(self, lessons: list[Lesson]) -> None:
+        """Upsert a batch of lessons (used by manifest sync)."""
+        for lesson in lessons:
+            self._session.merge(lesson)
+        self._session.flush()

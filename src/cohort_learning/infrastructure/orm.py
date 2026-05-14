@@ -46,6 +46,7 @@ from cohort_learning.domain.cohort_role import CohortRole
 from cohort_learning.domain.cohort_status import CohortStatus
 from cohort_learning.domain.helper_metrics import HelperMetrics
 from cohort_learning.domain.learning_cohort import LearningCohort
+from cohort_learning.domain.lesson import Lesson
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
 from cohort_learning.domain.peer_review import PeerReview
@@ -116,6 +117,7 @@ module_progressions_table = Table(
     Column("module_id", String(255), primary_key=True),
     Column("title", String(200), nullable=False),
     Column("master_id", String(255), nullable=False),
+    Column("repo_url", Text, nullable=True),
 )
 
 topics_table = Table(
@@ -131,6 +133,29 @@ topics_table = Table(
         ForeignKey("module_progressions.module_id", ondelete="CASCADE"),
         nullable=False,
     ),
+)
+
+lessons_table = Table(
+    "lessons",
+    metadata,
+    Column("lesson_id", String(255), primary_key=True),
+    Column(
+        "module_id",
+        String(255),
+        ForeignKey("module_progressions.module_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "topic_id",
+        String(255),
+        ForeignKey("topics.topic_id", ondelete="SET NULL"),
+        nullable=True,
+    ),
+    Column("title", String(300), nullable=False),
+    Column("position", Integer, nullable=False, default=0),
+    Column("content_path", Text, nullable=True),
+    Column("homework_path", Text, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
 topic_competencies_table = Table(
@@ -480,3 +505,7 @@ mapper_registry.map_imperatively(
 mapper_registry.map_imperatively(
     PendingCuratorPromotion, pending_curator_promotions_table
 )
+
+# --- Lessons mapping ---
+
+mapper_registry.map_imperatively(Lesson, lessons_table)
