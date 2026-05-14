@@ -43,7 +43,7 @@ export function ProjectModulesPage() {
                 <Badge variant="secondary">
                   {module.topic_count} topic{module.topic_count !== 1 ? "s" : ""}
                 </Badge>
-                <Link to={`/modules/${module.module_id}`} className="block">
+                <Link to={`/projects/${projectId}/modules/${module.module_id}/overview`} className="block">
                   <Button size="sm" variant="outline" className="w-full">View</Button>
                 </Link>
               </CardContent>

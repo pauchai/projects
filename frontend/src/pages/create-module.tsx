@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import { ApiError } from "@/api/client"
 
 export function CreateModulePage() {
   const navigate = useNavigate()
+  const { projectId } = useParams<{ projectId: string }>()
   const createModule = useCreateModule()
   const [moduleId, setModuleId] = useState<string>(() => crypto.randomUUID())
   const [title, setTitle] = useState("")
@@ -23,7 +24,7 @@ export function CreateModulePage() {
     }
     try {
       await createModule.mutateAsync({ module_id: moduleId, title: title.trim() })
-      navigate(`/modules/${moduleId}`)
+      navigate(`/projects/${projectId}/modules/${moduleId}/overview`)
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to create module.")
     }

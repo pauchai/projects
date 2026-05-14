@@ -22,8 +22,23 @@ import { ProjectSettingsPage } from "@/pages/project/settings/index"
 import { SettingsApplicationsPage } from "@/pages/project/settings/applications"
 import { ProjectFundPage } from "@/pages/project/fund"
 import { ProjectFeaturesPage } from "@/pages/project/features"
-import { ProjectCohortsPage } from "@/pages/project/cohorts"
+import { ProjectModulesPage } from "@/pages/project/modules"
 import { GuarantorshipPage } from "@/pages/guarantorship"
+
+// Module workspace
+import { ModuleLayout } from "@/pages/module/layout"
+import { ModuleOverviewPage } from "@/pages/module/overview"
+import { ModuleTopicsPage } from "@/pages/module/topics"
+import { ModuleCohortsPage } from "@/pages/module/cohorts"
+import { ModuleSettingsPage } from "@/pages/module/settings"
+
+// Cohort workspace
+import { CohortLayout } from "@/pages/cohort/layout"
+import { CohortOverviewPage } from "@/pages/cohort/overview"
+import { CohortTasksPage } from "@/pages/cohort/tasks"
+import { CohortProgressionPage } from "@/pages/cohort/progression"
+import { CohortLeaderboardPage } from "@/pages/cohort/leaderboard"
+import { CohortDashboardPage } from "@/pages/cohort/dashboard"
 
 // Features
 import { FeaturesListPage } from "@/pages/features-list"
@@ -40,16 +55,9 @@ import { OAuthCallbackPage } from "@/pages/oauth-callback"
 import { ActivationPage } from "@/pages/activate"
 import { AdminInviteCodesPage } from "@/pages/admin-invite-codes"
 
-// Cohorts
-import { CohortsListPage } from "@/pages/cohorts-list"
-import { CreateCohortPage } from "@/pages/create-cohort"
-import { CohortDetailPage } from "@/pages/cohort-detail"
-import { CohortDashboardPage } from "@/pages/cohort-dashboard"
-
-// Modules
-import { ModulesListPage } from "@/pages/modules-list"
+// Create module / cohort (live inside project context)
 import { CreateModulePage } from "@/pages/create-module"
-import { ModuleDetailPage } from "@/pages/module-detail"
+import { CreateCohortPage } from "@/pages/create-cohort"
 
 // Rewards / Earnings
 import { RewardsPage } from "@/pages/rewards"
@@ -103,7 +111,6 @@ export default function App() {
 
                 {/* Project workspace — nested tabs */}
                 <Route path="/projects/:projectId" element={<ProjectLayout />}>
-                  {/* Redirect bare /projects/:id → overview */}
                   <Route index element={<Navigate to="overview" replace />} />
                   <Route path="overview" element={<ProjectOverviewPage />} />
                   <Route path="products" element={<ProjectProductsPage />} />
@@ -112,11 +119,69 @@ export default function App() {
                   <Route path="partners" element={<ProjectPartnersPage />} />
                   <Route path="docs" element={<ProjectDocsPage />} />
                   <Route path="features" element={<ProjectFeaturesPage />} />
-                  <Route path="features/new" element={<ProtectedRoute><SubmitFeaturePage /></ProtectedRoute>} />
+                  <Route
+                    path="features/new"
+                    element={
+                      <ProtectedRoute>
+                        <SubmitFeaturePage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="features/:requestId" element={<FeatureDetailPage />} />
-                  <Route path="cohorts" element={<ProjectCohortsPage />} />
-                  <Route path="cohorts/new" element={<ProtectedRoute><CreateCohortPage /></ProtectedRoute>} />
-                  <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
+
+                  {/* Modules tab */}
+                  <Route path="modules" element={<ProjectModulesPage />} />
+                  <Route
+                    path="modules/new"
+                    element={
+                      <ProtectedRoute>
+                        <CreateModulePage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Module workspace (nested inside project) */}
+                  <Route path="modules/:moduleId" element={<ModuleLayout />}>
+                    <Route index element={<Navigate to="overview" replace />} />
+                    <Route path="overview" element={<ModuleOverviewPage />} />
+                    <Route path="topics" element={<ModuleTopicsPage />} />
+                    <Route path="cohorts" element={<ModuleCohortsPage />} />
+                    <Route
+                      path="cohorts/new"
+                      element={
+                        <ProtectedRoute>
+                          <CreateCohortPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Cohort workspace (nested inside module) */}
+                    <Route path="cohorts/:cohortId" element={<CohortLayout />}>
+                      <Route index element={<Navigate to="overview" replace />} />
+                      <Route path="overview" element={<CohortOverviewPage />} />
+                      <Route path="tasks" element={<CohortTasksPage />} />
+                      <Route path="progression" element={<CohortProgressionPage />} />
+                      <Route path="leaderboard" element={<CohortLeaderboardPage />} />
+                      <Route
+                        path="dashboard"
+                        element={
+                          <ProtectedRoute>
+                            <CohortDashboardPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                    </Route>
+
+                    <Route
+                      path="settings"
+                      element={
+                        <ProtectedRoute>
+                          <ModuleSettingsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Route>
+
                   <Route
                     path="settings"
                     element={
@@ -145,7 +210,7 @@ export default function App() {
                   }
                 />
 
-                {/* Features */}
+                {/* Features (global) */}
                 <Route path="/features" element={<FeaturesListPage />} />
                 <Route
                   path="/features/new"
@@ -156,66 +221,6 @@ export default function App() {
                   }
                 />
                 <Route path="/features/:requestId" element={<FeatureDetailPage />} />
-
-                {/* Cohorts */}
-                <Route
-                  path="/cohorts"
-                  element={
-                    <ProtectedRoute>
-                      <CohortsListPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/cohorts/new"
-                  element={
-                    <ProtectedRoute>
-                      <CreateCohortPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/cohorts/:cohortId"
-                  element={
-                    <ProtectedRoute>
-                      <CohortDetailPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/cohorts/:cohortId/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <CohortDashboardPage />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Modules */}
-                <Route
-                  path="/modules"
-                  element={
-                    <ProtectedRoute>
-                      <ModulesListPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/modules/new"
-                  element={
-                    <ProtectedRoute>
-                      <CreateModulePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/modules/:moduleId"
-                  element={
-                    <ProtectedRoute>
-                      <ModuleDetailPage />
-                    </ProtectedRoute>
-                  }
-                />
 
                 {/* Profile / account */}
                 <Route

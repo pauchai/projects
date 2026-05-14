@@ -1,32 +1,32 @@
 import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useFormCohort } from "@/hooks/use-cohorts"
-import { useModules } from "@/hooks/use-modules"
 import { ApiError } from "@/api/client"
 
 export function CreateCohortPage() {
   const navigate = useNavigate()
+  const { projectId, moduleId } = useParams<{ projectId: string; moduleId: string }>()
   const formCohort = useFormCohort()
-  const { data: modules, isLoading: modulesLoading } = useModules()
 
   const [cohortId, setCohortId] = useState<string>(() => crypto.randomUUID())
-  const [moduleId, setModuleId] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!moduleId) {
-      setError("Please select a module.")
+      setError("Module context is missing.")
       return
     }
     try {
       await formCohort.mutateAsync({ cohort_id: cohortId, module_id: moduleId })
-      navigate(`/cohorts/${cohortId}`)
+      navigate(
+        `/projects/${projectId}/modules/${moduleId}/cohorts/${cohortId}/overview`,
+      )
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to create cohort.")
     }
@@ -62,50 +62,24 @@ export function CreateCohortPage() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="moduleId">Module</Label>
-              {modulesLoading && (
-                <p className="text-sm text-muted-foreground">Loading modules…</p>
-              )}
-              {!modulesLoading && (!modules || modules.length === 0) && (
-                <p className="text-sm text-muted-foreground">
-                  No modules available.{" "}
-                  <Link to="/modules/new" className="underline">
-                    Create one first
-                  </Link>
-                  .
-                </p>
-              )}
-              {!modulesLoading && modules && modules.length > 0 && (
-                <select
-                  id="moduleId"
-                  value={moduleId}
-                  onChange={(e) => setModuleId(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-                  required
-                >
-                  <option value="">Select a module…</option>
-                  {modules.map((m) => (
-                    <option key={m.module_id} value={m.module_id}>
-                      {m.title} ({m.topic_count} topic{m.topic_count !== 1 ? "s" : ""})
-                    </option>
-                  ))}
-                </select>
-              )}
+              <Label>Module</Label>
+              <p className="text-sm font-mono text-muted-foreground">{moduleId}</p>
             </div>
 
             {error && <p className="text-destructive text-sm">{error}</p>}
 
             <div className="flex gap-3 pt-2">
-              <Button
-                type="submit"
-                disabled={formCohort.isPending || !moduleId}
-              >
+              <Button type="submit" disabled={formCohort.isPending}>
                 {formCohort.isPending ? "Creating…" : "Create Cohort"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/cohorts")}
+                onClick={() =>
+                  navigate(
+                    `/projects/${projectId}/modules/${moduleId}/cohorts`,
+                  )
+                }
               >
                 Cancel
               </Button>
