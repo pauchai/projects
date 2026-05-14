@@ -45,3 +45,4 @@ frontend/dist/
 # Content volumes (git-cloned repos) — keep directory structure, ignore content
 volumes/modules/*/
 volumes/projects/*/
+volumes/test-docs-repo/
