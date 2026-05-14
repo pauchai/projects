@@ -2,7 +2,8 @@
  * Project workspace — Docs tab.
  *
  * Renders Markdown documentation from the project's docs content volume.
- * Files are fetched via GET /projects/:id/docs/:file_path.
+ * Internal links (.md) and [[WikiLinks]] open in-page via onNavigate.
+ * External links open in a new tab.
  */
 
 import { useState } from "react"
@@ -16,9 +17,11 @@ import { Button } from "@/components/ui/button"
 function DocsContent({
   projectId,
   filePath,
+  onNavigate,
 }: {
   projectId: string
   filePath: string
+  onNavigate: (path: string) => void
 }) {
   const { data: content, isLoading, isError } = useDocsFile(projectId, filePath)
 
@@ -31,13 +34,19 @@ function DocsContent({
     )
   }
 
-  return <MarkdownViewer content={content} />
+  return (
+    <MarkdownViewer
+      content={content}
+      currentFile={filePath}
+      onNavigate={onNavigate}
+    />
+  )
 }
 
 export function ProjectDocsPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const { data: project, isLoading } = useProject(projectId ?? "")
-  const [filePath, setFilePath] = useState("README.md")
+  const [inputValue, setInputValue] = useState("README.md")
   const [activeFile, setActiveFile] = useState("README.md")
 
   if (!projectId) return null
@@ -58,21 +67,29 @@ export function ProjectDocsPage() {
     )
   }
 
+  const handleNavigate = (path: string) => {
+    setActiveFile(path)
+    setInputValue(path)
+  }
+
   return (
     <div className="space-y-4">
-      {/* File path input */}
+      {/* File path bar */}
       <div className="flex gap-2 max-w-lg">
         <Input
-          value={filePath}
-          onChange={(e) => setFilePath(e.target.value)}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           placeholder="e.g. README.md"
           className="font-mono text-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleNavigate(inputValue.trim())
+          }}
         />
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setActiveFile(filePath.trim())}
-          disabled={!filePath.trim()}
+          onClick={() => handleNavigate(inputValue.trim())}
+          disabled={!inputValue.trim()}
         >
           Open
         </Button>
@@ -80,7 +97,11 @@ export function ProjectDocsPage() {
 
       {/* Rendered file */}
       {activeFile && (
-        <DocsContent projectId={projectId} filePath={activeFile} />
+        <DocsContent
+          projectId={projectId}
+          filePath={activeFile}
+          onNavigate={handleNavigate}
+        />
       )}
     </div>
   )
