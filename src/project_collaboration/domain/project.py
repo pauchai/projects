@@ -47,6 +47,7 @@ class Project:
         owner_id: str,
         required_skills: list[SkillTag],
         max_members: int | None = None,
+        docs_repo_url: str | None = None,
     ) -> None:
         if len(title) < MIN_TITLE_LENGTH or len(title) > MAX_TITLE_LENGTH:
             raise ValueError(
@@ -63,6 +64,7 @@ class Project:
         self.owner_id = owner_id
         self.required_skills = list(required_skills)
         self.max_members = max_members
+        self.docs_repo_url = docs_repo_url
         self.status = ProjectStatus.DRAFT
         self.created_at: datetime = datetime.now(timezone.utc)
         self.previous_status: ProjectStatus | None = None

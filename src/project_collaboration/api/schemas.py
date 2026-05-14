@@ -97,6 +97,7 @@ class ProjectResponse(BaseModel):
     max_members: int | None
     status: str
     created_at: datetime
+    docs_repo_url: str | None = None
     memberships: list[MembershipResponse]
     applications: list[ApplicationResponse]
 
@@ -238,3 +239,21 @@ class ProductResponse(BaseModel):
     is_active: bool
     ref_id: str | None
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL & sync schemas
+# ---------------------------------------------------------------------------
+
+
+class SetDocsRepoUrlRequest(BaseModel):
+    """PATCH /projects/{project_id}/docs-repo-url"""
+
+    docs_repo_url: str | None = None
+
+
+class DocsSyncResponse(BaseModel):
+    """Response for POST /projects/{project_id}/sync-docs."""
+
+    message: str
+    path: str

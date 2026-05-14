@@ -111,6 +111,7 @@ projects_table = Table(
         nullable=True,
     ),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("docs_repo_url", Text, nullable=True),
 )
 
 project_skill_tags_table = Table(

@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import os
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from project_collaboration.api.dependencies import get_current_user_id, get_uow
 from project_collaboration.api.schemas import (
     ApplyToProjectRequest,
     ChangeMemberRoleRequest,
     CreateProjectRequest,
+    DocsSyncResponse,
     MessageResponse,
     ProjectResponse,
     ProjectSummaryResponse,
+    SetDocsRepoUrlRequest,
     UpdateProjectRequest,
 )
 from project_collaboration.application.apply_to_project import ApplyToProjectUseCase
@@ -60,6 +66,7 @@ def _project_to_response(project: Project) -> ProjectResponse:
         max_members=project.max_members,
         status=project.status.value,
         created_at=project.created_at,
+        docs_repo_url=getattr(project, "docs_repo_url", None),
         memberships=[
             {
                 "membership_id": m.membership_id,
@@ -361,3 +368,118 @@ def cancel_project(
     use_case = CancelProjectUseCase(uow)
     use_case.execute(project_id=project_id, caller_id=caller_id)
     return MessageResponse(message="Project cancelled")
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL & sync helpers
+# ---------------------------------------------------------------------------
+
+
+def _docs_volume_path(project_id: str) -> Path:
+    base = Path(os.environ.get("VOLUMES_BASE_PATH", "./volumes"))
+    return base / "projects" / project_id
+
+
+def _safe_docs_file(volume: Path, rel_path: str) -> Path:
+    """Resolve a relative path inside a docs volume; raise 400 on path traversal."""
+    target = (volume / rel_path).resolve()
+    if not str(target).startswith(str(volume.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return target
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL management
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{project_id}/docs-repo-url", response_model=ProjectResponse)
+def set_docs_repo_url(
+    project_id: str,
+    body: SetDocsRepoUrlRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> ProjectResponse:
+    """Set or update the docs git repo URL for a project.
+
+    Only the project owner may update this field.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        if not project.is_owner(caller_id):
+            raise HTTPException(status_code=403, detail="Only the project owner may set docs_repo_url")
+        project.docs_repo_url = body.docs_repo_url
+        u.projects.save(project)
+        u.commit()
+        return _project_to_response(project)
+
+
+# ---------------------------------------------------------------------------
+# Docs git sync
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{project_id}/sync-docs", response_model=DocsSyncResponse)
+def sync_docs_volume(
+    project_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> DocsSyncResponse:
+    """Clone or pull the project's git docs repo into the local volume."""
+    from cohort_learning.infrastructure.git_sync import GitVolumeSync  # noqa: PLC0415
+
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        if not project.is_owner(caller_id):
+            raise HTTPException(status_code=403, detail="Only the project owner may trigger a sync")
+        docs_repo_url = getattr(project, "docs_repo_url", None)
+        if not docs_repo_url:
+            raise HTTPException(status_code=422, detail=f"Project '{project_id}' has no docs_repo_url configured")
+
+    base = Path(os.environ.get("VOLUMES_BASE_PATH", "./volumes"))
+    syncer = GitVolumeSync(volumes_base_path=base)
+    try:
+        volume_path = syncer.sync_project(project_id=project_id, repo_url=docs_repo_url)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return DocsSyncResponse(message="sync complete", path=str(volume_path))
+
+
+# ---------------------------------------------------------------------------
+# Docs file serving (Markdown)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id}/docs/{file_path:path}", response_class=PlainTextResponse)
+def get_docs_file(
+    project_id: str,
+    file_path: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> str:
+    """Return raw file content (Markdown) from the project's local docs volume.
+
+    ``file_path`` is relative to the volume root, e.g. ``README.md``.
+    Path traversal attempts are rejected.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    volume = _docs_volume_path(project_id)
+    if not volume.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Docs volume not found — trigger a sync first",
+        )
+
+    target = _safe_docs_file(volume, file_path)
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"File '{file_path}' not found in docs volume")
+
+    return target.read_text(encoding="utf-8")
