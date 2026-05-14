@@ -2,7 +2,7 @@
  * Projects API functions: CRUD, search, status transitions, applications, members.
  */
 
-import { del, get, patch, post } from "./client"
+import { del, get, getText, patch, post } from "./client"
 import type {
   ApplyToProjectRequest,
   ChangeMemberRoleRequest,
@@ -149,5 +149,5 @@ export function syncDocsVolume(projectId: string): Promise<SyncResponse> {
 }
 
 export function getDocsFile(projectId: string, filePath: string): Promise<string> {
-  return get<string>(`/projects/${projectId}/docs/${filePath}`)
+  return getText(`/projects/${projectId}/docs/${filePath}`)
 }

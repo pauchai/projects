@@ -96,13 +96,53 @@ async function request<T>(
   return response.json() as Promise<T>
 }
 
-/** HTTP GET */
+/**
+ * Like request<T> but reads the response body as plain text.
+ * Used for endpoints that return PlainTextResponse (e.g. file content).
+ */
+async function requestText(
+  path: string,
+  options: RequestInit & { params?: Record<string, string> } = {},
+): Promise<string> {
+  const { params, ...fetchOptions } = options
+
+  const headers = new Headers(fetchOptions.headers)
+  const token = useAuthStore.getState().token
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
+  }
+
+  const response = await fetch(buildUrl(path, params), { ...fetchOptions, headers })
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      useAuthStore.getState().logout()
+    }
+    let detail = `HTTP ${response.status}`
+    try {
+      const body = (await response.json()) as ApiErrorResponse
+      detail = body.detail || detail
+    } catch {
+      // ignore
+    }
+    throw new ApiError(response.status, detail)
+  }
+
+  return response.text()
+}
+
+/** HTTP GET — response parsed as JSON */
 export function get<T>(
   path: string,
   params?: Record<string, string>,
   token?: string,
 ): Promise<T> {
   return request<T>(path, { method: "GET", params, token })
+}
+
+/** HTTP GET — response read as plain text */
+export function getText(path: string, params?: Record<string, string>): Promise<string> {
+  return requestText(path, { method: "GET", params })
 }
 
 /** HTTP POST with JSON body */

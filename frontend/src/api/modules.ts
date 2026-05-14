@@ -2,7 +2,7 @@
  * API functions for Module, Topic, and Lesson endpoints.
  */
 
-import { del, get, patch, post } from "./client"
+import { del, get, getText, patch, post } from "./client"
 import type {
   AddTopicRequest,
   CreateModuleRequest,
@@ -65,4 +65,4 @@ export const getLesson = (moduleId: string, lessonId: string): Promise<LessonRes
 // ---------------------------------------------------------------------------
 
 export const getLessonFile = (moduleId: string, filePath: string): Promise<string> =>
-  get<string>(`/modules/${moduleId}/files/${filePath}`)
+  getText(`/modules/${moduleId}/files/${filePath}`)
