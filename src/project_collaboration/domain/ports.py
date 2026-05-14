@@ -4,6 +4,7 @@ from typing import Protocol
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
 from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
@@ -51,6 +52,22 @@ class FeatureRequestRepository(Protocol):
     ) -> list[FeatureRequest]: ...
 
 
+class FundRepository(Protocol):
+    """Port for persisting and querying ProjectFund aggregates."""
+
+    def find_by_project(self, project_id: str) -> ProjectFund | None: ...
+
+    def save(self, fund: ProjectFund) -> None: ...
+
+    def save_transaction(self, tx: FundTransaction) -> None: ...
+
+    def save_distribution(self, dist: FundDistribution) -> None: ...
+
+    def list_transactions(self, fund_id: str) -> list[FundTransaction]: ...
+
+    def list_distributions(self, fund_id: str) -> list[FundDistribution]: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -70,6 +87,7 @@ class UnitOfWork(Protocol):
     projects: ProjectRepository
     feature_requests: FeatureRequestRepository
     products: ProductRepository
+    fund: FundRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

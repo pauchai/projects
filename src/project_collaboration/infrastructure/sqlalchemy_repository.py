@@ -17,12 +17,16 @@ from sqlalchemy.orm import Session, selectinload
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
 from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from project_collaboration.infrastructure.orm import (
     feature_requests_table,
+    fund_distributions_table,
+    fund_transactions_table,
+    project_funds_table,
     project_products_table,
     project_skill_tags_table,
 )
@@ -242,5 +246,46 @@ class SqlAlchemyProductRepository:
     def find_by_project(self, project_id: str) -> list[Product]:
         query = select(Product).where(
             project_products_table.c.project_id == project_id
+        )
+        return list(self._session.scalars(query).all())
+
+
+class SqlAlchemyFundRepository:
+    """Implements FundRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_project(self, project_id: str) -> ProjectFund | None:
+        query = select(ProjectFund).where(
+            project_funds_table.c.project_id == project_id
+        )
+        return self._session.scalars(query).first()
+
+    def save(self, fund: ProjectFund) -> None:
+        self._session.merge(fund)
+        self._session.flush()
+
+    def save_transaction(self, tx: FundTransaction) -> None:
+        self._session.merge(tx)
+        self._session.flush()
+
+    def save_distribution(self, dist: FundDistribution) -> None:
+        self._session.merge(dist)
+        self._session.flush()
+
+    def list_transactions(self, fund_id: str) -> list[FundTransaction]:
+        query = (
+            select(FundTransaction)
+            .where(fund_transactions_table.c.fund_id == fund_id)
+            .order_by(fund_transactions_table.c.created_at.desc())
+        )
+        return list(self._session.scalars(query).all())
+
+    def list_distributions(self, fund_id: str) -> list[FundDistribution]:
+        query = (
+            select(FundDistribution)
+            .where(fund_distributions_table.c.fund_id == fund_id)
+            .order_by(fund_distributions_table.c.created_at.desc())
         )
         return list(self._session.scalars(query).all())

@@ -43,6 +43,7 @@ from project_collaboration.domain.application_form import (
 )
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
 from project_collaboration.domain.membership import Membership
 from project_collaboration.domain.product import Product
 from project_collaboration.domain.product_type import ProductType
@@ -258,3 +259,59 @@ project_products_table = Table(
 )
 
 mapper_registry.map_imperatively(Product, project_products_table)
+
+# ---------------------------------------------------------------------------
+# Fund tables
+# ---------------------------------------------------------------------------
+
+project_funds_table = Table(
+    "project_funds",
+    metadata,
+    Column("fund_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column("balance", Numeric(14, 2), nullable=False, server_default="0"),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+fund_transactions_table = Table(
+    "fund_transactions",
+    metadata,
+    Column("transaction_id", String(255), primary_key=True),
+    Column(
+        "fund_id",
+        String(255),
+        ForeignKey("project_funds.fund_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("amount", Numeric(14, 2), nullable=False),
+    Column("source", String(50), nullable=False),
+    Column("ref_id", String(255), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+fund_distributions_table = Table(
+    "fund_distributions",
+    metadata,
+    Column("distribution_id", String(255), primary_key=True),
+    Column(
+        "fund_id",
+        String(255),
+        ForeignKey("project_funds.fund_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("amount", Numeric(14, 2), nullable=False),
+    Column("initiated_by", String(255), nullable=False),
+    Column("note", Text, nullable=False, server_default=""),
+    Column("status", String(50), nullable=False, server_default="pending"),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(ProjectFund, project_funds_table)
+mapper_registry.map_imperatively(FundTransaction, fund_transactions_table)
+mapper_registry.map_imperatively(FundDistribution, fund_distributions_table)

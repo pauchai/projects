@@ -21,6 +21,7 @@ function buildTabs(projectId: string): TabDef[] {
   return [
     { to: `/projects/${projectId}/overview`, label: "Overview" },
     { to: `/projects/${projectId}/products`, label: "Products" },
+    { to: `/projects/${projectId}/fund`, label: "Fund" },
     { to: `/projects/${projectId}/tasks`, label: "Tasks" },
     { to: `/projects/${projectId}/partners`, label: "Partners" },
     { to: `/projects/${projectId}/docs`, label: "Docs" },

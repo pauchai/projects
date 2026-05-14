@@ -639,3 +639,45 @@ export interface ProductResponse {
   ref_id: string | null
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Fund
+// ---------------------------------------------------------------------------
+
+export interface FundTransactionResponse {
+  transaction_id: string
+  fund_id: string
+  amount: number
+  source: string
+  ref_id: string | null
+  created_at: string
+}
+
+export interface FundDistributionResponse {
+  distribution_id: string
+  fund_id: string
+  amount: number
+  initiated_by: string
+  note: string | null
+  status: string
+  created_at: string
+}
+
+export interface FundResponse {
+  fund_id: string | null
+  project_id: string
+  balance: number
+  transactions?: FundTransactionResponse[]
+  distributions?: FundDistributionResponse[]
+}
+
+export interface DepositRequest {
+  amount: number
+  source: string
+  ref_id?: string | null
+}
+
+export interface DistributeRequest {
+  amount: number
+  note?: string | null
+}

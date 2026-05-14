@@ -182,6 +182,49 @@ class CreateProductRequest(BaseModel):
         return self
 
 
+# ---------------------------------------------------------------------------
+# Fund schemas
+# ---------------------------------------------------------------------------
+
+
+class FundTransactionResponse(BaseModel):
+    transaction_id: str
+    fund_id: str
+    amount: float
+    source: str
+    ref_id: str | None
+    created_at: datetime
+
+
+class FundDistributionResponse(BaseModel):
+    distribution_id: str
+    fund_id: str
+    amount: float
+    initiated_by: str
+    note: str
+    status: str
+    created_at: datetime
+
+
+class FundResponse(BaseModel):
+    fund_id: str | None  # None if fund has not been created yet
+    project_id: str
+    balance: float
+    transactions: list[FundTransactionResponse] = []
+    distributions: list[FundDistributionResponse] = []
+
+
+class DepositRequest(BaseModel):
+    amount: float = Field(gt=0, description="Net amount to deposit (after commission)")
+    source: str = Field(default="manual", max_length=50)
+    ref_id: str | None = None
+
+
+class DistributeRequest(BaseModel):
+    amount: float = Field(gt=0, description="Fixed amount to distribute from the fund")
+    note: str = Field(default="", max_length=1000)
+
+
 class ProductResponse(BaseModel):
     """Serialized Product entity."""
 
