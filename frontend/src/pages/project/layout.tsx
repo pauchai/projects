@@ -1,9 +1,9 @@
 /**
  * Project workspace layout.
  *
- * Renders tabs: Overview | Products | Tasks | Partners | Docs | Courses
+ * Renders tabs: Overview | Products | Fund | Tasks | Partners | Docs | Courses | Features | Modules | Cohorts
  * Settings tab is visible only to owners/admins.
- * Products and Partners are always visible (public showcase).
+ * All tabs except Settings are public.
  */
 
 import { NavLink, Outlet, useParams, Navigate } from "react-router-dom"
@@ -26,6 +26,9 @@ function buildTabs(projectId: string): TabDef[] {
     { to: `/projects/${projectId}/partners`, label: "Partners" },
     { to: `/projects/${projectId}/docs`, label: "Docs" },
     { to: `/projects/${projectId}/courses`, label: "Courses" },
+    { to: `/projects/${projectId}/features`, label: "Features" },
+    { to: `/projects/${projectId}/modules`, label: "Modules" },
+    { to: `/projects/${projectId}/cohorts`, label: "Cohorts" },
     { to: `/projects/${projectId}/settings`, label: "Settings", managerOnly: true },
   ]
 }

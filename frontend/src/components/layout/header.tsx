@@ -59,27 +59,6 @@ export function Header() {
             </Link>
           )}
 
-          {/* Zone 2: Lab dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger>
-              <span className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none">
-                Lab
-                <ChevronDown className="h-3.5 w-3.5" />
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem>
-                <Link to="/features" className="w-full">Features</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link to="/modules" className="w-full">Modules</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link to="/cohorts" className="w-full">Cohorts</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
         </div>
 
         {/* Zone 3: Right side — auth */}
@@ -161,34 +140,6 @@ export function Header() {
             >
               Projects
             </Link>
-
-            {/* Zone 2: Lab */}
-            <div className="mt-2">
-              <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Lab
-              </p>
-              <Link
-                to="/features"
-                onClick={closeMenu}
-                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                Features
-              </Link>
-              <Link
-                to="/modules"
-                onClick={closeMenu}
-                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                Modules
-              </Link>
-              <Link
-                to="/cohorts"
-                onClick={closeMenu}
-                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                Cohorts
-              </Link>
-            </div>
 
             {/* Zone 3: Auth */}
             {isAuthenticated ? (
