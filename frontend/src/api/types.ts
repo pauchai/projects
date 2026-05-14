@@ -601,3 +601,41 @@ export interface AppointmentResponse {
   scheduled_at: string
   status: "scheduled" | "completed" | "cancelled"
 }
+
+// ---------------------------------------------------------------------------
+// Products
+// ---------------------------------------------------------------------------
+
+export type ProductType =
+  | "course"
+  | "mentoring"
+  | "onboarding"
+  | "donation"
+  | "other"
+
+export type ProductVisibility = "public" | "members_only"
+
+/** POST /projects/:id/products — request body */
+export interface CreateProductRequest {
+  product_id: string
+  title: string
+  product_type: ProductType
+  description?: string
+  price?: number | null
+  visibility?: ProductVisibility
+  ref_id?: string | null
+}
+
+/** GET /projects/:id/products — single product */
+export interface ProductResponse {
+  product_id: string
+  project_id: string
+  title: string
+  product_type: ProductType
+  description: string
+  price: number | null
+  visibility: ProductVisibility
+  is_active: boolean
+  ref_id: string | null
+  created_at: string
+}
