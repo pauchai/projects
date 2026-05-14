@@ -22,6 +22,7 @@ import { ProjectCoursesPage } from "@/pages/project/courses"
 import { ProjectSettingsPage } from "@/pages/project/settings/index"
 import { SettingsApplicationsPage } from "@/pages/project/settings/applications"
 import { ProjectFundPage } from "@/pages/project/fund"
+import { GuarantorshipPage } from "@/pages/guarantorship"
 
 // Features
 import { FeaturesListPage } from "@/pages/features-list"
@@ -127,6 +128,16 @@ export default function App() {
                     }
                   />
                 </Route>
+
+                {/* Guarantorship */}
+                <Route
+                  path="/guarantorship"
+                  element={
+                    <ProtectedRoute>
+                      <GuarantorshipPage />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Features */}
                 <Route path="/features" element={<FeaturesListPage />} />

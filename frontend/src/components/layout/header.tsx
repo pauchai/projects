@@ -49,6 +49,16 @@ export function Header() {
             Projects
           </Link>
 
+          {/* Zone 1.5: Authenticated nav */}
+          {isAuthenticated && (
+            <Link
+              to="/guarantorship"
+              className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+            >
+              Guarantorship
+            </Link>
+          )}
+
           {/* Zone 2: Lab dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger>
@@ -192,6 +202,13 @@ export function Header() {
                   className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
                   Create project
+                </Link>
+                <Link
+                  to="/guarantorship"
+                  onClick={closeMenu}
+                  className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  Guarantorship
                 </Link>
                 <Link
                   to="/me/rewards"
