@@ -5,7 +5,7 @@
  * On save, stays within the workspace (navigates to overview tab).
  */
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useProject, useUpdateProject } from "@/hooks/use-projects"
+import { useSetDocsRepoUrl, useSyncDocsVolume } from "@/hooks/use-docs"
 import { useAuthStore } from "@/stores/auth-store"
 import { ApiError } from "@/api/client"
 
@@ -51,6 +52,8 @@ export function ProjectSettingsPage() {
   const { data: project, isLoading, isError, error } = useProject(projectId ?? "")
   const userId = useAuthStore((s) => s.userId)
   const updateMutation = useUpdateProject()
+  const setDocsRepoUrlMutation = useSetDocsRepoUrl(projectId ?? "")
+  const syncDocsMutation = useSyncDocsVolume(projectId ?? "")
 
   const isOwner = project?.owner_id === userId
 
@@ -60,6 +63,18 @@ export function ProjectSettingsPage() {
   const [maxMembers, setMaxMembers] = useState("")
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [initialized, setInitialized] = useState(false)
+  const [docsRepoUrl, setDocsRepoUrl] = useState("")
+
+  useEffect(() => {
+    if (project && !initialized) {
+      setTitle(project.title)
+      setDescription(project.description)
+      setSkills(project.required_skills.join(", "))
+      setMaxMembers(project.max_members?.toString() ?? "")
+      setDocsRepoUrl(project.docs_repo_url ?? "")
+      setInitialized(true)
+    }
+  }, [project, initialized])
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading project...</p>
@@ -87,11 +102,7 @@ export function ProjectSettingsPage() {
   }
 
   if (!initialized) {
-    setTitle(project.title)
-    setDescription(project.description)
-    setSkills(project.required_skills.join(", "))
-    setMaxMembers(project.max_members?.toString() ?? "")
-    setInitialized(true)
+    // Initialization now handled by useEffect above
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -214,6 +225,72 @@ export function ProjectSettingsPage() {
               {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Docs Volume */}
+      <Card className="max-w-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Docs Volume</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="docsRepoUrl">Docs Repo URL</Label>
+            <p className="text-xs text-muted-foreground">
+              Git repository for project documentation (include token for private repos:{" "}
+              <code>https://&lt;token&gt;@github.com/…</code>).
+            </p>
+            <div className="flex gap-2">
+              <Input
+                id="docsRepoUrl"
+                value={docsRepoUrl}
+                onChange={(e) => setDocsRepoUrl(e.target.value)}
+                placeholder="https://<token>@github.com/org/docs.git"
+                className="font-mono text-sm flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setDocsRepoUrlMutation.mutate(docsRepoUrl.trim() || null)
+                }
+                disabled={setDocsRepoUrlMutation.isPending}
+              >
+                {setDocsRepoUrlMutation.isPending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+            {setDocsRepoUrlMutation.isSuccess && (
+              <p className="text-xs text-emerald-600">Docs repo URL saved.</p>
+            )}
+            {setDocsRepoUrlMutation.isError && (
+              <p className="text-xs text-destructive">Failed to save.</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Sync Docs</p>
+            <p className="text-xs text-muted-foreground">
+              Clone or pull the docs repository into the local volume.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncDocsMutation.mutate()}
+              disabled={syncDocsMutation.isPending || !project.docs_repo_url}
+            >
+              {syncDocsMutation.isPending ? "Syncing…" : "Sync Docs"}
+            </Button>
+            {syncDocsMutation.isSuccess && (
+              <p className="text-xs text-emerald-600">
+                {syncDocsMutation.data?.message ?? "Docs synced."}
+              </p>
+            )}
+            {syncDocsMutation.isError && (
+              <p className="text-xs text-destructive">Sync failed.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

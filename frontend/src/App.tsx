@@ -30,6 +30,7 @@ import { ModuleLayout } from "@/pages/module/layout"
 import { ModuleOverviewPage } from "@/pages/module/overview"
 import { ModuleTopicsPage } from "@/pages/module/topics"
 import { ModuleCohortsPage } from "@/pages/module/cohorts"
+import { ModuleLessonsPage } from "@/pages/module/lessons"
 import { ModuleSettingsPage } from "@/pages/module/settings"
 
 // Cohort workspace
@@ -146,6 +147,7 @@ export default function App() {
                     <Route path="overview" element={<ModuleOverviewPage />} />
                     <Route path="topics" element={<ModuleTopicsPage />} />
                     <Route path="cohorts" element={<ModuleCohortsPage />} />
+                    <Route path="lessons" element={<ModuleLessonsPage />} />
                     <Route
                       path="cohorts/new"
                       element={

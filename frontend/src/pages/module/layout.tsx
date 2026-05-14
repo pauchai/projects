@@ -21,6 +21,7 @@ function buildTabs(projectId: string, moduleId: string): TabDef[] {
     { to: `${base}/overview`, label: "Overview" },
     { to: `${base}/topics`, label: "Topics" },
     { to: `${base}/cohorts`, label: "Cohorts" },
+    { to: `${base}/lessons`, label: "Lessons" },
     { to: `${base}/settings`, label: "Settings", masterOnly: true },
   ]
 }
