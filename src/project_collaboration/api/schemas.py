@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from project_collaboration.domain.product_type import ProductType
 
 
 # ---------------------------------------------------------------------------
@@ -164,11 +166,20 @@ class CreateProductRequest(BaseModel):
 
     product_id: str
     title: str = Field(min_length=1, max_length=300)
-    product_type: str
+    product_type: ProductType
     description: str = Field(default="", max_length=5000)
     price: float | None = None
     visibility: str = "public"
     ref_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_ref_id(self) -> "CreateProductRequest":
+        """course requires cohort ref_id; mentoring requires mentor user ref_id."""
+        if self.product_type.requires_ref_id and not self.ref_id:
+            raise ValueError(
+                f"ref_id is required for product type '{self.product_type.value}'"
+            )
+        return self
 
 
 class ProductResponse(BaseModel):

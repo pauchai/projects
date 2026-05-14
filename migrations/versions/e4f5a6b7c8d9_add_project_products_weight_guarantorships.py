@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "e4f5a6b7c8d9"
@@ -18,19 +19,45 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # --- product_type enum ---
-    product_type_enum = sa.Enum(
-        "course", "consultation", "mentoring", "onboarding", "other",
-        name="producttype",
-    )
-    product_type_enum.create(op.get_bind(), checkfirst=True)
+    conn = op.get_bind()
 
-    # --- product_visibility enum ---
-    product_visibility_enum = sa.Enum(
-        "public", "members_only",
-        name="productvisibility",
+    # --- enums (idempotent via DO block) ---
+    conn.execute(sa.text(
+        "DO $$ BEGIN "
+        "  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'producttype') THEN "
+        "    CREATE TYPE producttype AS ENUM ('course', 'consultation', 'mentoring', 'onboarding', 'other'); "
+        "  END IF; "
+        "END $$"
+    ))
+    conn.execute(sa.text(
+        "DO $$ BEGIN "
+        "  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'productvisibility') THEN "
+        "    CREATE TYPE productvisibility AS ENUM ('public', 'members_only'); "
+        "  END IF; "
+        "END $$"
+    ))
+    conn.execute(sa.text(
+        "DO $$ BEGIN "
+        "  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'guaranteestatus') THEN "
+        "    CREATE TYPE guaranteestatus AS ENUM ('active', 'revoked'); "
+        "  END IF; "
+        "END $$"
+    ))
+
+    # Enum column references — postgresql.ENUM with create_type=False so
+    # SQLAlchemy never emits CREATE TYPE (we already did that above).
+    product_type_col = postgresql.ENUM(
+        "course", "consultation", "mentoring", "onboarding", "other",
+        name="producttype", create_type=False,
     )
-    product_visibility_enum.create(op.get_bind(), checkfirst=True)
+    product_visibility_col = postgresql.ENUM(
+        "public", "members_only",
+        name="productvisibility", create_type=False,
+    )
+    guarantee_status_col = postgresql.ENUM(
+        "active", "revoked",
+        name="guaranteestatus", create_type=False,
+    )
 
     # --- project_products table ---
     op.create_table(
@@ -44,11 +71,11 @@ def upgrade() -> None:
         ),
         sa.Column("title", sa.String(300), nullable=False),
         sa.Column("description", sa.Text, nullable=False, server_default=""),
-        sa.Column("product_type", product_type_enum, nullable=False),
+        sa.Column("product_type", product_type_col, nullable=False),
         sa.Column("price", sa.Numeric(12, 2), nullable=True),
         sa.Column(
             "visibility",
-            product_visibility_enum,
+            product_visibility_col,
             nullable=False,
             server_default="public",
         ),
@@ -63,13 +90,6 @@ def upgrade() -> None:
         sa.Column("weight", sa.Float, nullable=False, server_default="0.0"),
     )
 
-    # --- guarantee_status enum ---
-    guarantee_status_enum = sa.Enum(
-        "active", "revoked",
-        name="guaranteestatus",
-    )
-    guarantee_status_enum.create(op.get_bind(), checkfirst=True)
-
     # --- guarantorships table ---
     op.create_table(
         "guarantorships",
@@ -78,7 +98,7 @@ def upgrade() -> None:
         sa.Column("guaranteed_id", sa.String(255), nullable=False),
         sa.Column(
             "status",
-            guarantee_status_enum,
+            guarantee_status_col,
             nullable=False,
             server_default="active",
         ),
