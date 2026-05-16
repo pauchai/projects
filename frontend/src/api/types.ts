@@ -771,3 +771,42 @@ export interface DistributeRequest {
   amount: number
   note?: string | null
 }
+
+// ---------------------------------------------------------------------------
+// Guarantorship
+// ---------------------------------------------------------------------------
+
+export interface GuaranteeRequestCreate {
+  guarantor_id: string
+  message?: string | null
+}
+
+export interface GuaranteeRequestResponse {
+  request_id: string
+  ward_id: string
+  guarantor_id: string
+  status: "pending" | "accepted" | "rejected"
+  message: string | null
+  created_at: string
+  responded_at: string | null
+}
+
+export interface ZeroCircleCreate {
+  name: string
+  deposit_stub?: number | null
+}
+
+export interface ZeroCircleMemberResponse {
+  user_id: string
+  joined_at: string
+}
+
+export interface ZeroCircleResponse {
+  circle_id: string
+  name: string
+  initiated_by: string
+  status: "open" | "dao_pending" | "closed"
+  deposit_stub: number | null
+  created_at: string
+  members: ZeroCircleMemberResponse[]
+}
