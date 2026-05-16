@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.membership import Membership
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import ProjectNeed
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
 from tests.project_collaboration.fakes.fake_unit_of_work import FakeUnitOfWork
@@ -79,6 +81,56 @@ def save_project(uow: FakeUnitOfWork, project: Project) -> None:
     """Persist a project into the FakeUnitOfWork (opens UoW, saves, commits)."""
     with uow:
         uow.projects.save(project)
+        uow.commit()
+
+
+def make_project_with_active_member(
+    user_id: str = "u2",
+    role: ProjectRole = ProjectRole.MEMBER,
+    **overrides: object,
+) -> Project:
+    """Create a recruiting project with an active membership for *user_id*.
+
+    Unlike ``make_project_with_member``, this bypasses the application flow
+    and directly appends a Membership — useful for testing use cases that
+    only require an existing active member.
+    """
+    p = make_recruiting_project(**overrides)
+    membership = Membership(
+        membership_id=f"m-{user_id}",
+        user_id=user_id,
+        project_id=p.project_id,
+        role=role,
+    )
+    p.memberships.append(membership)
+    p.collect_events()
+    return p
+
+
+# ---------------------------------------------------------------------------
+# ProjectNeed factories
+# ---------------------------------------------------------------------------
+
+
+def make_project_need(**overrides: object) -> ProjectNeed:
+    """Create an open ProjectNeed with sensible defaults."""
+    defaults: dict = dict(
+        need_id="n1",
+        project_id="p1",
+        role=ProjectRole.MEMBER,
+        description="Looking for a contributor.",
+        created_by="u2",
+        skills=["python"],
+        slots=1,
+    )
+    defaults.update(overrides)
+    return ProjectNeed(**defaults)
+
+
+def save_project_need(uow: FakeUnitOfWork, need: ProjectNeed) -> None:
+    """Persist a ProjectNeed into the FakeUnitOfWork."""
+    with uow:
+        uow.needs.save(need)
         uow.commit()
 
 

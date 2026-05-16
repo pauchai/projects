@@ -5,6 +5,7 @@ import copy
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from shared_kernel.events import DomainEvent, EventBus
@@ -108,6 +109,28 @@ class _FakeFeatureRequestRepository:
         self._storage = snapshot
 
 
+class _FakeProjectNeedRepository:
+    """In-memory ProjectNeedRepository used within FakeUnitOfWork."""
+
+    def __init__(self) -> None:
+        self._storage: dict[str, ProjectNeed] = {}
+
+    def find_by_id(self, need_id: str) -> ProjectNeed | None:
+        return self._storage.get(need_id)
+
+    def find_by_project_id(self, project_id: str) -> list[ProjectNeed]:
+        return [n for n in self._storage.values() if n.project_id == project_id]
+
+    def save(self, need: ProjectNeed) -> None:
+        self._storage[need.need_id] = need
+
+    def snapshot(self) -> dict[str, ProjectNeed]:
+        return copy.deepcopy(self._storage)
+
+    def restore(self, snapshot: dict[str, ProjectNeed]) -> None:
+        self._storage = snapshot
+
+
 class FakeUnitOfWork:
     """Fake UoW for testing: in-memory with commit/rollback semantics.
 
@@ -119,9 +142,11 @@ class FakeUnitOfWork:
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.projects = _FakeProjectRepository(self)
         self.feature_requests = _FakeFeatureRequestRepository(self)
+        self.needs = _FakeProjectNeedRepository()
         self.committed = False
         self._projects_snapshot: dict[str, Project] | None = None
         self._feature_requests_snapshot: dict[str, FeatureRequest] | None = None
+        self._needs_snapshot: dict[str, ProjectNeed] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
@@ -129,6 +154,7 @@ class FakeUnitOfWork:
         self.committed = False
         self._projects_snapshot = self.projects.snapshot()
         self._feature_requests_snapshot = self.feature_requests.snapshot()
+        self._needs_snapshot = self.needs.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -136,6 +162,7 @@ class FakeUnitOfWork:
             self.rollback()
         self._projects_snapshot = None
         self._feature_requests_snapshot = None
+        self._needs_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
@@ -146,6 +173,7 @@ class FakeUnitOfWork:
         # Snapshots are discarded — changes are kept
         self._projects_snapshot = None
         self._feature_requests_snapshot = None
+        self._needs_snapshot = None
 
     def rollback(self) -> None:
         if self._projects_snapshot is not None:
@@ -154,6 +182,9 @@ class FakeUnitOfWork:
         if self._feature_requests_snapshot is not None:
             self.feature_requests.restore(self._feature_requests_snapshot)
             self._feature_requests_snapshot = None
+        if self._needs_snapshot is not None:
+            self.needs.restore(self._needs_snapshot)
+            self._needs_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:
