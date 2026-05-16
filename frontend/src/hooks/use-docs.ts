@@ -12,6 +12,8 @@ import { projectKeys } from "./use-projects"
 
 export const docsKeys = {
   all: ["docs"] as const,
+  tree: (projectId: string) =>
+    [...docsKeys.all, "tree", projectId] as const,
   file: (projectId: string, filePath: string) =>
     [...docsKeys.all, "file", projectId, filePath] as const,
 }
@@ -19,6 +21,15 @@ export const docsKeys = {
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
+
+export function useDocsTree(projectId: string) {
+  return useQuery({
+    queryKey: docsKeys.tree(projectId),
+    queryFn: () => projectsApi.getDocsTree(projectId),
+    enabled: !!projectId,
+    select: (data) => data.files,
+  })
+}
 
 export function useDocsFile(projectId: string, filePath: string | null) {
   return useQuery({

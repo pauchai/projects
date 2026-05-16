@@ -451,6 +451,47 @@ def sync_docs_volume(
 
 
 # ---------------------------------------------------------------------------
+# Docs file tree (listing)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id}/docs")
+def get_docs_tree(
+    project_id: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> dict:
+    """Return a sorted list of all files in the project docs volume.
+
+    Paths are relative to the volume root, e.g. ``["README.md", "guides/setup.md"]``.
+    Ignores hidden files and the ``.git`` directory.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    volume = _docs_volume_path(project_id)
+    if not volume.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Docs volume not found — trigger a sync first",
+        )
+
+    files: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(volume):
+        # Skip hidden dirs (including .git) in-place so os.walk won't descend into them
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        rel_dir = Path(dirpath).relative_to(volume)
+        for filename in sorted(filenames):
+            if filename.startswith("."):
+                continue
+            rel_file = rel_dir / filename
+            files.append(str(rel_file))
+
+    return {"files": files}
+
+
+# ---------------------------------------------------------------------------
 # Docs file serving (Markdown)
 # ---------------------------------------------------------------------------
 

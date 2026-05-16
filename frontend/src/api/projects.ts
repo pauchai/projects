@@ -151,3 +151,7 @@ export function syncDocsVolume(projectId: string): Promise<SyncResponse> {
 export function getDocsFile(projectId: string, filePath: string): Promise<string> {
   return getText(`/projects/${projectId}/docs/${filePath}`)
 }
+
+export function getDocsTree(projectId: string): Promise<{ files: string[] }> {
+  return get<{ files: string[] }>(`/projects/${projectId}/docs`)
+}
