@@ -123,9 +123,12 @@ export function NeedsListPage() {
 
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Open Needs</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Open Needs / Открытые потребности</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Projects are looking for contributors. Find a role that fits you.
+            Find a role where your skills make a difference. Browse what projects are looking for and apply directly.
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Найдите роль, где ваши навыки принесут пользу. Смотрите, что ищут проекты, и подавайте заявку напрямую.
           </p>
         </div>
 

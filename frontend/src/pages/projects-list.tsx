@@ -39,7 +39,13 @@ export function ProjectsListPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">Projects</h1>
+      <h1 className="text-2xl font-bold">Projects / Проекты</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
+        Explore collaborative initiatives open for new members. Find a project that matches your skills and interests, or start your own.
+      </p>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Исследуйте совместные инициативы, открытые для новых участников. Найдите проект под свои навыки и интересы или создайте свой.
+      </p>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border mb-6">
