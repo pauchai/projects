@@ -399,33 +399,33 @@ function ProjectNeedsSection({
   const createNeed = useCreateProjectNeed(projectId)
   const closeNeed = useCloseProjectNeed(projectId)
   const [showForm, setShowForm] = useState(false)
-  const [title, setTitle] = useState("")
+  const [role, setRole] = useState("member")
   const [description, setDescription] = useState("")
   const [skills, setSkills] = useState("")
-  const [role, setRole] = useState("")
+  const [slots, setSlots] = useState(1)
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     createNeed.mutate(
       {
-        title: title.trim(),
-        description: description.trim() || undefined,
+        role: role.trim(),
+        description: description.trim(),
         skills: skills ? skills.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-        role: role.trim() || undefined,
+        slots: slots,
       },
       {
         onSuccess: () => {
-          setTitle("")
+          setRole("member")
           setDescription("")
           setSkills("")
-          setRole("")
+          setSlots(1)
           setShowForm(false)
         },
       },
     )
   }
 
-  const openNeeds = needs?.filter((n) => n.is_open) ?? []
+  const openNeeds = needs?.filter((n) => n.status === "open") ?? []
 
   return (
     <div>
@@ -453,22 +453,23 @@ function ProjectNeedsSection({
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-3">
               <div className="space-y-1">
-                <Label htmlFor="need-title">Title *</Label>
+                <Label htmlFor="need-role">Role *</Label>
                 <Input
-                  id="need-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Frontend developer"
+                  id="need-role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="member, mentor, admin, observer"
                   required
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="need-description">Description (optional)</Label>
+                <Label htmlFor="need-description">Description *</Label>
                 <Input
                   id="need-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What will this person work on?"
+                  required
                 />
               </div>
               <div className="space-y-1">
@@ -481,16 +482,22 @@ function ProjectNeedsSection({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="need-role">Role (optional)</Label>
+                <Label htmlFor="need-slots">Slots</Label>
                 <Input
-                  id="need-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  placeholder="e.g. contributor, designer"
+                  id="need-slots"
+                  type="number"
+                  min={1}
+                  value={slots}
+                  onChange={(e) => setSlots(Number(e.target.value))}
+                  className="w-20"
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={createNeed.isPending || !title.trim()}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={createNeed.isPending || !role.trim() || !description.trim()}
+                >
                   {createNeed.isPending ? "Creating…" : "Create"}
                 </Button>
                 <Button
@@ -549,14 +556,14 @@ function NeedRow({
   return (
     <div className="flex items-start justify-between rounded-md border px-4 py-3 gap-4">
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium">{need.title}</p>
-        {need.description && (
-          <p className="text-xs text-muted-foreground">{need.description}</p>
-        )}
+        <p className="text-sm font-medium">{need.description}</p>
         <div className="flex flex-wrap gap-1 mt-1">
-          {need.role && (
-            <Badge variant="secondary" className="text-xs">
-              {need.role}
+          <Badge variant="secondary" className="text-xs">
+            {need.role}
+          </Badge>
+          {need.slots > 1 && (
+            <Badge variant="outline" className="text-xs">
+              {need.slots} slots
             </Badge>
           )}
           {need.skills.map((s) => (

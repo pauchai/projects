@@ -225,21 +225,21 @@ export interface ApiErrorResponse {
 
 /** POST /projects/:id/needs — request body */
 export interface CreateProjectNeedRequest {
-  title: string
-  description?: string
+  role: string
+  description: string
   skills?: string[]
-  role?: string
+  slots?: number
 }
 
 /** GET /projects/:id/needs — a single project need */
 export interface ProjectNeedResponse {
   need_id: string
   project_id: string
-  title: string
-  description: string | null
+  role: string
+  description: string
   skills: string[]
-  role: string | null
-  is_open: boolean
+  slots: number
+  status: string
   created_by: string
   created_at: string
 }
