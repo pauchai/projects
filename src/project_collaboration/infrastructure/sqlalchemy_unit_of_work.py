@@ -15,6 +15,7 @@ from project_collaboration.infrastructure.sqlalchemy_repository import (
     SqlAlchemyFeatureRequestRepository,
     SqlAlchemyFundRepository,
     SqlAlchemyProductRepository,
+    SqlAlchemyProjectNeedRepository,
     SqlAlchemyProjectRepository,
 )
 
@@ -41,6 +42,7 @@ class SqlAlchemyUnitOfWork:
         self.feature_requests = SqlAlchemyFeatureRequestRepository(self._session, self)
         self.products = SqlAlchemyProductRepository(self._session)
         self.fund = SqlAlchemyFundRepository(self._session)
+        self.needs = SqlAlchemyProjectNeedRepository(self._session)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:

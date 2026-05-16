@@ -1,5 +1,6 @@
 """Auth routes: REST endpoints for user registration, authentication, and profile."""
 
+import logging
 import os
 import uuid
 
@@ -24,6 +25,7 @@ from auth.api.schemas import (
     SetPasswordRequest,
     TokenResponse,
     UpdateProfileRequest,
+    UserInviteCodeRequest,
     UserInviteCodeResponse,
     UserResponse,
 )
@@ -36,6 +38,15 @@ from auth.application.update_profile import UpdateProfileUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
+from project_collaboration.api.dependencies import get_uow as get_collab_uow
+from project_collaboration.application.redeem_project_invite import (
+    RedeemProjectInviteUseCase,
+)
+from project_collaboration.infrastructure.sqlalchemy_unit_of_work import (
+    SqlAlchemyUnitOfWork as CollabUnitOfWork,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -49,20 +60,43 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(
     body: RegisterRequest,
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
+    collab_uow: CollabUnitOfWork = Depends(get_collab_uow),
     password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
 ) -> UserResponse:
-    """Register a new user with email, password and a valid invite code."""
+    """Register a new user with email, password and a valid invite code.
+
+    When the invite code has ``scope="project"``, the new user is automatically
+    enrolled as a project member (via ``RedeemProjectInviteUseCase``).
+    """
     use_case = RegisterUserWithInviteUseCase(uow, password_hasher)
     user_id = str(uuid.uuid4())
-    use_case.execute(
+    result = use_case.execute(
         user_id=user_id,
         email=body.email,
         password=body.password,
         display_name=body.display_name,
         invite_code=body.invite_code,
     )
+
+    # Route by scope — handler owns this decision (SRP: use case stays context-agnostic)
+    if result.scope == "project" and result.project_id:
+        try:
+            RedeemProjectInviteUseCase(collab_uow).execute(
+                user_id=result.user_id,
+                project_id=result.project_id,
+                role_value=result.role or "member",
+            )
+        except (LookupError, ValueError) as exc:
+            # Registration already committed; log and continue rather than rolling back auth.
+            logger.warning(
+                "RedeemProjectInvite failed for user=%s project=%s: %s",
+                result.user_id,
+                result.project_id,
+                exc,
+            )
+
     return UserResponse(
-        user_id=user_id,
+        user_id=result.user_id,
         email=body.email.strip().lower(),
         display_name=body.display_name.strip(),
     )
@@ -135,15 +169,23 @@ def update_me(
 
 @router.post("/invite-codes", status_code=201, response_model=UserInviteCodeResponse)
 def create_invite_code(
+    body: UserInviteCodeRequest = UserInviteCodeRequest(),
     caller_id: str = Depends(require_active_user),
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
 ) -> UserInviteCodeResponse:
     """Create a personal invite code for the authenticated user.
 
     The code expires in 7 days and is single-use by default.
+    Optionally accepts ``scope``, ``project_id``, and ``role`` to generate
+    a project-scoped invite that auto-enrols the registrant as a member.
     """
     use_case = CreateUserInviteCodeUseCase(uow)
-    invite = use_case.execute(user_id=caller_id)
+    invite = use_case.execute(
+        user_id=caller_id,
+        scope=body.scope,  # type: ignore[arg-type]
+        project_id=body.project_id,
+        role=body.role,
+    )
     return UserInviteCodeResponse(
         code_id=invite.code_id,
         code=invite.code,
@@ -152,6 +194,9 @@ def create_invite_code(
         is_active=invite.is_active,
         expires_at=invite.expires_at.isoformat(),  # type: ignore[union-attr]
         created_at=invite.created_at.isoformat(),
+        scope=invite.scope,
+        project_id=invite.project_id,
+        role=invite.role,
     )
 
 

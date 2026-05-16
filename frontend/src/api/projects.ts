@@ -6,8 +6,10 @@ import { del, get, getText, patch, post } from "./client"
 import type {
   ApplyToProjectRequest,
   ChangeMemberRoleRequest,
+  CreateProjectNeedRequest,
   CreateProjectRequest,
   MessageResponse,
+  ProjectNeedResponse,
   ProjectResponse,
   ProjectSummaryResponse,
   SearchProjectsParams,
@@ -154,4 +156,29 @@ export function getDocsFile(projectId: string, filePath: string): Promise<string
 
 export function getDocsTree(projectId: string): Promise<{ files: string[] }> {
   return get<{ files: string[] }>(`/projects/${projectId}/docs`)
+}
+
+// ---------------------------------------------------------------------------
+// Project Needs
+// ---------------------------------------------------------------------------
+
+/** GET /projects/:id/needs — list open needs for a project */
+export function getProjectNeeds(projectId: string): Promise<ProjectNeedResponse[]> {
+  return get<ProjectNeedResponse[]>(`/projects/${projectId}/needs`)
+}
+
+/** POST /projects/:id/needs — create a new need */
+export function createProjectNeed(
+  projectId: string,
+  data: CreateProjectNeedRequest,
+): Promise<ProjectNeedResponse> {
+  return post<ProjectNeedResponse>(`/projects/${projectId}/needs`, data)
+}
+
+/** PATCH /projects/:id/needs/:needId/close — close a need */
+export function closeProjectNeed(
+  projectId: string,
+  needId: string,
+): Promise<MessageResponse> {
+  return patch<MessageResponse>(`/projects/${projectId}/needs/${needId}/close`, {})
 }

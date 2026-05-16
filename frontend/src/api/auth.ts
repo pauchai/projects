@@ -16,6 +16,7 @@ import type {
   TelegramAuthorizeResponse,
   TokenResponse,
   UpdateProfileRequest,
+  UserInviteCodeRequest,
   UserInviteCodeResponse,
   UserResponse,
 } from "./types"
@@ -53,8 +54,8 @@ export function getReferrals(): Promise<ReferralsListResponse> {
 }
 
 /** POST /auth/invite-codes — generate a new invite code for the current user. */
-export function createInviteCode(): Promise<UserInviteCodeResponse> {
-  return post<UserInviteCodeResponse>("/auth/invite-codes", {})
+export function createInviteCode(params?: UserInviteCodeRequest): Promise<UserInviteCodeResponse> {
+  return post<UserInviteCodeResponse>("/auth/invite-codes", params ?? {})
 }
 
 /** POST /auth/activate — activate a pending account with a user-generated invite code. */

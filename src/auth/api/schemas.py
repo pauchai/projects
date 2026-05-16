@@ -193,6 +193,14 @@ class CreateInviteCodesResponse(BaseModel):
     codes: list[InviteCodeResponse]
 
 
+class UserInviteCodeRequest(BaseModel):
+    """POST /auth/invite-codes"""
+
+    scope: str = "system"
+    project_id: str | None = None
+    role: str | None = None
+
+
 class UserInviteCodeResponse(BaseModel):
     """POST /auth/invite-codes — a single invite code created by a user."""
 
@@ -203,3 +211,6 @@ class UserInviteCodeResponse(BaseModel):
     is_active: bool
     expires_at: str
     created_at: str
+    scope: str
+    project_id: str | None = None
+    role: str | None = None

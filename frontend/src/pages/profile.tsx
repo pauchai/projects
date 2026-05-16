@@ -9,6 +9,7 @@ import { useUpdateProfile, useReferrals, useCreateInviteCode } from "@/hooks/use
 import { useSearchProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/project-card"
 import { ApiError } from "@/api/client"
+import type { UserInviteCodeRequest } from "@/api/types"
 
 function EditProfileForm({ onDone }: { onDone: (emailChanged: boolean) => void }) {
   const { email, displayName } = useAuthStore()
@@ -113,13 +114,31 @@ export function ProfilePage() {
   const { data: referralsData, isLoading: loadingReferrals } = useReferrals()
 
   const inviteMutation = useCreateInviteCode()
-  const [generatedCode, setGeneratedCode] = useState<{ code: string; expires_at: string } | null>(null)
+  const [inviteScope, setInviteScope] = useState<"system" | "project">("system")
+  const [inviteProjectId, setInviteProjectId] = useState("")
+  const [inviteRole, setInviteRole] = useState("")
+  const [generatedCode, setGeneratedCode] = useState<{
+    code: string
+    expires_at: string
+    scope: string
+    project_id: string | null
+  } | null>(null)
   const [copied, setCopied] = useState(false)
 
   function handleGenerateInvite() {
-    inviteMutation.mutate(undefined, {
+    const params: UserInviteCodeRequest = { scope: inviteScope }
+    if (inviteScope === "project") {
+      if (inviteProjectId.trim()) params.project_id = inviteProjectId.trim()
+      if (inviteRole.trim()) params.role = inviteRole.trim()
+    }
+    inviteMutation.mutate(params, {
       onSuccess: (data) => {
-        setGeneratedCode({ code: data.code, expires_at: data.expires_at })
+        setGeneratedCode({
+          code: data.code,
+          expires_at: data.expires_at,
+          scope: data.scope,
+          project_id: data.project_id,
+        })
         setCopied(false)
       },
     })
@@ -127,7 +146,15 @@ export function ProfilePage() {
 
   function handleCopyCode() {
     if (!generatedCode) return
-    navigator.clipboard.writeText(generatedCode.code).then(() => {
+    let text: string
+    if (generatedCode.scope === "project" && generatedCode.project_id) {
+      // Build a shareable registration link pre-filled with code + project_id
+      const base = window.location.origin
+      text = `${base}/register?project=${generatedCode.project_id}&code=${generatedCode.code}`
+    } else {
+      text = generatedCode.code
+    }
+    navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -264,11 +291,62 @@ export function ProfilePage() {
         <p className="mb-3 text-sm text-muted-foreground">
           Generate a single-use invite code valid for 7 days.
         </p>
+
+        {/* Scope selector */}
+        <div className="mb-3 flex gap-3">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="radio"
+              name="invite-scope"
+              value="system"
+              checked={inviteScope === "system"}
+              onChange={() => setInviteScope("system")}
+            />
+            Platform invite
+          </label>
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="radio"
+              name="invite-scope"
+              value="project"
+              checked={inviteScope === "project"}
+              onChange={() => setInviteScope("project")}
+            />
+            Project invite
+          </label>
+        </div>
+
+        {/* Project-scoped fields */}
+        {inviteScope === "project" && (
+          <div className="mb-3 space-y-2">
+            <div className="space-y-1">
+              <Label htmlFor="invite-project-id">Project ID</Label>
+              <Input
+                id="invite-project-id"
+                value={inviteProjectId}
+                onChange={(e) => setInviteProjectId(e.target.value)}
+                placeholder="Paste project UUID"
+                className="max-w-xs font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="invite-role">Role (optional)</Label>
+              <Input
+                id="invite-role"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                placeholder="e.g. member, contributor"
+                className="max-w-xs"
+              />
+            </div>
+          </div>
+        )}
+
         <Button
           variant="outline"
           size="sm"
           onClick={handleGenerateInvite}
-          disabled={inviteMutation.isPending}
+          disabled={inviteMutation.isPending || (inviteScope === "project" && !inviteProjectId.trim())}
         >
           {inviteMutation.isPending ? "Generating…" : "Generate Invite Code"}
         </Button>
@@ -280,16 +358,29 @@ export function ProfilePage() {
           </p>
         )}
         {generatedCode && (
-          <div className="mt-3 flex items-center gap-2">
-            <code className="rounded bg-muted px-3 py-1.5 font-mono text-sm">
-              {generatedCode.code}
-            </code>
-            <Button variant="ghost" size="sm" onClick={handleCopyCode}>
-              {copied ? "Copied!" : "Copy"}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              expires {new Date(generatedCode.expires_at).toLocaleDateString()}
-            </span>
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <code className="rounded bg-muted px-3 py-1.5 font-mono text-sm">
+                {generatedCode.code}
+              </code>
+              <Button variant="ghost" size="sm" onClick={handleCopyCode}>
+                {copied
+                  ? "Copied!"
+                  : generatedCode.scope === "project"
+                    ? "Copy Link"
+                    : "Copy"}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                expires {new Date(generatedCode.expires_at).toLocaleDateString()}
+              </span>
+            </div>
+            {generatedCode.scope === "project" && generatedCode.project_id && (
+              <p className="text-xs text-muted-foreground">
+                Project invite for{" "}
+                <span className="font-mono">{generatedCode.project_id}</span>
+                {" "}— registrant will be auto-enrolled as a member.
+              </p>
+            )}
           </div>
         )}
       </section>

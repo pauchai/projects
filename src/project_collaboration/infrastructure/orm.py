@@ -49,6 +49,7 @@ from project_collaboration.domain.product import Product
 from project_collaboration.domain.product_type import ProductType
 from project_collaboration.domain.product_visibility import ProductVisibility
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import NeedStatus, ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
@@ -316,3 +317,37 @@ fund_distributions_table = Table(
 mapper_registry.map_imperatively(ProjectFund, project_funds_table)
 mapper_registry.map_imperatively(FundTransaction, fund_transactions_table)
 mapper_registry.map_imperatively(FundDistribution, fund_distributions_table)
+
+# ---------------------------------------------------------------------------
+# ProjectNeed table
+# ---------------------------------------------------------------------------
+
+project_needs_table = Table(
+    "project_needs",
+    metadata,
+    Column("need_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "role",
+        Enum(ProjectRole, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    ),
+    Column("skills", Text, nullable=False, default="[]"),
+    Column("description", Text, nullable=False),
+    Column("slots", Integer, nullable=False, default=1),
+    Column(
+        "status",
+        Enum(NeedStatus, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=NeedStatus.OPEN.value,
+    ),
+    Column("created_by", String(255), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(ProjectNeed, project_needs_table)

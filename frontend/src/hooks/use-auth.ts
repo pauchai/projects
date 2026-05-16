@@ -14,6 +14,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
+  UserInviteCodeRequest,
 } from "@/api/types"
 
 /** Query key for current user profile */
@@ -30,10 +31,11 @@ export const REFERRALS_QUERY_KEY = ["auth", "referrals"] as const
 
 /**
  * Generate a new invite code for the current user (POST /auth/invite-codes).
+ * Optionally pass scope/project_id/role for a project-scoped invite.
  */
 export function useCreateInviteCode() {
   return useMutation({
-    mutationFn: () => authApi.createInviteCode(),
+    mutationFn: (params?: UserInviteCodeRequest) => authApi.createInviteCode(params),
   })
 }
 

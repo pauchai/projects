@@ -91,6 +91,14 @@ invite_codes_table = Table(
     Column("is_active", Boolean, nullable=False, default=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=True),
+    Column("scope", String(20), nullable=False, default="system"),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=True,
+    ),
+    Column("role", String(50), nullable=True),
 )
 
 # ---------------------------------------------------------------------------

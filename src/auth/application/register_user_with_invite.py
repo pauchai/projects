@@ -5,14 +5,29 @@ Extends RegisterUserUseCase with invite code validation:
 2. Create user, link inviter_id from the code's inviter.
 3. Redeem the code (decrement uses_left).
 4. Persist atomically.
+
+Returns an ``InviteCodeResult`` so the calling handler can route by scope
+(e.g. call ``RedeemProjectInviteUseCase`` when scope="project") without
+the use case knowing about the project_collaboration context (SRP).
 """
 
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 
 from auth.domain.ports import PasswordHasher, UnitOfWork
 from auth.domain.user import Credential, User
+
+
+@dataclass(frozen=True)
+class InviteCodeResult:
+    """Carries registration outcome and scope metadata back to the handler."""
+
+    user_id: str
+    scope: str
+    project_id: str | None
+    role: str | None
 
 
 class RegisterUserWithInviteUseCase:
@@ -34,8 +49,8 @@ class RegisterUserWithInviteUseCase:
         password: str,
         display_name: str,
         invite_code: str,
-    ) -> str:
-        """Register a new user. Returns user_id.
+    ) -> InviteCodeResult:
+        """Register a new user. Returns an InviteCodeResult.
 
         Args:
             user_id: Pre-generated UUID for the new user.
@@ -81,4 +96,10 @@ class RegisterUserWithInviteUseCase:
             uow.invite_codes.save(code_entity)
             uow.commit()
 
-        return user.user_id
+        return InviteCodeResult(
+            user_id=user.user_id,
+            scope=code_entity.scope,
+            project_id=code_entity.project_id,
+            role=code_entity.role,
+        )
+

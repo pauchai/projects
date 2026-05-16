@@ -7,6 +7,7 @@ from project_collaboration.domain.feature_status import FeatureStatus
 from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
 from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 
@@ -68,6 +69,16 @@ class FundRepository(Protocol):
     def list_distributions(self, fund_id: str) -> list[FundDistribution]: ...
 
 
+class ProjectNeedRepository(Protocol):
+    """Port for persisting and querying ProjectNeeds."""
+
+    def find_by_id(self, need_id: str) -> ProjectNeed | None: ...
+
+    def find_by_project_id(self, project_id: str) -> list[ProjectNeed]: ...
+
+    def save(self, need: ProjectNeed) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence of domain changes.
 
@@ -88,6 +99,7 @@ class UnitOfWork(Protocol):
     feature_requests: FeatureRequestRepository
     products: ProductRepository
     fund: FundRepository
+    needs: ProjectNeedRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

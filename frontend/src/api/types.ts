@@ -50,11 +50,25 @@ export interface UpdateProfileRequest {
   display_name?: string
 }
 
+/** POST /auth/invite-codes — request body */
+export interface UserInviteCodeRequest {
+  scope?: "system" | "project"
+  project_id?: string | null
+  role?: string | null
+}
+
 /** POST /auth/invite-codes — response */
 export interface UserInviteCodeResponse {
+  code_id: string
   code: string
   expires_at: string
   max_uses: number
+  uses_left: number
+  is_active: boolean
+  created_at: string
+  scope: string
+  project_id: string | null
+  role: string | null
 }
 
 /** GET /auth/referrals — a single referred user */
@@ -203,6 +217,31 @@ export interface MessageResponse {
 /** API error response shape */
 export interface ApiErrorResponse {
   detail: string
+}
+
+// ---------------------------------------------------------------------------
+// Project Needs
+// ---------------------------------------------------------------------------
+
+/** POST /projects/:id/needs — request body */
+export interface CreateProjectNeedRequest {
+  title: string
+  description?: string
+  skills?: string[]
+  role?: string
+}
+
+/** GET /projects/:id/needs — a single project need */
+export interface ProjectNeedResponse {
+  need_id: string
+  project_id: string
+  title: string
+  description: string | null
+  skills: string[]
+  role: string | null
+  is_open: boolean
+  created_by: string
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------

@@ -257,3 +257,31 @@ class DocsSyncResponse(BaseModel):
 
     message: str
     path: str
+
+
+# ---------------------------------------------------------------------------
+# ProjectNeed schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateProjectNeedRequest(BaseModel):
+    """POST /projects/{project_id}/needs"""
+
+    role: str = Field(description="ProjectRole value, e.g. 'member', 'mentor'")
+    description: str = Field(min_length=1, max_length=2000)
+    skills: list[str] = Field(default_factory=list)
+    slots: int = Field(default=1, ge=1)
+
+
+class ProjectNeedResponse(BaseModel):
+    """Response for ProjectNeed endpoints."""
+
+    need_id: str
+    project_id: str
+    role: str
+    description: str
+    skills: list[str]
+    slots: int
+    status: str
+    created_by: str
+    created_at: datetime

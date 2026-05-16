@@ -24,7 +24,12 @@ import {
   useCancelProject,
   useApplyToProject,
 } from "@/hooks/use-projects"
-import type { ProjectResponse } from "@/api/types"
+import {
+  useProjectNeeds,
+  useCreateProjectNeed,
+  useCloseProjectNeed,
+} from "@/hooks/use-project-needs"
+import type { ProjectResponse, ProjectNeedResponse } from "@/api/types"
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   draft: "secondary",
@@ -159,6 +164,11 @@ export function ProjectOverviewPage() {
 
       {/* Members */}
       <MembersSection project={project} />
+
+      <Separator />
+
+      {/* Project Needs */}
+      <ProjectNeedsSection projectId={project.project_id} isMember={isMember || isOwner} />
 
       {/* Applications summary + link to settings tab (owner / admin) */}
       {isManager && (
@@ -369,6 +379,203 @@ function MembersSection({ project }: { project: ProjectResponse }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Project Needs
+// ---------------------------------------------------------------------------
+
+function ProjectNeedsSection({
+  projectId,
+  isMember,
+}: {
+  projectId: string
+  isMember: boolean
+}) {
+  const { data: needs, isLoading } = useProjectNeeds(projectId)
+  const createNeed = useCreateProjectNeed(projectId)
+  const closeNeed = useCloseProjectNeed(projectId)
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [skills, setSkills] = useState("")
+  const [role, setRole] = useState("")
+
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    createNeed.mutate(
+      {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        skills: skills ? skills.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        role: role.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setTitle("")
+          setDescription("")
+          setSkills("")
+          setRole("")
+          setShowForm(false)
+        },
+      },
+    )
+  }
+
+  const openNeeds = needs?.filter((n) => n.is_open) ?? []
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">
+          Project Needs
+          {openNeeds.length > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({openNeeds.length} open)
+            </span>
+          )}
+        </h2>
+        {isMember && !showForm && (
+          <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+            Add Need
+          </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">New Project Need</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="need-title">Title *</Label>
+                <Input
+                  id="need-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Frontend developer"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="need-description">Description (optional)</Label>
+                <Input
+                  id="need-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What will this person work on?"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="need-skills">Skills (optional, comma-separated)</Label>
+                <Input
+                  id="need-skills"
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                  placeholder="e.g. React, TypeScript"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="need-role">Role (optional)</Label>
+                <Input
+                  id="need-role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="e.g. contributor, designer"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" size="sm" disabled={createNeed.isPending || !title.trim()}>
+                  {createNeed.isPending ? "Creating…" : "Create"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+              {createNeed.isError && (
+                <p className="text-sm text-destructive">
+                  {createNeed.error instanceof Error
+                    ? createNeed.error.message
+                    : "Failed to create need."}
+                </p>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      ) : openNeeds.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No open needs at the moment.</p>
+      ) : (
+        <div className="space-y-2">
+          {openNeeds.map((need) => (
+            <NeedRow
+              key={need.need_id}
+              need={need}
+              isMember={isMember}
+              onClose={() => closeNeed.mutate(need.need_id)}
+              isClosing={closeNeed.isPending}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NeedRow({
+  need,
+  isMember,
+  onClose,
+  isClosing,
+}: {
+  need: ProjectNeedResponse
+  isMember: boolean
+  onClose: () => void
+  isClosing: boolean
+}) {
+  return (
+    <div className="flex items-start justify-between rounded-md border px-4 py-3 gap-4">
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">{need.title}</p>
+        {need.description && (
+          <p className="text-xs text-muted-foreground">{need.description}</p>
+        )}
+        <div className="flex flex-wrap gap-1 mt-1">
+          {need.role && (
+            <Badge variant="secondary" className="text-xs">
+              {need.role}
+            </Badge>
+          )}
+          {need.skills.map((s) => (
+            <Badge key={s} variant="outline" className="text-xs">
+              {s}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      {isMember && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-xs"
+          onClick={onClose}
+          disabled={isClosing}
+        >
+          Close
+        </Button>
       )}
     </div>
   )

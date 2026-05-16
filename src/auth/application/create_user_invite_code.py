@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from auth.domain.invite_code import InviteCode
 from auth.domain.ports import UnitOfWork
@@ -27,6 +28,7 @@ class CreateUserInviteCodeUseCase:
       so that when someone registers with it, the referral graph is populated.
     - expires in ``expires_days`` days (default 7).
     - is single-use by default (``max_uses=1``).
+    - supports ``scope="project"`` to invite directly into a specific project.
     """
 
     def __init__(self, uow: UnitOfWork) -> None:
@@ -38,19 +40,25 @@ class CreateUserInviteCodeUseCase:
         *,
         max_uses: int = _DEFAULT_MAX_USES,
         expires_days: int = _DEFAULT_EXPIRES_DAYS,
+        scope: Literal["system", "project"] = "system",
+        project_id: str | None = None,
+        role: str | None = None,
     ) -> InviteCode:
         """Generate one invite code owned by *user_id*.
 
         Args:
-            user_id: ID of the authenticated user creating the code.
-            max_uses: Uses per code (default 1).
+            user_id:    ID of the authenticated user creating the code.
+            max_uses:   Uses per code (default 1).
             expires_days: Days until expiry (default 7).
+            scope:      "system" (default) or "project".
+            project_id: Required when scope="project".
+            role:       Optional role to assign when scope="project".
 
         Returns:
             The persisted InviteCode.
 
         Raises:
-            ValueError: if user_id is empty, max_uses < 1, or expires_days < 1.
+            ValueError: domain validation errors.
         """
         if not user_id or not user_id.strip():
             raise ValueError("user_id cannot be empty")
@@ -69,6 +77,9 @@ class CreateUserInviteCodeUseCase:
                 inviter_id=user_id,
                 max_uses=max_uses,
                 expires_at=expires_at,
+                scope=scope,
+                project_id=project_id,
+                role=role,
             )
             uow.invite_codes.save(invite)
             uow.commit()

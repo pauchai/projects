@@ -7,11 +7,16 @@ Design decisions:
   (i.e., who referred the new user). For admin-issued seed codes it is None.
 - Single-use: max_uses defaults to 1 to couple well with onboarding flow.
 - ``redeem()`` enforces all business rules: expiry, exhaustion, activation.
+- ``scope`` controls what the code unlocks:
+    - "system"  — grants entry into the platform (default, existing behaviour).
+    - "project" — additionally adds the new user to a specific project with a
+                  given role. ``project_id`` and ``role`` are required.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Literal
 
 
 class InviteCode:
@@ -30,11 +35,20 @@ class InviteCode:
         max_uses: int = 1,
         inviter_id: str | None = None,
         expires_at: datetime | None = None,
+        scope: Literal["system", "project"] = "system",
+        project_id: str | None = None,
+        role: str | None = None,
     ) -> None:
         if not code.strip():
             raise ValueError("Code cannot be empty")
         if max_uses < 1:
             raise ValueError("max_uses must be at least 1")
+        if scope == "project" and not project_id:
+            raise ValueError("project_id is required when scope is 'project'")
+        if scope != "project" and (project_id or role):
+            raise ValueError(
+                "project_id and role are only allowed when scope is 'project'"
+            )
 
         self.code_id = code_id
         self.code = code.strip().upper()
@@ -45,6 +59,9 @@ class InviteCode:
         self.is_active: bool = True
         self.created_at: datetime = datetime.now(timezone.utc)
         self.expires_at: datetime | None = expires_at
+        self.scope: Literal["system", "project"] = scope
+        self.project_id: str | None = project_id
+        self.role: str | None = role
 
     # ------------------------------------------------------------------
     # Queries

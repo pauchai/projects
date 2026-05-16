@@ -12,9 +12,11 @@ from project_collaboration.api.dependencies import get_current_user_id, get_uow
 from project_collaboration.api.schemas import (
     ApplyToProjectRequest,
     ChangeMemberRoleRequest,
+    CreateProjectNeedRequest,
     CreateProjectRequest,
     DocsSyncResponse,
     MessageResponse,
+    ProjectNeedResponse,
     ProjectResponse,
     ProjectSummaryResponse,
     SetDocsRepoUrlRequest,
@@ -28,7 +30,12 @@ from project_collaboration.application.change_project_status import (
     ResumeProjectUseCase,
     SuspendProjectUseCase,
 )
+from project_collaboration.application.close_project_need import CloseProjectNeedUseCase
 from project_collaboration.application.create_project import CreateProjectUseCase
+from project_collaboration.application.create_project_need import (
+    CreateProjectNeedCommand,
+    CreateProjectNeedUseCase,
+)
 from project_collaboration.application.manage_member import (
     ChangeMemberRoleUseCase,
     RemoveMemberUseCase,
@@ -524,3 +531,93 @@ def get_docs_file(
         raise HTTPException(status_code=404, detail=f"File '{file_path}' not found in docs volume")
 
     return target.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Project Needs endpoints
+# ---------------------------------------------------------------------------
+
+
+def _need_to_response(need: object) -> ProjectNeedResponse:
+    return ProjectNeedResponse(
+        need_id=need.need_id,  # type: ignore[attr-defined]
+        project_id=need.project_id,  # type: ignore[attr-defined]
+        role=need.role.value,  # type: ignore[attr-defined]
+        description=need.description,  # type: ignore[attr-defined]
+        skills=need.skills,  # type: ignore[attr-defined]
+        slots=need.slots,  # type: ignore[attr-defined]
+        status=need.status.value,  # type: ignore[attr-defined]
+        created_by=need.created_by,  # type: ignore[attr-defined]
+        created_at=need.created_at,  # type: ignore[attr-defined]
+    )
+
+
+@router.get("/{project_id}/needs", response_model=list[ProjectNeedResponse])
+def list_project_needs(
+    project_id: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> list[ProjectNeedResponse]:
+    """List all open/filled needs for a project. Public endpoint."""
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        needs = u.needs.find_by_project_id(project_id)
+    return [_need_to_response(n) for n in needs]
+
+
+@router.post("/{project_id}/needs", response_model=ProjectNeedResponse, status_code=201)
+def create_project_need(
+    project_id: str,
+    body: CreateProjectNeedRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> ProjectNeedResponse:
+    """Post a new open position. Any active project member can create one."""
+    try:
+        role = ProjectRole(body.role)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid role '{body.role}'")
+
+    use_case = CreateProjectNeedUseCase(uow)
+    try:
+        need_id = use_case.execute(
+            CreateProjectNeedCommand(
+                project_id=project_id,
+                caller_id=caller_id,
+                role=role,
+                description=body.description,
+                skills=body.skills,
+                slots=body.slots,
+            )
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    with uow as u:
+        need = u.needs.find_by_id(need_id)
+    return _need_to_response(need)
+
+
+@router.patch("/{project_id}/needs/{need_id}/close", response_model=MessageResponse)
+def close_project_need(
+    project_id: str,
+    need_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> MessageResponse:
+    """Close an open project need."""
+    use_case = CloseProjectNeedUseCase(uow)
+    try:
+        use_case.execute(need_id=need_id, caller_id=caller_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return MessageResponse(message="Need closed successfully")
