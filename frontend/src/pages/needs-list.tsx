@@ -25,20 +25,23 @@ function ApplyDialog({
 }) {
   const [motivation, setMotivation] = useState("")
   const [skills, setSkills] = useState("")
-  const applyMutation = useApplyToProject(need.project_id)
+  const applyMutation = useApplyToProject()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     applyMutation.mutate(
       {
-        application_id: globalThis.crypto.randomUUID(),
-        desired_role: need.role,
-        motivation,
-        applicant_skills: skills
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        need_id: need.need_id,
+        projectId: need.project_id,
+        data: {
+          application_id: globalThis.crypto.randomUUID(),
+          desired_role: need.role,
+          motivation,
+          applicant_skills: skills
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          need_id: need.need_id,
+        },
       },
       { onSuccess: onClose },
     )

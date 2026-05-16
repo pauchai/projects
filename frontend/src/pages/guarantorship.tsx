@@ -30,7 +30,7 @@ import {
   useRequestGuarantor,
   useZeroCircles,
 } from "@/hooks/use-guarantorship"
-import type { ZeroCircleResponse } from "@/api/types"
+import type { GuaranteeRequestResponse, ZeroCircleResponse } from "@/api/types"
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ function RequestGuarantorDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <Button size="sm">Request guarantor / Подать заявку</Button>
       </DialogTrigger>
       <DialogContent className="max-w-sm">
@@ -141,7 +141,7 @@ function CreateCircleDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <Button size="sm" variant="outline">
           Create circle / Создать круг
         </Button>
@@ -255,11 +255,11 @@ export function GuarantorshipPage() {
   const rejectMutation = useRejectRequest()
 
   const activeGuarantors =
-    outgoingQuery.data?.filter((r) => r.status === "accepted") ?? []
+    outgoingQuery.data?.filter((r: GuaranteeRequestResponse) => r.status === "accepted") ?? []
   const pendingOutgoing =
-    outgoingQuery.data?.filter((r) => r.status === "pending") ?? []
+    outgoingQuery.data?.filter((r: GuaranteeRequestResponse) => r.status === "pending") ?? []
   const pendingIncoming =
-    incomingQuery.data?.filter((r) => r.status === "pending") ?? []
+    incomingQuery.data?.filter((r: GuaranteeRequestResponse) => r.status === "pending") ?? []
 
   return (
     <div className="container py-8 max-w-2xl flex flex-col gap-8">
