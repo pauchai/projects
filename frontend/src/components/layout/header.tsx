@@ -54,6 +54,12 @@ export function Header() {
           >
             Needs
           </Link>
+          <Link
+            to="/marketplace"
+            className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+          >
+            Marketplace
+          </Link>
 
           {/* Zone 1.5: Authenticated nav */}
           {isAuthenticated && (
@@ -152,6 +158,13 @@ export function Header() {
               className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
             >
               Needs
+            </Link>
+            <Link
+              to="/marketplace"
+              onClick={closeMenu}
+              className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Marketplace
             </Link>
 
             {/* Zone 3: Auth */}

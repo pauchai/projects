@@ -242,6 +242,18 @@ class ProductResponse(BaseModel):
     created_at: datetime
 
 
+class MarketplaceProductResponse(BaseModel):
+    """Response for GET /marketplace — public active products with project title."""
+
+    product_id: str
+    project_id: str
+    project_title: str
+    title: str
+    product_type: str
+    description: str
+    created_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # Docs repo URL & sync schemas
 # ---------------------------------------------------------------------------

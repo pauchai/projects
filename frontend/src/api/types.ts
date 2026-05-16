@@ -258,6 +258,21 @@ export interface PublicNeedResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Marketplace
+// ---------------------------------------------------------------------------
+
+/** GET /marketplace — a single public active product with project title */
+export interface MarketplaceProductResponse {
+  product_id: string
+  project_id: string
+  project_title: string
+  title: string
+  product_type: ProductType
+  description: string
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
 // Feature Requests
 // ---------------------------------------------------------------------------
 

@@ -49,6 +49,9 @@ import { FeatureDetailPage } from "@/pages/feature-detail"
 // Needs
 import { NeedsListPage } from "@/pages/needs-list"
 
+// Marketplace
+import { MarketplacePage } from "@/pages/marketplace"
+
 // Auth
 import { ProfilePage } from "@/pages/profile"
 import { SecuritySettingsPage } from "@/pages/settings/security"
@@ -105,6 +108,7 @@ export default function App() {
                 {/* Projects list / create */}
                 <Route path="/projects" element={<ProjectsListPage />} />
                 <Route path="/needs" element={<NeedsListPage />} />
+                <Route path="/marketplace" element={<MarketplacePage />} />
                 <Route
                   path="/projects/new"
                   element={

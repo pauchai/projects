@@ -69,6 +69,7 @@ import guarantorship.infrastructure.orm  # noqa: F401 — registers Guarantorshi
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
 from project_collaboration.api.routes.fund import router as fund_router
+from project_collaboration.api.routes.marketplace import router as marketplace_router
 from project_collaboration.api.routes.needs import router as needs_router
 from project_collaboration.api.routes.products import router as products_router
 from project_collaboration.api.routes.projects import router as projects_router
@@ -226,6 +227,7 @@ def create_app() -> FastAPI:
     app.include_router(oauth_router)
     app.include_router(projects_router)
     app.include_router(needs_router)
+    app.include_router(marketplace_router)
     app.include_router(products_router)
     app.include_router(fund_router)
     app.include_router(features_router)
