@@ -28,6 +28,7 @@ class ApplicationForm:
         desired_role: ProjectRole,
         motivation: str,
         applicant_skills: list[SkillTag],
+        need_id: str | None = None,
     ) -> None:
         if desired_role == ProjectRole.OWNER:
             raise ValueError("Desired role cannot be Owner")
@@ -42,6 +43,7 @@ class ApplicationForm:
         self.desired_role = desired_role
         self.motivation = motivation
         self.applicant_skills = list(applicant_skills)
+        self.need_id: str | None = need_id
         self.status: ApplicationStatus = ApplicationStatus.PENDING
         self.reviewed_by: str | None = None
         self.submitted_at: datetime = datetime.now(timezone.utc)

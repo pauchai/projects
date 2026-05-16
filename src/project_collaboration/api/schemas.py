@@ -40,6 +40,7 @@ class ApplyToProjectRequest(BaseModel):
     desired_role: str
     motivation: str = Field(default="", max_length=2000)
     applicant_skills: list[str] = Field(default_factory=list)
+    need_id: str | None = None
 
 
 class ChangeMemberRoleRequest(BaseModel):
@@ -284,4 +285,17 @@ class ProjectNeedResponse(BaseModel):
     slots: int
     status: str
     created_by: str
+    created_at: datetime
+
+
+class PublicNeedResponse(BaseModel):
+    """Response for GET /needs — global open needs list, includes project title."""
+
+    need_id: str
+    project_id: str
+    project_title: str
+    role: str
+    description: str
+    skills: list[str]
+    slots: int
     created_at: datetime

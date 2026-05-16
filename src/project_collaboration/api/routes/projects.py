@@ -231,6 +231,7 @@ def apply_to_project(
         desired_role=ProjectRole(body.desired_role),
         motivation=body.motivation,
         applicant_skills=[SkillTag(s) for s in body.applicant_skills],
+        need_id=body.need_id,
     )
     return MessageResponse(message="Application submitted")
 

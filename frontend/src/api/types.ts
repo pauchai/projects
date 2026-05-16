@@ -194,6 +194,7 @@ export interface ApplyToProjectRequest {
   desired_role: string
   motivation?: string
   applicant_skills?: string[]
+  need_id?: string | null
 }
 
 /** PATCH /projects/:id — request body */
@@ -241,6 +242,18 @@ export interface ProjectNeedResponse {
   slots: number
   status: string
   created_by: string
+  created_at: string
+}
+
+/** GET /needs — global open need (includes project title) */
+export interface PublicNeedResponse {
+  need_id: string
+  project_id: string
+  project_title: string
+  role: string
+  description: string
+  skills: string[]
+  slots: number
   created_at: string
 }
 

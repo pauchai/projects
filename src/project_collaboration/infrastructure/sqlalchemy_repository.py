@@ -323,6 +323,18 @@ class SqlAlchemyProjectNeedRepository:
             self._deserialize_skills(need)
         return needs
 
+    def find_all_open(self) -> list[ProjectNeed]:
+        """Return all needs with status='open', newest first."""
+        query = (
+            select(ProjectNeed)
+            .where(project_needs_table.c.status == "open")
+            .order_by(project_needs_table.c.created_at.desc())
+        )
+        needs = list(self._session.scalars(query).all())
+        for need in needs:
+            self._deserialize_skills(need)
+        return needs
+
     def save(self, need: ProjectNeed) -> None:
         self._serialize_skills(need)
         self._session.merge(need)

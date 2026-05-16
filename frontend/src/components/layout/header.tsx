@@ -48,6 +48,12 @@ export function Header() {
           >
             Projects
           </Link>
+          <Link
+            to="/needs"
+            className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+          >
+            Needs
+          </Link>
 
           {/* Zone 1.5: Authenticated nav */}
           {isAuthenticated && (
@@ -139,6 +145,13 @@ export function Header() {
               className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
             >
               Projects
+            </Link>
+            <Link
+              to="/needs"
+              onClick={closeMenu}
+              className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Needs
             </Link>
 
             {/* Zone 3: Auth */}

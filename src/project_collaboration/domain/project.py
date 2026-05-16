@@ -182,6 +182,7 @@ class Project:
         desired_role: ProjectRole,
         motivation: str,
         applicant_skills: list[SkillTag],
+        need_id: str | None = None,
     ) -> None:
         """Submit an application to join this project."""
         if self.status != ProjectStatus.RECRUITING:
@@ -207,6 +208,7 @@ class Project:
             desired_role=desired_role,
             motivation=motivation,
             applicant_skills=applicant_skills,
+            need_id=need_id,
         )
         self.applications.append(form)
         self._emit(
