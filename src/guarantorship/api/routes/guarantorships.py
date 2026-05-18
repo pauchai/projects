@@ -8,6 +8,7 @@ from guarantorship.api.dependencies import get_guarantorship_uow
 from guarantorship.api.schemas import (
     GuaranteeRequestCreate,
     GuaranteeRequestResponse,
+    GuarantorshipResponse,
     ZeroCircleCreate,
     ZeroCircleResponse,
 )
@@ -66,20 +67,28 @@ def request_guarantor(
 
 @router.post(
     "/{request_id}/accept",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=GuarantorshipResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Accept a guarantorship request",
 )
 def accept_request(
     request_id: str,
     current_user_id: str = Depends(get_current_user_id),
     uow: SqlAlchemyGuarantorshipUnitOfWork = Depends(get_guarantorship_uow),
-) -> None:
-    AcceptGuaranteeRequestUseCase(uow).execute(
-        AcceptGuaranteeRequestCommand(
-            request_id=request_id,
-            guarantor_id=current_user_id,
+) -> GuarantorshipResponse:
+    from fastapi import HTTPException
+    try:
+        guarantorship = AcceptGuaranteeRequestUseCase(uow).execute(
+            AcceptGuaranteeRequestCommand(
+                request_id=request_id,
+                guarantor_id=current_user_id,
+            )
         )
-    )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return GuarantorshipResponse.model_validate(guarantorship)
 
 
 @router.post(

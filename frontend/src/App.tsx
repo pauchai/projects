@@ -24,6 +24,7 @@ import { ProjectFundPage } from "@/pages/project/fund"
 import { ProjectFeaturesPage } from "@/pages/project/features"
 import { ProjectModulesPage } from "@/pages/project/modules"
 import { GuarantorshipPage } from "@/pages/guarantorship"
+import { ComplaintsPage } from "@/pages/complaints"
 
 // Module workspace
 import { ModuleLayout } from "@/pages/module/layout"
@@ -216,6 +217,16 @@ export default function App() {
                   element={
                     <ProtectedRoute>
                       <GuarantorshipPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Complaints */}
+                <Route
+                  path="/complaints"
+                  element={
+                    <ProtectedRoute>
+                      <ComplaintsPage />
                     </ProtectedRoute>
                   }
                 />

@@ -68,6 +68,10 @@ import schedule.infrastructure.orm  # noqa: F401 — registers Schedule ORM mapp
 import guarantorship.infrastructure.orm  # noqa: F401 — registers Guarantorship ORM mappings
 from guarantorship.api.routes.guarantorships import circles_router as zero_circles_router
 from guarantorship.api.routes.guarantorships import router as guarantorships_router
+from guarantorship.api.routes.deposits import router as deposits_router
+from guarantorship.api.routes.deals import router as deals_router
+from guarantorship.api.routes.complaints import router as complaints_router
+from guarantorship.api.routes.platform_settings import router as platform_settings_router
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
 from project_collaboration.api.routes.fund import router as fund_router
@@ -243,6 +247,10 @@ def create_app() -> FastAPI:
     app.include_router(schedule_router)
     app.include_router(guarantorships_router)
     app.include_router(zero_circles_router)
+    app.include_router(deposits_router)
+    app.include_router(deals_router)
+    app.include_router(complaints_router)
+    app.include_router(platform_settings_router)
 
     return app
 

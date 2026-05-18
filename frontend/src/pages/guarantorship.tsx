@@ -1,9 +1,11 @@
 /**
- * Guarantorship page — bilingual, four sections:
+ * Guarantorship page — bilingual, six sections:
  * 1. My status (outgoing requests + active guarantors)
- * 2. Request a guarantor (by user ID)
- * 3. Incoming requests (accept / reject)
- * 4. Zero Circles (create / join)
+ * 2. My Guarantorships (as guarantor)
+ * 3. Deposits
+ * 4. Request a guarantor (by user ID)
+ * 5. Incoming requests (accept / reject)
+ * 6. Zero Circles (create / join)
  */
 
 import { useState } from "react"
@@ -22,15 +24,23 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuthStore } from "@/stores/auth-store"
 import {
   useAcceptRequest,
+  useCreateDeposit,
   useCreateZeroCircle,
   useIncomingRequests,
   useJoinZeroCircle,
+  useMyDeposits,
+  useMyGuarantorships,
   useOutgoingRequests,
   useRejectRequest,
   useRequestGuarantor,
   useZeroCircles,
 } from "@/hooks/use-guarantorship"
-import type { GuaranteeRequestResponse, ZeroCircleResponse } from "@/api/types"
+import type {
+  DepositCreate,
+  GuaranteeRequestResponse,
+  GuarantorshipResponse,
+  ZeroCircleResponse,
+} from "@/api/types"
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -242,6 +252,92 @@ function ZeroCircleCard({
   )
 }
 
+// ─── Create Deposit dialog ────────────────────────────────────────────────────
+
+function CreateDepositDialog() {
+  const [open, setOpen] = useState(false)
+  const [guarantorId, setGuarantorId] = useState("")
+  const [amount, setAmount] = useState("")
+  const [blockchainRef, setBlockchainRef] = useState("")
+  const mutation = useCreateDeposit()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const body: DepositCreate = {
+      guarantor_id: guarantorId.trim(),
+      amount: parseFloat(amount),
+      blockchain_ref: blockchainRef.trim() || null,
+    }
+    mutation.mutate(body, {
+      onSuccess: () => {
+        setOpen(false)
+        setGuarantorId("")
+        setAmount("")
+        setBlockchainRef("")
+      },
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <Button size="sm">Add deposit / Добавить депозит</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Create Deposit / Создать депозит</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="dep-guarantor-id">
+              Guarantor User ID / ID поручителя
+            </Label>
+            <Input
+              id="dep-guarantor-id"
+              value={guarantorId}
+              onChange={(e) => setGuarantorId(e.target.value)}
+              placeholder="Enter guarantor ID..."
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="dep-amount">Amount / Сумма</Label>
+            <Input
+              id="dep-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="100.00"
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="dep-blockchain-ref">
+              Blockchain ref (optional) / Блокчейн-ссылка (необязательно)
+            </Label>
+            <Input
+              id="dep-blockchain-ref"
+              value={blockchainRef}
+              onChange={(e) => setBlockchainRef(e.target.value)}
+              placeholder="0x..."
+            />
+          </div>
+          {mutation.isError && (
+            <p className="text-sm text-destructive">
+              {String((mutation.error as Error)?.message ?? "Error")}
+            </p>
+          )}
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "Creating…" : "Create / Создать"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function GuarantorshipPage() {
@@ -250,6 +346,8 @@ export function GuarantorshipPage() {
   const incomingQuery = useIncomingRequests()
   const outgoingQuery = useOutgoingRequests()
   const circlesQuery = useZeroCircles()
+  const guarantorshipsQuery = useMyGuarantorships()
+  const depositsQuery = useMyDeposits()
 
   const acceptMutation = useAcceptRequest()
   const rejectMutation = useRejectRequest()
@@ -331,7 +429,90 @@ export function GuarantorshipPage() {
         )}
       </section>
 
-      {/* Section 2: Request a guarantor */}
+      {/* Section 2: My Guarantorships (as guarantor) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">
+          My wards / Мои подопечные
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Users for whom you are an active guarantor. /
+          Пользователи, для которых вы являетесь активным поручителем.
+        </p>
+        {guarantorshipsQuery.isLoading && (
+          <p className="text-sm text-muted-foreground">Loading… / Загрузка…</p>
+        )}
+        {guarantorshipsQuery.data?.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            You are not guaranteeing anyone yet. /
+            Вы пока не поручаетесь ни за кого.
+          </p>
+        )}
+        {guarantorshipsQuery.data && guarantorshipsQuery.data.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {guarantorshipsQuery.data.map((g: GuarantorshipResponse) => (
+              <div
+                key={g.guarantorship_id}
+                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              >
+                <span>
+                  Ward / Подопечный:{" "}
+                  <code className="text-xs">{g.ward_id}</code>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(g.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Section 3: Deposits */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">
+            Deposits / Депозиты
+          </h2>
+          <CreateDepositDialog />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Deposits you have placed with your guarantors. /
+          Депозиты, размещённые у ваших поручителей.
+        </p>
+        {depositsQuery.isLoading && (
+          <p className="text-sm text-muted-foreground">Loading… / Загрузка…</p>
+        )}
+        {depositsQuery.data?.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No deposits yet. / Депозитов пока нет.
+          </p>
+        )}
+        {depositsQuery.data && depositsQuery.data.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {depositsQuery.data.map((d) => (
+              <div
+                key={d.deposit_id}
+                className="rounded-md border px-3 py-2 text-sm flex items-center justify-between"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span>
+                    Guarantor:{" "}
+                    <code className="text-xs">{d.guarantor_id}</code>
+                  </span>
+                  {d.blockchain_ref && (
+                    <span className="text-xs text-muted-foreground">
+                      ref: {d.blockchain_ref}
+                    </span>
+                  )}
+                </div>
+                <Badge variant="secondary">{d.amount}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Section 4: Request a guarantor */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">
@@ -347,7 +528,7 @@ export function GuarantorshipPage() {
         </p>
       </section>
 
-      {/* Section 3: Incoming requests */}
+      {/* Section 5: Incoming requests */}
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">
           Incoming requests / Входящие заявки
@@ -398,7 +579,7 @@ export function GuarantorshipPage() {
         )}
       </section>
 
-      {/* Section 4: Zero Circles */}
+      {/* Section 6: Zero Circles */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">

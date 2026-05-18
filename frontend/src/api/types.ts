@@ -789,6 +789,69 @@ export interface GuaranteeRequestResponse {
   message: string | null
   created_at: string
   responded_at: string | null
+  converted_to_guarantorship_id: string | null
+}
+
+export interface GuarantorshipResponse {
+  guarantorship_id: string
+  guarantor_id: string
+  ward_id: string
+  request_id: string
+  created_at: string
+}
+
+export interface DepositCreate {
+  guarantor_id: string
+  amount: number
+  blockchain_ref?: string | null
+}
+
+export interface DepositResponse {
+  deposit_id: string
+  ward_id: string
+  guarantor_id: string
+  amount: number
+  blockchain_ref: string | null
+  created_at: string
+}
+
+export interface PlatformSettingsResponse {
+  required_guarantors_count: number
+  guarantor_ward_limit: number
+  escalation_levels: number
+}
+
+export interface DealCreate {
+  counterparty_id: string
+  amount: number
+}
+
+export interface DealResponse {
+  deal_id: string
+  initiator_id: string
+  counterparty_id: string
+  amount: number
+  status: "pending" | "active" | "completed" | "disputed" | "resolved"
+  created_at: string
+}
+
+export interface ComplaintCreate {
+  deal_id: string
+  against_id: string
+  description: string
+}
+
+export interface ComplaintResponse {
+  complaint_id: string
+  deal_id: string
+  filed_by_id: string
+  against_id: string
+  description: string
+  status: "open" | "voting" | "escalated" | "resolved"
+  verdict: "compensate_initiator" | "compensate_counterparty" | "dismiss" | null
+  voting_deadline: string | null
+  escalation_level: number
+  created_at: string
 }
 
 export interface ZeroCircleCreate {

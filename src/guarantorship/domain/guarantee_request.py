@@ -50,6 +50,7 @@ class GuaranteeRequest:
         self.message = message
         self.created_at = created_at or datetime.now(timezone.utc)
         self.responded_at = responded_at
+        self.converted_to_guarantorship_id: str | None = None
 
     def accept(self) -> None:
         """Accept the request. Raises if not pending."""
