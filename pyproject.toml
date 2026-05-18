@@ -9,6 +9,7 @@ packages = [
     {include = "shared_kernel", from = "src"},
     {include = "cohort_learning", from = "src"},
     {include = "guarantorship", from = "src"},
+    {include = "mcp_tools", from = "src"},
 ]
 
 [tool.poetry.dependencies]

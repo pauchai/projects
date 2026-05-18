@@ -86,6 +86,45 @@ def _extract_user_id(
         raise AuthenticationError(f"Invalid token: {exc}") from exc
 
 
+import os
+
+SERVICE_TOKEN = os.environ.get("MCP_SERVICE_TOKEN", "")
+
+
+def get_service_user_id(
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_user_id: str = Header(..., alias="X-User-ID"),
+) -> str:
+    """FastAPI dependency: validates service token and returns impersonated user_id.
+
+    The caller must supply:
+    - Authorization: Bearer <MCP_SERVICE_TOKEN>
+    - X-User-ID: <target_user_id>
+
+    Returns the target user_id from X-User-ID.
+
+    Raises AuthenticationError if the service token is missing or wrong.
+    """
+    if not SERVICE_TOKEN:
+        raise AuthenticationError("MCP service not configured (MCP_SERVICE_TOKEN not set)")
+
+    if authorization is None:
+        raise AuthenticationError("Missing Authorization header")
+
+    parts = authorization.split(" ", maxsplit=1)
+    if len(parts) != 2 or parts[0] != "Bearer":
+        raise AuthenticationError("Authorization header must use Bearer scheme")
+
+    token = parts[1].strip()
+    if token != SERVICE_TOKEN:
+        raise AuthenticationError("Invalid service token")
+
+    if not x_user_id:
+        raise AuthenticationError("Missing X-User-ID header")
+
+    return x_user_id
+
+
 def get_current_user_id(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     token_service: TokenService = Depends(get_token_service),

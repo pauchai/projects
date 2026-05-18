@@ -79,6 +79,7 @@ from project_collaboration.api.routes.marketplace import router as marketplace_r
 from project_collaboration.api.routes.needs import router as needs_router
 from project_collaboration.api.routes.products import router as products_router
 from project_collaboration.api.routes.projects import router as projects_router
+from project_collaboration.api.routes.internal import router as internal_router
 from project_collaboration.infrastructure.database import (
     get_engine,
     get_session_factory,
@@ -232,6 +233,7 @@ def create_app() -> FastAPI:
     app.include_router(credentials_router)
     app.include_router(oauth_router)
     app.include_router(projects_router)
+    app.include_router(internal_router)
     app.include_router(needs_router)
     app.include_router(marketplace_router)
     app.include_router(products_router)

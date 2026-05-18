@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "projects": {
+      "type": "local",
+      "command": [
+        "uv",
+        "run",
+        "--with",
+        "mcp",
+        "python",
+        "-m",
+        "mcp_tools.servers.projects.server"
+      ],
+      "environment": {
+        "MCP_SERVICE_TOKEN": "${MCP_SERVICE_TOKEN}",
+        "MCP_API_HOST": "${MCP_API_HOST}"
+      },
+      "enabled": true
+    }
+  }
+}
