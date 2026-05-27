@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy.dialects.postgresql import UUID, JSON, ENUM as PG_ENUM
 
 revision = "l0m1n2o3p4q5"
 down_revision = "k0l1m2n3o4p5"
@@ -127,9 +127,9 @@ def upgrade() -> None:
         sa.Column("description", sa.Text, nullable=False, server_default=""),
         sa.Column(
             "status",
-            sa.Enum(
+            PG_ENUM(
                 "submitted", "planned", "in_progress", "done", "rejected",
-                name="featurestatus",
+                name="featurestatus", create_type=False,
             ),
             nullable=False,
             server_default="submitted",
