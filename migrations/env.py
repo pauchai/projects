@@ -55,13 +55,13 @@ from sqlalchemy import MetaData
 
 target_metadata = MetaData()
 
-for table in auth_metadata.tables.values():
-    table.to_metadata(target_metadata)
-
 for table in collab_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 for table in cohort_metadata.tables.values():
+    table.to_metadata(target_metadata)
+
+for table in auth_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 # Tables that exist in the DB but are NOT managed by Alembic.

@@ -120,3 +120,16 @@ mapper_registry.map_imperatively(
         ),
     },
 )
+
+# ---------------------------------------------------------------------------
+# Cross-context FK resolution
+# ---------------------------------------------------------------------------
+# auth_invite_codes.project_id references projects.project_id which lives
+# in project_collaboration's MetaData.  Copy the needed tables into auth's
+# MetaData so SQLAlchemy can resolve the ForeignKey at SQL compilation time
+# without raising NoReferencedTableError.
+from project_collaboration.infrastructure.orm import metadata as collab_metadata  # noqa: E402
+
+for _table in collab_metadata.tables.values():
+    if _table.name not in metadata.tables:
+        _table.to_metadata(metadata)

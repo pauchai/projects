@@ -11,15 +11,18 @@ from mcp.server.fastmcp import FastMCP
 # Transport: streamable-http so opencode (or any HTTP client) can reach it.
 # Mount at /mcp — the standard path for MCP over HTTP.
 HOST = os.environ.get("MCP_API_HOST", "http://localhost:8000")
-SERVICE_TOKEN = os.environ.get("MCP_SERVICE_TOKEN", "")
 
-if not SERVICE_TOKEN:
-    raise RuntimeError("MCP_SERVICE_TOKEN environment variable is not set")
+
+def _ensure_token() -> str:
+    token = os.environ.get("MCP_SERVICE_TOKEN")
+    if not token:
+        raise RuntimeError("MCP_SERVICE_TOKEN environment variable is not set")
+    return token
 
 
 def _headers(user_id: str) -> dict[str, str]:
     return {
-        "Authorization": f"Bearer {SERVICE_TOKEN}",
+        "Authorization": f"Bearer {_ensure_token()}",
         "X-User-ID": user_id,
     }
 
