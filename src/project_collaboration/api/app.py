@@ -66,7 +66,7 @@ from partnership.infrastructure.sqlalchemy_unit_of_work import (
 )
 import partnership.infrastructure.orm  # noqa: F401 — registers Partnership ORM mappings
 import schedule.infrastructure.orm  # noqa: F401 — registers Schedule ORM mappings
-import guarantorship.infrastructure.orm  # noqa: F401 — registers Guarantorship ORM mappings
+from guarantorship.infrastructure.orm import register_mappers as _register_guarantorship_mappers
 from guarantorship.api.routes.guarantorships import circles_router as zero_circles_router
 from guarantorship.api.routes.guarantorships import router as guarantorships_router
 from guarantorship.api.routes.deposits import router as deposits_router
@@ -100,6 +100,9 @@ CORS_ORIGINS: list[str] = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run Alembic migrations on startup and wire up the EventBus."""
+    # Register ORM mappers before any DB operations
+    _register_guarantorship_mappers()
+
     engine = get_engine()
     run_migrations(engine)
     session_factory = get_session_factory(engine)

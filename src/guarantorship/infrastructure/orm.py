@@ -137,37 +137,51 @@ zero_circle_members_table = Table(
     Column("joined_at", DateTime(timezone=True), nullable=False),
 )
 
-# ── imperative mappings ──────────────────────────────────────────────────────
-mapper_registry.map_imperatively(GuaranteeRequest, guarantee_requests_table)
-mapper_registry.map_imperatively(Guarantorship, guarantorships_table)
-mapper_registry.map_imperatively(UserDeposit, user_deposits_table)
-mapper_registry.map_imperatively(PlatformSettings, platform_settings_table)
-mapper_registry.map_imperatively(Deal, deals_table)
-mapper_registry.map_imperatively(CompensationVote, compensation_votes_table)
-mapper_registry.map_imperatively(
-    Complaint,
-    complaints_table,
-    properties={
-        "votes": relationship(
-            CompensationVote,
-            primaryjoin=complaints_table.c.complaint_id
-            == compensation_votes_table.c.complaint_id,
-            foreign_keys=[compensation_votes_table.c.complaint_id],
-            cascade="all, delete-orphan",
-        )
-    },
-)
-mapper_registry.map_imperatively(ZeroCircleMember, zero_circle_members_table)
-mapper_registry.map_imperatively(
-    ZeroCircle,
-    zero_circles_table,
-    properties={
-        "members": relationship(
-            ZeroCircleMember,
-            primaryjoin=zero_circles_table.c.circle_id
-            == zero_circle_members_table.c.circle_id,
-            foreign_keys=[zero_circle_members_table.c.circle_id],
-            cascade="all, delete-orphan",
-        )
-    },
-)
+# ── imperative mappings (lazy — call register_mappers() to activate) ─────────
+_mappers_registered = False
+
+
+def register_mappers() -> None:
+    """Register imperative ORM mappings for all Guarantorship domain classes.
+
+    This MUST be called before any SQLAlchemy session operations in this
+    bounded context. It is safe to call multiple times (idempotent).
+    """
+    global _mappers_registered
+    if _mappers_registered:
+        return
+    _mappers_registered = True
+
+    mapper_registry.map_imperatively(GuaranteeRequest, guarantee_requests_table)
+    mapper_registry.map_imperatively(Guarantorship, guarantorships_table)
+    mapper_registry.map_imperatively(UserDeposit, user_deposits_table)
+    mapper_registry.map_imperatively(PlatformSettings, platform_settings_table)
+    mapper_registry.map_imperatively(Deal, deals_table)
+    mapper_registry.map_imperatively(CompensationVote, compensation_votes_table)
+    mapper_registry.map_imperatively(
+        Complaint,
+        complaints_table,
+        properties={
+            "votes": relationship(
+                CompensationVote,
+                primaryjoin=complaints_table.c.complaint_id
+                == compensation_votes_table.c.complaint_id,
+                foreign_keys=[compensation_votes_table.c.complaint_id],
+                cascade="all, delete-orphan",
+            )
+        },
+    )
+    mapper_registry.map_imperatively(ZeroCircleMember, zero_circle_members_table)
+    mapper_registry.map_imperatively(
+        ZeroCircle,
+        zero_circles_table,
+        properties={
+            "members": relationship(
+                ZeroCircleMember,
+                primaryjoin=zero_circles_table.c.circle_id
+                == zero_circle_members_table.c.circle_id,
+                foreign_keys=[zero_circle_members_table.c.circle_id],
+                cascade="all, delete-orphan",
+            )
+        },
+    )

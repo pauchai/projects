@@ -133,7 +133,7 @@ class CredentialsListResponse(BaseModel):
     credentials: list[CredentialSchema]
     total_count: int
     has_local_credential: bool
-    created_at: str
-    scope: str
+    created_at: str = ""
+    scope: str = ""
     project_id: str | None = None
     role: str | None = None

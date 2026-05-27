@@ -20,6 +20,8 @@ class SqlAlchemyGuarantorshipUnitOfWork:
         self._session_factory = session_factory
 
     def __enter__(self) -> "SqlAlchemyGuarantorshipUnitOfWork":
+        from guarantorship.infrastructure.orm import register_mappers
+        register_mappers()
         self._session: Session = self._session_factory()
         self.requests = SqlAlchemyGuaranteeRequestRepository(self._session)
         self.guarantorships = SqlAlchemyGuarantorshipRepository(self._session)

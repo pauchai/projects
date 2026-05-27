@@ -159,6 +159,7 @@ def downgrade() -> None:
     op.drop_table("communities")
 
     # Drop enums
-    op.execute("DROP TYPE IF EXISTS featurestatus")
+    # featurestatus was created by 2f8a61f098ef (initial schema) and is
+    # shared with feature_requests — do not drop it here.
     op.execute("DROP TYPE IF EXISTS communityrole")
     op.execute("DROP TYPE IF EXISTS communitystatus")

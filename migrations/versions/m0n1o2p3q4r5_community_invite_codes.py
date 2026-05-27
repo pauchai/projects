@@ -67,6 +67,19 @@ def downgrade() -> None:
         sa.Column("role", sa.String(50), nullable=True),
     )
 
+    # ── Re-create index that was originally created in b1c2d3e4f5a6 ──
+    op.create_index(
+        "ix_auth_invite_codes_code", "auth_invite_codes", ["code"], unique=True
+    )
+
+    # ── Re-create FK on auth_invite_codes that existed before l0m1n2o3p4q5 ──
+    op.create_foreign_key(
+        "fk_invite_codes_community",
+        "auth_invite_codes", "communities",
+        ["community_id"], ["community_id"],
+        ondelete="CASCADE",
+    )
+
     # ── Drop community_invite_codes ───────────────────────────────────────────
     op.drop_constraint(
         "fk_community_invite_codes_community",
