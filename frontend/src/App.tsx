@@ -53,6 +53,10 @@ import { NeedsListPage } from "@/pages/needs-list"
 // Marketplace
 import { MarketplacePage } from "@/pages/marketplace"
 
+// Communities
+import { CommunitiesPage } from "@/pages/communities"
+import { CommunityDetailPage } from "@/pages/community-detail"
+
 // Auth
 import { ProfilePage } from "@/pages/profile"
 import { SecuritySettingsPage } from "@/pages/settings/security"
@@ -94,6 +98,10 @@ export default function App() {
             <Routes>
                 {/* Home */}
                 <Route path="/" element={<HomePage />} />
+
+                {/* Communities */}
+                <Route path="/communities" element={<CommunitiesPage />} />
+                <Route path="/communities/:communityId" element={<CommunityDetailPage />} />
 
                 {/* Admin */}
                 <Route path="/admin" element={<AdminInviteCodesPage />} />

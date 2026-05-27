@@ -16,8 +16,25 @@ export interface CreateCommunityRequest {
   avatar_url?: string | null
 }
 
+export interface MemberResponse {
+  membership_id: string
+  user_id: string
+  role: string
+  is_active: boolean
+  joined_at: string
+}
+
+export interface CommunityDetailResponse extends CommunityResponse {
+  avatar_url: string | null
+  members: MemberResponse[]
+}
+
 export function listCommunities(): Promise<CommunityResponse[]> {
   return get<CommunityResponse[]>("/communities")
+}
+
+export function getCommunity(id: string): Promise<CommunityDetailResponse> {
+  return get<CommunityDetailResponse>(`/communities/${id}`)
 }
 
 export function createCommunity(data: CreateCommunityRequest): Promise<CommunityResponse> {
