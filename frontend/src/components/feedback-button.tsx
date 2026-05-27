@@ -77,10 +77,7 @@ export function FeedbackButton() {
     <>
       <div className="fixed bottom-6 right-6 z-40">
         <Button
-          onClick={() => {
-            console.log("[Feedback] Dialog opened")
-            setOpen(true)
-          }}
+          onClick={() => setOpen(true)}
           className="h-14 w-14 rounded-full shadow-lg"
           size="icon"
         >
