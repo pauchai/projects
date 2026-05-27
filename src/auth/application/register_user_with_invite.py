@@ -27,6 +27,7 @@ class InviteCodeResult:
     user_id: str
     scope: str
     project_id: str | None
+    community_id: str | None
     role: str | None
 
 
@@ -100,6 +101,7 @@ class RegisterUserWithInviteUseCase:
             user_id=user.user_id,
             scope=code_entity.scope,
             project_id=code_entity.project_id,
+            community_id=code_entity.community_id,
             role=code_entity.role,
         )
 

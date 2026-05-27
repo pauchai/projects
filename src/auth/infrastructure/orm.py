@@ -98,6 +98,12 @@ invite_codes_table = Table(
         ForeignKey("projects.project_id", ondelete="CASCADE"),
         nullable=True,
     ),
+    Column(
+        "community_id",
+        String(255),
+        ForeignKey("communities.community_id", ondelete="CASCADE"),
+        nullable=True,
+    ),
     Column("role", String(50), nullable=True),
 )
 
@@ -128,8 +134,9 @@ mapper_registry.map_imperatively(
 # in project_collaboration's MetaData.  Copy the needed tables into auth's
 # MetaData so SQLAlchemy can resolve the ForeignKey at SQL compilation time
 # without raising NoReferencedTableError.
+from community.infrastructure.orm import metadata as community_metadata  # noqa: E402
 from project_collaboration.infrastructure.orm import metadata as collab_metadata  # noqa: E402
 
-for _table in collab_metadata.tables.values():
+for _table in list(collab_metadata.tables.values()) + list(community_metadata.tables.values()):
     if _table.name not in metadata.tables:
         _table.to_metadata(metadata)

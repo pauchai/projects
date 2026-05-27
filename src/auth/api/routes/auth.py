@@ -38,6 +38,11 @@ from auth.application.update_profile import UpdateProfileUseCase
 from auth.infrastructure.bcrypt_password_hasher import BcryptPasswordHasher
 from auth.infrastructure.jwt_token_service import JwtTokenService
 from auth.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
+from community.api.dependencies import get_uow as get_community_uow
+from community.application.redeem_community_invite import RedeemCommunityInviteUseCase
+from community.infrastructure.sqlalchemy_unit_of_work import (
+    SqlAlchemyCommunityUnitOfWork as CommunityUoW,
+)
 from project_collaboration.api.dependencies import get_uow as get_collab_uow
 from project_collaboration.application.redeem_project_invite import (
     RedeemProjectInviteUseCase,
@@ -61,12 +66,15 @@ def register(
     body: RegisterRequest,
     uow: SqlAlchemyUnitOfWork = Depends(get_auth_uow),
     collab_uow: CollabUnitOfWork = Depends(get_collab_uow),
+    community_uow: CommunityUoW = Depends(get_community_uow),
     password_hasher: BcryptPasswordHasher = Depends(get_password_hasher),
 ) -> UserResponse:
     """Register a new user with email, password and a valid invite code.
 
     When the invite code has ``scope="project"``, the new user is automatically
     enrolled as a project member (via ``RedeemProjectInviteUseCase``).
+    When the invite code has ``scope="community"``, the new user is automatically
+    added to the community (via ``RedeemCommunityInviteUseCase``).
     """
     use_case = RegisterUserWithInviteUseCase(uow, password_hasher)
     user_id = str(uuid.uuid4())
@@ -87,11 +95,25 @@ def register(
                 role_value=result.role or "member",
             )
         except (LookupError, ValueError) as exc:
-            # Registration already committed; log and continue rather than rolling back auth.
             logger.warning(
                 "RedeemProjectInvite failed for user=%s project=%s: %s",
                 result.user_id,
                 result.project_id,
+                exc,
+            )
+
+    if result.scope == "community" and result.community_id:
+        try:
+            RedeemCommunityInviteUseCase(community_uow).execute(
+                user_id=result.user_id,
+                community_id=result.community_id,
+                role_value=result.role or "member",
+            )
+        except (LookupError, ValueError) as exc:
+            logger.warning(
+                "RedeemCommunityInvite failed for user=%s community=%s: %s",
+                result.user_id,
+                result.community_id,
                 exc,
             )
 

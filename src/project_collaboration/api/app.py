@@ -56,6 +56,7 @@ from cohort_learning.infrastructure.sqlalchemy_unit_of_work import (
 )
 from partnership.api.dependencies import set_event_bus as set_partnership_event_bus
 from partnership.api.routes.earnings import router as earnings_router
+from community.api.router import router as community_router
 from schedule.api.routes.schedule import router as schedule_router
 from partnership.application.calculate_curation_commission import (    CalculateCurationCommissionUseCase,
 )
@@ -253,6 +254,7 @@ def create_app() -> FastAPI:
     app.include_router(deals_router)
     app.include_router(complaints_router)
     app.include_router(platform_settings_router)
+    app.include_router(community_router)
 
     return app
 

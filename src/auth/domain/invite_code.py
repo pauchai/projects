@@ -35,8 +35,9 @@ class InviteCode:
         max_uses: int = 1,
         inviter_id: str | None = None,
         expires_at: datetime | None = None,
-        scope: Literal["system", "project"] = "system",
+        scope: Literal["system", "project", "community"] = "system",
         project_id: str | None = None,
+        community_id: str | None = None,
         role: str | None = None,
     ) -> None:
         if not code.strip():
@@ -45,9 +46,11 @@ class InviteCode:
             raise ValueError("max_uses must be at least 1")
         if scope == "project" and not project_id:
             raise ValueError("project_id is required when scope is 'project'")
-        if scope != "project" and (project_id or role):
+        if scope == "community" and not community_id:
+            raise ValueError("community_id is required when scope is 'community'")
+        if scope not in ("project", "community") and (project_id or community_id):
             raise ValueError(
-                "project_id and role are only allowed when scope is 'project'"
+                "project_id and community_id are only allowed when scope is 'project' or 'community'"
             )
 
         self.code_id = code_id
@@ -59,8 +62,9 @@ class InviteCode:
         self.is_active: bool = True
         self.created_at: datetime = datetime.now(timezone.utc)
         self.expires_at: datetime | None = expires_at
-        self.scope: Literal["system", "project"] = scope
+        self.scope: Literal["system", "project", "community"] = scope
         self.project_id: str | None = project_id
+        self.community_id: str | None = community_id
         self.role: str | None = role
 
     # ------------------------------------------------------------------
