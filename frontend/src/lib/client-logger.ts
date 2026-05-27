@@ -115,3 +115,7 @@ class ClientLogger {
 }
 
 export const clientLogger = new ClientLogger()
+
+if (typeof window !== "undefined") {
+  ;(window as unknown as { clientLogger: typeof clientLogger }).clientLogger = clientLogger
+}
