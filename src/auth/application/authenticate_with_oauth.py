@@ -77,14 +77,13 @@ class AuthenticateWithOAuthUseCase:
             return self._token_service.create_access_token(user.user_id, status=user.status)
 
     def _create_new_user(self, user_info: OAuthUserInfo) -> User:
-        """Create a brand-new User with an OAuth credential and pending status."""
+        """Create a brand-new User with an OAuth credential and active status."""
         user_id = str(uuid.uuid4())
         user = User(
             user_id=user_id,
             email=user_info.email,
             display_name=user_info.display_name,
         )
-        user.status = "pending"
         credential = Credential(
             credential_id=str(uuid.uuid4()),
             user_id=user_id,

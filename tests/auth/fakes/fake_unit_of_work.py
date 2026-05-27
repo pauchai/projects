@@ -2,7 +2,6 @@
 
 import copy
 
-from auth.domain.invite_code import InviteCode
 from auth.domain.oauth import OAuthError, OAuthUserInfo
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User, Credential
@@ -54,32 +53,6 @@ class FakeUserRepository:
         self._storage = snapshot
 
 
-class FakeInviteCodeRepository:
-    """In-memory InviteCodeRepository used within FakeUnitOfWork."""
-
-    def __init__(self) -> None:
-        self._storage: dict[str, InviteCode] = {}  # keyed by code string
-
-    def find_by_code(self, code: str) -> InviteCode | None:
-        return self._storage.get(code.strip().upper())
-
-    def save(self, invite: InviteCode) -> None:
-        self._storage[invite.code] = invite
-
-    def save_all(self, invites: list[InviteCode]) -> None:
-        for invite in invites:
-            self.save(invite)
-
-    def find_all(self) -> list[InviteCode]:
-        return list(self._storage.values())
-
-    def snapshot(self) -> dict[str, InviteCode]:
-        return copy.deepcopy(self._storage)
-
-    def restore(self, snapshot: dict[str, InviteCode]) -> None:
-        self._storage = snapshot
-
-
 class FakeTelegramAuthRequestRepository:
     """In-memory TelegramAuthRequestRepository for testing.
 
@@ -119,24 +92,20 @@ class FakeUnitOfWork:
 
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.users = FakeUserRepository()
-        self.invite_codes = FakeInviteCodeRepository()
         self.committed = False
         self._user_snapshot: dict[str, User] | None = None
-        self._invite_snapshot: dict[str, InviteCode] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
         self._user_snapshot = self.users.snapshot()
-        self._invite_snapshot = self.invite_codes.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
         if not self.committed:
             self.rollback()
         self._user_snapshot = None
-        self._invite_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
@@ -144,15 +113,11 @@ class FakeUnitOfWork:
             self._event_bus.publish(self._pending_events)
         self._pending_events.clear()
         self._user_snapshot = None
-        self._invite_snapshot = None
 
     def rollback(self) -> None:
         if self._user_snapshot is not None:
             self.users.restore(self._user_snapshot)
             self._user_snapshot = None
-        if self._invite_snapshot is not None:
-            self.invite_codes.restore(self._invite_snapshot)
-            self._invite_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:

@@ -6,11 +6,13 @@ from community.domain.community_status import CommunityStatus
 from community.domain.feature_request import FeatureRequest
 from community.domain.feature_status import FeatureStatus
 from community.domain.fund import CommunityFund, FundDistribution, FundTransaction
+from community.domain.invite_code import CommunityInviteCode
 from community.infrastructure.orm import (
     community_feature_requests_table,
     community_fund_distributions_table,
     community_fund_transactions_table,
     community_funds_table,
+    community_invite_codes_table,
     communities_table,
 )
 
@@ -188,3 +190,35 @@ class SqlAlchemyFundRepository:
             .order_by(community_fund_distributions_table.c.created_at.desc())
         )
         return list(self._session.scalars(query).all())
+
+
+class SqlAlchemyCommunityInviteCodeRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_code(self, code: str) -> CommunityInviteCode | None:
+        query = select(CommunityInviteCode).where(
+            community_invite_codes_table.c.code == code.upper().strip()
+        )
+        return self._session.scalars(query).first()
+
+    def find_by_id(self, code_id: str) -> CommunityInviteCode | None:
+        return self._session.get(CommunityInviteCode, code_id)
+
+    def find_by_community(self, community_id: str) -> list[CommunityInviteCode]:
+        query = (
+            select(CommunityInviteCode)
+            .where(community_invite_codes_table.c.community_id == community_id)
+            .order_by(community_invite_codes_table.c.created_at.desc())
+        )
+        return list(self._session.scalars(query).all())
+
+    def save(self, invite_code: CommunityInviteCode) -> None:
+        self._session.merge(invite_code)
+        self._session.flush()
+
+    def delete(self, code_id: str) -> None:
+        code = self.find_by_id(code_id)
+        if code is not None:
+            self._session.delete(code)
+            self._session.flush()

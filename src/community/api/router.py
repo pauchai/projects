@@ -21,6 +21,9 @@ from community.application.change_community_status import (
     ChangeCommunityStatusUseCase,
 )
 from community.application.create_community import CreateCommunityUseCase
+from community.application.create_community_invite_code import (
+    CreateCommunityInviteCodeUseCase,
+)
 from community.application.feature_request_operations import (
     ListFeatureRequestsUseCase,
     SubmitFeatureRequestUseCase,
@@ -32,6 +35,9 @@ from community.application.fund_operations import (
     DistributeFromFundCommand,
     DistributeFromFundUseCase,
     GetFundUseCase,
+)
+from community.application.join_community_with_invite import (
+    JoinCommunityWithInviteUseCase,
 )
 from community.application.list_communities import GetCommunityUseCase, ListCommunitiesUseCase
 from community.application.update_community import UpdateCommunityUseCase
@@ -96,6 +102,10 @@ class FeatureRequestCreate(BaseModel):
 class FeatureRequestStatusUpdate(BaseModel):
     status: str
     admin_notes: str | None = None
+
+
+class JoinCommunityRequest(BaseModel):
+    invite_code: str = Field(..., min_length=1)
 
 
 # ---------------------------------------------------------------------------
@@ -534,3 +544,99 @@ def submit_feature_request(
         "title": fr.title,
         "status": fr.status.value,
     }
+
+
+# ---------------------------------------------------------------------------
+# Invite Codes
+# ---------------------------------------------------------------------------
+
+
+class CreateInviteCodeRequest(BaseModel):
+    max_uses: int = Field(default=1, ge=1, le=1000)
+    expires_in_days: int = Field(default=7, ge=1, le=365)
+    role: str = "member"
+
+
+@router.post("/{community_id}/invite-codes", status_code=201)
+def create_community_invite_code(
+    community_id: str,
+    body: CreateInviteCodeRequest,
+    user_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyCommunityUnitOfWork = Depends(get_uow),
+) -> dict:
+    try:
+        use_case = CreateCommunityInviteCodeUseCase(uow)
+        code = use_case.execute(
+            community_id=community_id,
+            caller_id=user_id,
+            max_uses=body.max_uses,
+            expires_in_days=body.expires_in_days,
+            role=body.role,
+        )
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+    return {
+        "code_id": code.code_id,
+        "code": code.code,
+        "max_uses": code.max_uses,
+        "uses_left": code.uses_left,
+        "is_active": code.is_active,
+        "expires_at": code.expires_at.isoformat() if code.expires_at else None,
+        "created_at": code.created_at.isoformat(),
+        "role": code.role,
+    }
+
+
+@router.post("/join", status_code=201)
+def join_community(
+    body: JoinCommunityRequest,
+    user_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyCommunityUnitOfWork = Depends(get_uow),
+) -> dict:
+    try:
+        use_case = JoinCommunityWithInviteUseCase(uow)
+        membership_id = use_case.execute(
+            user_id=user_id,
+            invite_code=body.invite_code,
+        )
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+    return {"membership_id": membership_id, "message": "Successfully joined community"}
+
+
+@router.get("/{community_id}/invite-codes")
+def list_community_invite_codes(
+    community_id: str,
+    user_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyCommunityUnitOfWork = Depends(get_uow),
+) -> list[dict]:
+    try:
+        community = uow.communities.find_by_id(community_id)
+        if community is None:
+            raise LookupError(f"Community '{community_id}' not found")
+
+        member = community._find_active_membership(user_id)
+        if member is None or member.role not in (
+            CommunityRole.OWNER, CommunityRole.ADMIN,
+        ):
+            raise PermissionError("Only owner or admin can view invite codes")
+
+        codes = uow.invite_codes.find_by_community(community_id)
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+    return [
+        {
+            "code_id": c.code_id,
+            "code": c.code,
+            "max_uses": c.max_uses,
+            "uses_left": c.uses_left,
+            "is_active": c.is_active,
+            "created_at": c.created_at.isoformat(),
+            "expires_at": c.expires_at.isoformat() if c.expires_at else None,
+            "role": c.role,
+        }
+        for c in codes
+    ]

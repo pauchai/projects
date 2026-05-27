@@ -18,7 +18,6 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
-    Integer,
     MetaData,
     String,
     Table,
@@ -26,7 +25,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import registry, relationship
 
-from auth.domain.invite_code import InviteCode
 from auth.domain.user import Credential, User
 
 # ---------------------------------------------------------------------------
@@ -74,46 +72,11 @@ credentials_table = Table(
     UniqueConstraint("user_id", "provider", name="uq_user_provider"),
 )
 
-invite_codes_table = Table(
-    "auth_invite_codes",
-    metadata,
-    Column("code_id", String(255), primary_key=True),
-    Column("code", String(20), nullable=False, unique=True),
-    Column("issued_by", String(255), nullable=False),
-    Column(
-        "inviter_id",
-        String(255),
-        ForeignKey("auth_users.user_id", ondelete="SET NULL"),
-        nullable=True,
-    ),
-    Column("max_uses", Integer, nullable=False, default=1),
-    Column("uses_left", Integer, nullable=False, default=1),
-    Column("is_active", Boolean, nullable=False, default=True),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("expires_at", DateTime(timezone=True), nullable=True),
-    Column("scope", String(20), nullable=False, default="system"),
-    Column(
-        "project_id",
-        String(255),
-        ForeignKey("projects.project_id", ondelete="CASCADE"),
-        nullable=True,
-    ),
-    Column(
-        "community_id",
-        String(255),
-        ForeignKey("communities.community_id", ondelete="CASCADE"),
-        nullable=True,
-    ),
-    Column("role", String(50), nullable=True),
-)
-
 # ---------------------------------------------------------------------------
 # Imperative mappings
 # ---------------------------------------------------------------------------
 
 mapper_registry.map_imperatively(Credential, credentials_table)
-
-mapper_registry.map_imperatively(InviteCode, invite_codes_table)
 
 mapper_registry.map_imperatively(
     User,
@@ -127,16 +90,3 @@ mapper_registry.map_imperatively(
     },
 )
 
-# ---------------------------------------------------------------------------
-# Cross-context FK resolution
-# ---------------------------------------------------------------------------
-# auth_invite_codes.project_id references projects.project_id which lives
-# in project_collaboration's MetaData.  Copy the needed tables into auth's
-# MetaData so SQLAlchemy can resolve the ForeignKey at SQL compilation time
-# without raising NoReferencedTableError.
-from community.infrastructure.orm import metadata as community_metadata  # noqa: E402
-from project_collaboration.infrastructure.orm import metadata as collab_metadata  # noqa: E402
-
-for _table in list(collab_metadata.tables.values()) + list(community_metadata.tables.values()):
-    if _table.name not in metadata.tables:
-        _table.to_metadata(metadata)

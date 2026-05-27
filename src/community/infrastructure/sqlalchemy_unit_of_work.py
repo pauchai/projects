@@ -18,6 +18,7 @@ class SqlAlchemyCommunityUnitOfWork:
         self.communities = _import_community_repo(self._session, self)
         self.feature_requests = _import_feature_request_repo(self._session, self)
         self.fund = _import_fund_repo(self._session)
+        self.invite_codes = _import_invite_code_repo(self._session)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *args: object) -> None:
@@ -59,3 +60,10 @@ def _import_fund_repo(session: Session):
         SqlAlchemyFundRepository,
     )
     return SqlAlchemyFundRepository(session)
+
+
+def _import_invite_code_repo(session: Session):
+    from community.infrastructure.sqlalchemy_repository import (
+        SqlAlchemyCommunityInviteCodeRepository,
+    )
+    return SqlAlchemyCommunityInviteCodeRepository(session)

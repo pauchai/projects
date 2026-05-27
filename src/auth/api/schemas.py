@@ -16,7 +16,6 @@ class RegisterRequest(BaseModel):
     email: str = Field(min_length=1)
     password: str = Field(min_length=1)
     display_name: str = Field(min_length=1, max_length=100)
-    invite_code: str = Field(min_length=1)
 
 
 class LoginRequest(BaseModel):
@@ -30,13 +29,6 @@ class SetPasswordRequest(BaseModel):
     """POST /auth/local/set-password"""
 
     password: str = Field(min_length=1)
-
-
-class ActivateAccountRequest(BaseModel):
-    """POST /auth/activate"""
-
-    invite_code: str = Field(min_length=1)
-
 
 
 class UpdateProfileRequest(BaseModel):
@@ -67,21 +59,6 @@ class UserResponse(BaseModel):
     user_id: str
     email: str
     display_name: str
-
-
-class ReferralResponse(BaseModel):
-    """A single referred user (visible only to the inviter)."""
-
-    user_id: str
-    display_name: str
-    joined_at: str
-
-
-class ReferralsListResponse(BaseModel):
-    """GET /auth/referrals — all users invited by the current user."""
-
-    total: int
-    referrals: list[ReferralResponse]
 
 
 class OAuthCallbackRequest(BaseModel):
@@ -156,60 +133,6 @@ class CredentialsListResponse(BaseModel):
     credentials: list[CredentialSchema]
     total_count: int
     has_local_credential: bool
-
-
-# ---------------------------------------------------------------------------
-# Invite codes
-# ---------------------------------------------------------------------------
-
-
-class InviteCodeResponse(BaseModel):
-    """A single invite code returned to admin."""
-
-    code_id: str
-    code: str
-    uses_left: int
-    max_uses: int
-    is_active: bool
-    created_at: str
-
-
-class ListInviteCodesResponse(BaseModel):
-    """GET /admin/invite-codes"""
-
-    codes: list[InviteCodeResponse]
-
-
-class CreateInviteCodesRequest(BaseModel):
-    """POST /admin/invite-codes"""
-
-    count: int = Field(ge=1, le=500, default=10)
-    max_uses: int = Field(ge=1, default=1)
-
-
-class CreateInviteCodesResponse(BaseModel):
-    """Response after generating invite codes."""
-
-    codes: list[InviteCodeResponse]
-
-
-class UserInviteCodeRequest(BaseModel):
-    """POST /auth/invite-codes"""
-
-    scope: str = "system"
-    project_id: str | None = None
-    role: str | None = None
-
-
-class UserInviteCodeResponse(BaseModel):
-    """POST /auth/invite-codes — a single invite code created by a user."""
-
-    code_id: str
-    code: str
-    uses_left: int
-    max_uses: int
-    is_active: bool
-    expires_at: str
     created_at: str
     scope: str
     project_id: str | None = None

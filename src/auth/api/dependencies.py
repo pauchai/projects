@@ -170,19 +170,6 @@ def get_current_user_id(
     return _extract_user_id(authorization, token_service)
 
 
-def get_pending_user_id(
-    authorization: Optional[str] = Header(None, alias="Authorization"),
-    token_service: JwtTokenService = Depends(get_token_service),
-) -> str:
-    """FastAPI dependency: extracts user_id from a JWT regardless of status.
-
-    Intended for use on ``POST /auth/activate`` only, where a pending user
-    is allowed to present their token.
-    Raises AuthenticationError on failure.
-    """
-    return _extract_user_id(authorization, token_service)
-
-
 def require_active_user(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     token_service: JwtTokenService = Depends(get_token_service),

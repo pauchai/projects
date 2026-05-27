@@ -5,6 +5,7 @@ from community.domain.community_status import CommunityStatus
 from community.domain.feature_request import FeatureRequest
 from community.domain.feature_status import FeatureStatus
 from community.domain.fund import CommunityFund, FundDistribution, FundTransaction
+from community.domain.invite_code import CommunityInviteCode
 
 
 class CommunityRepository(Protocol):
@@ -40,10 +41,19 @@ class FundRepository(Protocol):
     def list_distributions(self, fund_id: str) -> list[FundDistribution]: ...
 
 
+class CommunityInviteCodeRepository(Protocol):
+    def find_by_code(self, code: str) -> CommunityInviteCode | None: ...
+    def find_by_id(self, code_id: str) -> CommunityInviteCode | None: ...
+    def find_by_community(self, community_id: str) -> list[CommunityInviteCode]: ...
+    def save(self, invite_code: CommunityInviteCode) -> None: ...
+    def delete(self, code_id: str) -> None: ...
+
+
 class CommunityUnitOfWork(Protocol):
     communities: CommunityRepository
     feature_requests: FeatureRequestRepository
     fund: FundRepository
+    invite_codes: CommunityInviteCodeRepository
 
     def __enter__(self) -> "CommunityUnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

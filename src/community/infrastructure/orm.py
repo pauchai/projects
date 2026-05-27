@@ -22,6 +22,7 @@ from community.domain.community_status import CommunityStatus
 from community.domain.feature_request import FeatureRequest
 from community.domain.feature_status import FeatureStatus
 from community.domain.fund import CommunityFund, FundDistribution, FundTransaction
+from community.domain.invite_code import CommunityInviteCode
 
 mapper_registry = registry()
 metadata: MetaData = mapper_registry.metadata
@@ -166,6 +167,32 @@ community_fund_distributions_table = Table(
     Column("status", String(50), nullable=False, server_default="pending"),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
+
+# ---------------------------------------------------------------------------
+# Invite Codes
+# ---------------------------------------------------------------------------
+
+community_invite_codes_table = Table(
+    "community_invite_codes",
+    metadata,
+    Column("code_id", String(255), primary_key=True),
+    Column("code", String(50), nullable=False, unique=True, index=True),
+    Column(
+        "community_id",
+        String(255),
+        ForeignKey("communities.community_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("issued_by", String(255), nullable=False),
+    Column("max_uses", Integer, nullable=False, default=1),
+    Column("uses_left", Integer, nullable=False, default=1),
+    Column("is_active", Boolean, nullable=False, default=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=True),
+    Column("role", String(50), nullable=False, default="member"),
+)
+
+mapper_registry.map_imperatively(CommunityInviteCode, community_invite_codes_table)
 
 mapper_registry.map_imperatively(CommunityFund, community_funds_table)
 mapper_registry.map_imperatively(FundTransaction, community_fund_transactions_table)

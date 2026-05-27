@@ -105,32 +105,19 @@ def auth_api_client(auth_api_engine: Engine):
 # ---------------------------------------------------------------------------
 
 
-def _fresh_invite_code(client: TestClient) -> str:
-    """Create one invite code via admin endpoint and return its code string."""
-    resp = client.post(
-        "/admin/invite-codes",
-        json={"count": 1},
-        headers={"X-Admin-Secret": JWT_SECRET},
-    )
-    assert resp.status_code == 201, resp.text
-    return resp.json()["codes"][0]["code"]
-
-
 def _register_user(
     client: TestClient,
     email: str = "alice@example.com",
     password: str = "StrongPass123!",
     display_name: str = "Alice",
 ) -> dict:
-    """Register a user (auto-creates a fresh invite code) and return response JSON."""
-    code = _fresh_invite_code(client)
+    """Register a user and return response JSON."""
     resp = client.post(
         "/auth/register",
         json={
             "email": email,
             "password": password,
             "display_name": display_name,
-            "invite_code": code,
         },
     )
     assert resp.status_code == 201, resp.text
@@ -188,14 +175,12 @@ class TestRegister:
         self, auth_api_client: TestClient
     ) -> None:
         _register_user(auth_api_client, email="dup@example.com", display_name="First")
-        code = _fresh_invite_code(auth_api_client)
         resp = auth_api_client.post(
             "/auth/register",
             json={
                 "email": "dup@example.com",
                 "password": "StrongPass123!",
                 "display_name": "Second",
-                "invite_code": code,
             },
         )
         assert resp.status_code == 422
