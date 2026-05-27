@@ -1,4 +1,4 @@
-"""add project_products, membership weight, guarantorships.
+"""add project_products, membership weight.
 
 Revision ID: e4f5a6b7c8d9
 Revises: d3e4f5a6b7c8
@@ -36,13 +36,6 @@ def upgrade() -> None:
         "  END IF; "
         "END $$"
     ))
-    conn.execute(sa.text(
-        "DO $$ BEGIN "
-        "  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'guaranteestatus') THEN "
-        "    CREATE TYPE guaranteestatus AS ENUM ('active', 'revoked'); "
-        "  END IF; "
-        "END $$"
-    ))
 
     # Enum column references — postgresql.ENUM with create_type=False so
     # SQLAlchemy never emits CREATE TYPE (we already did that above).
@@ -53,10 +46,6 @@ def upgrade() -> None:
     product_visibility_col = postgresql.ENUM(
         "public", "members_only",
         name="productvisibility", create_type=False,
-    )
-    guarantee_status_col = postgresql.ENUM(
-        "active", "revoked",
-        name="guaranteestatus", create_type=False,
     )
 
     # --- project_products table ---
@@ -90,29 +79,10 @@ def upgrade() -> None:
         sa.Column("weight", sa.Float, nullable=False, server_default="0.0"),
     )
 
-    # --- guarantorships table ---
-    op.create_table(
-        "guarantorships",
-        sa.Column("guarantee_id", sa.String(255), primary_key=True),
-        sa.Column("guarantor_id", sa.String(255), nullable=False),
-        sa.Column("guaranteed_id", sa.String(255), nullable=False),
-        sa.Column(
-            "status",
-            guarantee_status_col,
-            nullable=False,
-            server_default="active",
-        ),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("blockchain_tx", sa.String(255), nullable=True),
-    )
-
 
 def downgrade() -> None:
-    op.drop_table("guarantorships")
     op.drop_column("memberships", "weight")
     op.drop_table("project_products")
 
-    op.execute("DROP TYPE IF EXISTS guaranteestatus")
     op.execute("DROP TYPE IF EXISTS productvisibility")
     op.execute("DROP TYPE IF EXISTS producttype")
