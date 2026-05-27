@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Header } from "@/components/layout/header"
+import { SidebarLayout } from "@/components/layout/sidebar-layout"
 import { ProtectedRoute } from "@/components/layout/protected-route"
 
 // Home
@@ -90,10 +90,8 @@ export default function App() {
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <div className="min-h-screen bg-background text-foreground">
-            <Header />
-            <main className="mx-auto max-w-5xl px-4 py-6">
-              <Routes>
+          <SidebarLayout>
+            <Routes>
                 {/* Home */}
                 <Route path="/" element={<HomePage />} />
 
@@ -311,8 +309,7 @@ export default function App() {
                   }
                 />
               </Routes>
-            </main>
-          </div>
+          </SidebarLayout>
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>
