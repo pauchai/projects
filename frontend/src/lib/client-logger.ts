@@ -88,7 +88,12 @@ class ClientLogger {
     const originalFetch = window.fetch.bind(window)
     window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       const response = await originalFetch(...args)
-      const url = typeof args[0] === "string" ? args[0] : args[0]?.url ?? "unknown"
+      let url = "unknown"
+      if (typeof args[0] === "string") {
+        url = args[0]
+      } else if (args[0] instanceof Request) {
+        url = args[0].url
+      }
       if (!response.ok) {
         this._add("error", [`${response.status} ${response.statusText} ${url}`])
       }
