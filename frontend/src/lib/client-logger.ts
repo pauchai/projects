@@ -84,6 +84,16 @@ class ClientLogger {
         prevPath = path
       }
     })
+
+    const originalFetch = window.fetch.bind(window)
+    window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
+      const response = await originalFetch(...args)
+      const url = typeof args[0] === "string" ? args[0] : args[0]?.url ?? "unknown"
+      if (!response.ok) {
+        this._add("error", [`${response.status} ${response.statusText} ${url}`])
+      }
+      return response
+    }
   }
 
   getSnapshot(): LogSnapshot {
