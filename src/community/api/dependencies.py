@@ -10,14 +10,11 @@ from community.infrastructure.database import get_engine, get_session_factory
 from community.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyCommunityUnitOfWork,
 )
+from project_collaboration.api.dependencies import AuthenticationError
 from shared_kernel.events import EventBus
 
 _session_factory: sessionmaker[Session] | None = None
 _event_bus: EventBus | None = None
-
-
-class AuthenticationError(Exception):
-    """Raised when JWT authentication fails."""
 
 
 def _get_session_factory() -> sessionmaker[Session]:
