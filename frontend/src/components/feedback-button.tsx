@@ -104,7 +104,7 @@ export function FeedbackButton() {
             {/* Type selector */}
             <div>
               <label className="text-sm font-medium">Type</label>
-              <div className="mt-1 flex gap-2">
+              <div className="mt-1 grid grid-cols-2 gap-2">
                 {FEEDBACK_TYPES.map((t) => {
                   const Icon = t.icon
                   const isActive = type === t.value
