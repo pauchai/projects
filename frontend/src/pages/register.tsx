@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,6 +58,11 @@ function validate(
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // Optional: pre-fill invite code and remember project_id for post-registration redirect.
+  const projectIdParam = searchParams.get("project")
+  const inviteCodeParam = searchParams.get("code") ?? ""
+
   const registerMutation = useRegister()
   const googleLoginMutation = useGoogleLogin()
   const telegramLoginMutation = useTelegramLogin()
@@ -68,7 +73,7 @@ export function RegisterPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [displayName, setDisplayName] = useState("")
-  const [inviteCode, setInviteCode] = useState("")
+  const [inviteCode, setInviteCode] = useState(inviteCodeParam.toUpperCase())
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,7 +95,12 @@ export function RegisterPage() {
       },
       {
         onSuccess: () => {
-          navigate("/")
+          // Redirect to the project page if a project_id was in the URL.
+          if (projectIdParam) {
+            navigate(`/projects/${projectIdParam}`)
+          } else {
+            navigate("/")
+          }
         },
       },
     )

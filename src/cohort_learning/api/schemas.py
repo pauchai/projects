@@ -336,5 +336,43 @@ class ModuleResponse(BaseModel):
     module_id: str
     title: str
     master_id: str
+    repo_url: str | None = None
     topics: list[TopicResponse]
     topic_count: int
+
+
+# ---------------------------------------------------------------------------
+# Request / Response schemas — Module repo URL & sync
+# ---------------------------------------------------------------------------
+
+
+class SetRepoUrlRequest(BaseModel):
+    """PATCH /modules/{module_id}/repo-url"""
+
+    repo_url: str | None = None
+
+
+class SyncResponse(BaseModel):
+    """Response for POST /modules/{module_id}/sync and similar sync endpoints."""
+
+    message: str
+    path: str
+
+
+# ---------------------------------------------------------------------------
+# Response schemas — Lessons
+# ---------------------------------------------------------------------------
+
+
+class LessonResponse(BaseModel):
+    """Serialized Lesson entity."""
+
+    lesson_id: str
+    module_id: str
+    title: str
+    position: int
+    topic_id: str | None
+    content_path: str | None
+    homework_path: str | None
+    has_homework: bool
+    created_at: datetime

@@ -12,16 +12,25 @@ Two attributes on Project are NOT mapped by the ORM and require manual handling:
 
 from __future__ import annotations
 
+import json
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
+from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 from project_collaboration.infrastructure.orm import (
     feature_requests_table,
+    fund_distributions_table,
+    fund_transactions_table,
+    project_funds_table,
+    project_needs_table,
+    project_products_table,
     project_skill_tags_table,
 )
 
@@ -222,3 +231,128 @@ class SqlAlchemyFeatureRequestRepository:
         """Initialise transient attributes that the ORM does not populate."""
         if not hasattr(feature_request, "_events"):
             feature_request._events = []
+
+
+class SqlAlchemyProductRepository:
+    """Implements ProductRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_id(self, product_id: str) -> Product | None:
+        return self._session.get(Product, product_id)
+
+    def save(self, product: Product) -> None:
+        self._session.merge(product)
+        self._session.flush()
+
+    def find_by_project(self, project_id: str) -> list[Product]:
+        query = select(Product).where(
+            project_products_table.c.project_id == project_id
+        )
+        return list(self._session.scalars(query).all())
+
+
+class SqlAlchemyFundRepository:
+    """Implements FundRepository Protocol using SQLAlchemy ORM."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_project(self, project_id: str) -> ProjectFund | None:
+        query = select(ProjectFund).where(
+            project_funds_table.c.project_id == project_id
+        )
+        return self._session.scalars(query).first()
+
+    def save(self, fund: ProjectFund) -> None:
+        self._session.merge(fund)
+        self._session.flush()
+
+    def save_transaction(self, tx: FundTransaction) -> None:
+        self._session.merge(tx)
+        self._session.flush()
+
+    def save_distribution(self, dist: FundDistribution) -> None:
+        self._session.merge(dist)
+        self._session.flush()
+
+    def list_transactions(self, fund_id: str) -> list[FundTransaction]:
+        query = (
+            select(FundTransaction)
+            .where(fund_transactions_table.c.fund_id == fund_id)
+            .order_by(fund_transactions_table.c.created_at.desc())
+        )
+        return list(self._session.scalars(query).all())
+
+    def list_distributions(self, fund_id: str) -> list[FundDistribution]:
+        query = (
+            select(FundDistribution)
+            .where(fund_distributions_table.c.fund_id == fund_id)
+            .order_by(fund_distributions_table.c.created_at.desc())
+        )
+        return list(self._session.scalars(query).all())
+
+
+class SqlAlchemyProjectNeedRepository:
+    """Implements ProjectNeedRepository Protocol using SQLAlchemy ORM.
+
+    ``skills`` is stored as a JSON string in the DB and must be
+    serialized/deserialized manually because the column type is plain Text
+    (no TypeDecorator) to keep the ORM mapping simple.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_id(self, need_id: str) -> ProjectNeed | None:
+        need = self._session.get(ProjectNeed, need_id)
+        if need is None:
+            return None
+        self._deserialize_skills(need)
+        return need
+
+    def find_by_project_id(self, project_id: str) -> list[ProjectNeed]:
+        query = (
+            select(ProjectNeed)
+            .where(project_needs_table.c.project_id == project_id)
+            .order_by(project_needs_table.c.created_at.desc())
+        )
+        needs = list(self._session.scalars(query).all())
+        for need in needs:
+            self._deserialize_skills(need)
+        return needs
+
+    def find_all_open(self) -> list[ProjectNeed]:
+        """Return all needs with status='open', newest first."""
+        query = (
+            select(ProjectNeed)
+            .where(project_needs_table.c.status == "open")
+            .order_by(project_needs_table.c.created_at.desc())
+        )
+        needs = list(self._session.scalars(query).all())
+        for need in needs:
+            self._deserialize_skills(need)
+        return needs
+
+    def save(self, need: ProjectNeed) -> None:
+        self._serialize_skills(need)
+        self._session.merge(need)
+        self._deserialize_skills(need)
+        self._session.flush()
+
+    # ------------------------------------------------------------------
+    # Private helpers — skills JSON serialization
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _serialize_skills(need: ProjectNeed) -> None:
+        """Convert list[str] → JSON string before flush."""
+        if isinstance(need.skills, list):
+            need.skills = json.dumps(need.skills)  # type: ignore[assignment]
+
+    @staticmethod
+    def _deserialize_skills(need: ProjectNeed) -> None:
+        """Convert JSON string → list[str] after load."""
+        if isinstance(need.skills, str):
+            need.skills = json.loads(need.skills)

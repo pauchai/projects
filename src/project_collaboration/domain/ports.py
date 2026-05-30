@@ -4,7 +4,10 @@ from typing import Protocol
 
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
+from project_collaboration.domain.product import Product
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.skill_tag import SkillTag
 
@@ -26,6 +29,16 @@ class ProjectRepository(Protocol):
     ) -> list[Project]: ...
 
 
+class ProductRepository(Protocol):
+    """Port for persisting and querying Products."""
+
+    def find_by_id(self, product_id: str) -> Product | None: ...
+
+    def save(self, product: Product) -> None: ...
+
+    def find_by_project(self, project_id: str) -> list[Product]: ...
+
+
 class FeatureRequestRepository(Protocol):
     """Port for persisting and querying FeatureRequests."""
 
@@ -38,6 +51,34 @@ class FeatureRequestRepository(Protocol):
         status: FeatureStatus | None = None,
         author_id: str | None = None,
     ) -> list[FeatureRequest]: ...
+
+
+class FundRepository(Protocol):
+    """Port for persisting and querying ProjectFund aggregates."""
+
+    def find_by_project(self, project_id: str) -> ProjectFund | None: ...
+
+    def save(self, fund: ProjectFund) -> None: ...
+
+    def save_transaction(self, tx: FundTransaction) -> None: ...
+
+    def save_distribution(self, dist: FundDistribution) -> None: ...
+
+    def list_transactions(self, fund_id: str) -> list[FundTransaction]: ...
+
+    def list_distributions(self, fund_id: str) -> list[FundDistribution]: ...
+
+
+class ProjectNeedRepository(Protocol):
+    """Port for persisting and querying ProjectNeeds."""
+
+    def find_by_id(self, need_id: str) -> ProjectNeed | None: ...
+
+    def find_by_project_id(self, project_id: str) -> list[ProjectNeed]: ...
+
+    def find_all_open(self) -> list[ProjectNeed]: ...
+
+    def save(self, need: ProjectNeed) -> None: ...
 
 
 class UnitOfWork(Protocol):
@@ -58,6 +99,9 @@ class UnitOfWork(Protocol):
 
     projects: ProjectRepository
     feature_requests: FeatureRequestRepository
+    products: ProductRepository
+    fund: FundRepository
+    needs: ProjectNeedRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

@@ -17,6 +17,7 @@ class ModuleProgression:
         module_id: str,
         title: str,
         master_id: str,
+        repo_url: str | None = None,
     ) -> None:
         if not title.strip():
             raise ValueError("Module title must not be empty")
@@ -24,6 +25,7 @@ class ModuleProgression:
         self.module_id = module_id
         self.title = title
         self.master_id = master_id
+        self.repo_url = repo_url
         self._topics: list[Topic] = []
 
     @property

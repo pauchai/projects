@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from cohort_learning.domain.helper_metrics import HelperMetrics
+from cohort_learning.domain.lesson import Lesson
 from cohort_learning.domain.learning_cohort import LearningCohort
 from cohort_learning.domain.module_curator import ModuleCurator
 from cohort_learning.domain.module_progression import ModuleProgression
@@ -133,6 +134,22 @@ class PendingCuratorPromotionRepository(Protocol):
     ) -> PendingCuratorPromotion | None: ...
 
 
+class LessonRepository(Protocol):
+    """Port for persisting and querying Lessons."""
+
+    def find_by_id(self, lesson_id: str) -> Lesson | None: ...
+
+    def save(self, lesson: Lesson) -> None: ...
+
+    def find_by_module(self, module_id: str) -> list[Lesson]: ...
+
+    def delete(self, lesson_id: str) -> None: ...
+
+    def save_all(self, lessons: list[Lesson]) -> None:
+        """Upsert a batch of lessons (used by manifest sync)."""
+        ...
+
+
 class ModuleProgressionRepository(Protocol):
     """Port for persisting and querying ModuleProgressions."""
 
@@ -168,6 +185,7 @@ class UnitOfWork(Protocol):
     helper_metrics: HelperMetricsRepository
     module_curators: ModuleCuratorRepository
     modules: ModuleProgressionRepository
+    lessons: LessonRepository
     topic_competencies: TopicCompetencyRepository
     reward_ledgers: RewardLedgerRepository
     pending_competency_validations: PendingCompetencyValidationRepository

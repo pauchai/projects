@@ -48,6 +48,7 @@ if config.config_file_name is not None:
 # the MetaData objects with table definitions.
 from auth.infrastructure.orm import metadata as auth_metadata
 from cohort_learning.infrastructure.orm import metadata as cohort_metadata
+from community.infrastructure.orm import metadata as community_metadata
 from project_collaboration.infrastructure.orm import metadata as collab_metadata
 
 # Merge all MetaData into a single target for autogenerate.
@@ -55,13 +56,16 @@ from sqlalchemy import MetaData
 
 target_metadata = MetaData()
 
-for table in auth_metadata.tables.values():
-    table.to_metadata(target_metadata)
-
 for table in collab_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 for table in cohort_metadata.tables.values():
+    table.to_metadata(target_metadata)
+
+for table in community_metadata.tables.values():
+    table.to_metadata(target_metadata)
+
+for table in auth_metadata.tables.values():
     table.to_metadata(target_metadata)
 
 # Tables that exist in the DB but are NOT managed by Alembic.

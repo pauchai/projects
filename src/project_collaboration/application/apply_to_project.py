@@ -20,6 +20,7 @@ class ApplyToProjectUseCase:
         desired_role: ProjectRole,
         motivation: str,
         applicant_skills: list[SkillTag],
+        need_id: str | None = None,
     ) -> None:
         with self._uow as uow:
             project = get_project_or_raise(uow, project_id)
@@ -29,6 +30,7 @@ class ApplyToProjectUseCase:
                 desired_role=desired_role,
                 motivation=motivation,
                 applicant_skills=applicant_skills,
+                need_id=need_id,
             )
             uow.projects.save(project)
             uow.commit()

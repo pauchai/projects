@@ -24,9 +24,11 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     MetaData,
+    Numeric,
     String,
     Table,
     Text,
@@ -41,8 +43,13 @@ from project_collaboration.domain.application_form import (
 )
 from project_collaboration.domain.feature_request import FeatureRequest
 from project_collaboration.domain.feature_status import FeatureStatus
+from project_collaboration.domain.fund import FundDistribution, FundTransaction, ProjectFund
 from project_collaboration.domain.membership import Membership
+from project_collaboration.domain.product import Product
+from project_collaboration.domain.product_type import ProductType
+from project_collaboration.domain.product_visibility import ProductVisibility
 from project_collaboration.domain.project import Project
+from project_collaboration.domain.project_need import NeedStatus, ProjectNeed
 from project_collaboration.domain.project_status import ProjectStatus
 from project_collaboration.domain.role import ProjectRole
 from project_collaboration.domain.skill_tag import SkillTag
@@ -105,6 +112,7 @@ projects_table = Table(
         nullable=True,
     ),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("docs_repo_url", Text, nullable=True),
 )
 
 project_skill_tags_table = Table(
@@ -137,6 +145,7 @@ memberships_table = Table(
     ),
     Column("is_active", Boolean, nullable=False, default=True),
     Column("joined_at", DateTime(timezone=True), nullable=False),
+    Column("weight", Float, nullable=False, default=0.0),
 )
 
 applications_table = Table(
@@ -217,3 +226,128 @@ mapper_registry.map_imperatively(
 )
 
 mapper_registry.map_imperatively(FeatureRequest, feature_requests_table)
+
+# ---------------------------------------------------------------------------
+# Products table
+# ---------------------------------------------------------------------------
+
+project_products_table = Table(
+    "project_products",
+    metadata,
+    Column("product_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("title", String(300), nullable=False),
+    Column("description", Text, nullable=False, default=""),
+    Column(
+        "product_type",
+        Enum(ProductType, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    ),
+    Column("price", Numeric(12, 2), nullable=True),
+    Column(
+        "visibility",
+        Enum(ProductVisibility, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=ProductVisibility.PUBLIC.value,
+    ),
+    Column("is_active", Boolean, nullable=False, default=True),
+    Column("ref_id", String(255), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(Product, project_products_table)
+
+# ---------------------------------------------------------------------------
+# Fund tables
+# ---------------------------------------------------------------------------
+
+project_funds_table = Table(
+    "project_funds",
+    metadata,
+    Column("fund_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column("balance", Numeric(14, 2), nullable=False, server_default="0"),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+fund_transactions_table = Table(
+    "fund_transactions",
+    metadata,
+    Column("transaction_id", String(255), primary_key=True),
+    Column(
+        "fund_id",
+        String(255),
+        ForeignKey("project_funds.fund_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("amount", Numeric(14, 2), nullable=False),
+    Column("source", String(50), nullable=False),
+    Column("ref_id", String(255), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+fund_distributions_table = Table(
+    "fund_distributions",
+    metadata,
+    Column("distribution_id", String(255), primary_key=True),
+    Column(
+        "fund_id",
+        String(255),
+        ForeignKey("project_funds.fund_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("amount", Numeric(14, 2), nullable=False),
+    Column("initiated_by", String(255), nullable=False),
+    Column("note", Text, nullable=False, server_default=""),
+    Column("status", String(50), nullable=False, server_default="pending"),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(ProjectFund, project_funds_table)
+mapper_registry.map_imperatively(FundTransaction, fund_transactions_table)
+mapper_registry.map_imperatively(FundDistribution, fund_distributions_table)
+
+# ---------------------------------------------------------------------------
+# ProjectNeed table
+# ---------------------------------------------------------------------------
+
+project_needs_table = Table(
+    "project_needs",
+    metadata,
+    Column("need_id", String(255), primary_key=True),
+    Column(
+        "project_id",
+        String(255),
+        ForeignKey("projects.project_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "role",
+        Enum(ProjectRole, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    ),
+    Column("skills", Text, nullable=False, default="[]"),
+    Column("description", Text, nullable=False),
+    Column("slots", Integer, nullable=False, default=1),
+    Column(
+        "status",
+        Enum(NeedStatus, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=NeedStatus.OPEN.value,
+    ),
+    Column("created_by", String(255), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+mapper_registry.map_imperatively(ProjectNeed, project_needs_table)

@@ -6,7 +6,6 @@ Domain never depends on infrastructure — only on these abstractions (DIP).
 
 from typing import Protocol
 
-from auth.domain.invite_code import InviteCode
 from auth.domain.oauth import OAuthUserInfo
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User
@@ -23,10 +22,14 @@ class PasswordHasher(Protocol):
 class TokenService(Protocol):
     """Port for creating and decoding authentication tokens (e.g., JWT)."""
 
-    def create_access_token(self, user_id: str) -> str: ...
+    def create_access_token(self, user_id: str, status: str = "active") -> str: ...
 
     def decode_token(self, token: str) -> str:
         """Decode a token and return the user_id. Raises ValueError if invalid."""
+        ...
+
+    def decode_token_full(self, token: str) -> dict:
+        """Decode a token and return the full payload dict. Raises ValueError if invalid."""
         ...
 
 
@@ -81,40 +84,6 @@ class UserRepository(Protocol):
     def save(self, user: User) -> None: ...
 
 
-class InviteCodeRepository(Protocol):
-    """Port for persisting and querying InviteCodes."""
-
-    def find_by_code(self, code: str) -> InviteCode | None: ...
-
-    def find_all(self) -> list[InviteCode]: ...
-
-    def save(self, invite_code: InviteCode) -> None: ...
-
-    def save_all(self, invite_codes: list[InviteCode]) -> None: ...
-
-
-class TelegramAuthRequestRepository(Protocol):
-    """Port for persisting and querying TelegramAuthRequests.
-
-    This repository is intentionally **not** part of the UnitOfWork.
-    TelegramAuthRequests are short-lived coordination records stored in
-    Redis with automatic TTL expiration — they do not participate in
-    the same transaction as User/Credential persistence.
-    """
-
-    def find_by_auth_code(self, auth_code: str) -> TelegramAuthRequest | None: ...
-
-    def find_by_authorization_code(
-        self, authorization_code: str
-    ) -> TelegramAuthRequest | None: ...
-
-    def save(self, request: TelegramAuthRequest) -> None: ...
-
-    def delete(self, auth_code: str) -> None:
-        """Remove a TelegramAuthRequest by auth_code."""
-        ...
-
-
 class UnitOfWork(Protocol):
     """Driven port: coordinates atomic persistence for the Auth context.
 
@@ -135,7 +104,6 @@ class UnitOfWork(Protocol):
     """
 
     users: UserRepository
-    invite_codes: InviteCodeRepository
 
     def __enter__(self) -> "UnitOfWork": ...
     def __exit__(self, *args: object) -> None: ...

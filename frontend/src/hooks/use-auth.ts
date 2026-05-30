@@ -7,8 +7,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "@/stores/auth-store"
+import type { UserStatus } from "@/stores/auth-store"
 import * as authApi from "@/api/auth"
-import type { LoginRequest, RegisterRequest, UpdateProfileRequest } from "@/api/types"
+import type {
+  ActivateAccountRequest,
+  LoginRequest,
+  RegisterRequest,
+  UpdateProfileRequest,
+  UserInviteCodeRequest,
+} from "@/api/types"
 
 /** Query key for current user profile */
 export const ME_QUERY_KEY = ["auth", "me"] as const
@@ -21,6 +28,32 @@ export const TELEGRAM_OAUTH_AVAILABLE_KEY = ["auth", "oauth", "telegram", "avail
 
 /** Query key for referrals list */
 export const REFERRALS_QUERY_KEY = ["auth", "referrals"] as const
+
+/**
+ * Generate a new invite code for the current user (POST /auth/invite-codes).
+ * Optionally pass scope/project_id/role for a project-scoped invite.
+ */
+export function useCreateInviteCode() {
+  return useMutation({
+    mutationFn: (params?: UserInviteCodeRequest) => authApi.createInviteCode(params),
+  })
+}
+
+/**
+ * Activate a pending account by submitting a user-generated invite code
+ * (POST /auth/activate). On success, replaces the JWT in the auth store
+ * with the new active token.
+ */
+export function useActivateAccount() {
+  const setToken = useAuthStore((s) => s.setToken)
+
+  return useMutation({
+    mutationFn: (data: ActivateAccountRequest) => authApi.activateAccount(data),
+    onSuccess: (tokenResp) => {
+      setToken(tokenResp.access_token, "active")
+    },
+  })
+}
 
 /**
  * Fetch current user profile (GET /auth/me).
@@ -70,7 +103,7 @@ export function useRegister() {
       return { user, token: tokenResp.access_token }
     },
     onSuccess: ({ user, token }) => {
-      setAuth(token, user.user_id, user.email, user.display_name)
+      setAuth(token, user.user_id, user.email, user.display_name, user.status as UserStatus)
     },
   })
 }
@@ -91,7 +124,7 @@ export function useLogin() {
       return { user, token: tokenResp.access_token }
     },
     onSuccess: ({ user, token }) => {
-      setAuth(token, user.user_id, user.email, user.display_name)
+      setAuth(token, user.user_id, user.email, user.display_name, user.status as UserStatus)
       queryClient.setQueryData(ME_QUERY_KEY, user)
     },
     onError: () => {
@@ -107,15 +140,15 @@ export function useLogin() {
  */
 export function useUpdateProfile() {
   const setAuth = useAuthStore((s) => s.setAuth)
-  const { token, userId } = useAuthStore.getState()
+  const { token, userId, status } = useAuthStore.getState()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: UpdateProfileRequest) => authApi.updateProfile(data),
     onSuccess: (user) => {
-      // Keep the existing token and userId; only update email/displayName
+      // Keep the existing token, userId, and status; only update email/displayName
       if (token && userId) {
-        setAuth(token, userId, user.email, user.display_name)
+        setAuth(token, userId, user.email, user.display_name, status ?? "active")
       }
       queryClient.setQueryData(ME_QUERY_KEY, user)
     },
@@ -183,7 +216,7 @@ export function useGoogleLogin() {
       return { user, token: tokenResp.access_token }
     },
     onSuccess: ({ user, token }) => {
-      setAuth(token, user.user_id, user.email, user.display_name)
+      setAuth(token, user.user_id, user.email, user.display_name, user.status as UserStatus)
       queryClient.setQueryData(ME_QUERY_KEY, user)
     },
     onError: () => {
@@ -261,7 +294,7 @@ export function useTelegramCallback() {
       return { user, token: tokenResp.access_token }
     },
     onSuccess: ({ user, token }) => {
-      setAuth(token, user.user_id, user.email, user.display_name)
+      setAuth(token, user.user_id, user.email, user.display_name, user.status as UserStatus)
       queryClient.setQueryData(ME_QUERY_KEY, user)
       // Clean up localStorage
       localStorage.removeItem("telegram_oauth_state")

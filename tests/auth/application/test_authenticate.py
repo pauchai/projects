@@ -43,7 +43,7 @@ class TestAuthenticateUseCase:
         )
         token = use_case.execute(email="alice@example.com", password="secret123")
 
-        assert token == "fake-token:u1"
+        assert token == "fake-token:u1:active"
 
     def test_raises_on_unknown_email(self) -> None:
         uow = FakeUnitOfWork()
@@ -125,4 +125,4 @@ class TestAuthenticateUseCase:
         )
         token = use_case.execute(email="alice@example.com", password="secret123")
 
-        assert token == "fake-token:u1"
+        assert token == "fake-token:u1:active"

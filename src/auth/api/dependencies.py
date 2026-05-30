@@ -129,6 +129,35 @@ def _extract_user_id(
         raise AuthenticationError(f"Invalid token: {exc}") from exc
 
 
+def _extract_token_payload(
+    authorization: str | None,
+    token_service: JwtTokenService,
+) -> dict:
+    """Pure logic: decode a JWT Bearer token and return the full payload dict.
+
+    Returns a dict with keys ``user_id`` (str) and ``status`` (str).
+
+    Raises:
+        AuthenticationError: If the header is missing, malformed, or the token
+            is invalid/expired.
+    """
+    if authorization is None:
+        raise AuthenticationError("Missing Authorization header")
+
+    parts = authorization.split(" ", maxsplit=1)
+    if len(parts) != 2 or parts[0] != "Bearer":
+        raise AuthenticationError("Authorization header must use Bearer scheme")
+
+    token = parts[1].strip()
+    if not token:
+        raise AuthenticationError("Missing token in Authorization header")
+
+    try:
+        return token_service.decode_token_full(token)
+    except ValueError as exc:
+        raise AuthenticationError(f"Invalid token: {exc}") from exc
+
+
 def get_current_user_id(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     token_service: JwtTokenService = Depends(get_token_service),
@@ -139,6 +168,22 @@ def get_current_user_id(
     Raises AuthenticationError on failure (mapped to 401 by the exception handler).
     """
     return _extract_user_id(authorization, token_service)
+
+
+def require_active_user(
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    token_service: JwtTokenService = Depends(get_token_service),
+) -> str:
+    """FastAPI dependency: extracts user_id and enforces active status.
+
+    Returns the user_id if the token is valid and status is 'active'.
+    Raises AuthenticationError if the token is invalid or status is not 'active'
+    (e.g., pending users cannot access protected endpoints until activated).
+    """
+    payload = _extract_token_payload(authorization, token_service)
+    if payload.get("status", "active") != "active":
+        raise AuthenticationError("Account is not yet activated")
+    return payload["user_id"]
 
 
 def override_session_factory(factory: sessionmaker[Session]) -> None:

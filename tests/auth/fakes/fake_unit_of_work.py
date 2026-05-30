@@ -2,7 +2,6 @@
 
 import copy
 
-from auth.domain.invite_code import InviteCode
 from auth.domain.oauth import OAuthError, OAuthUserInfo
 from auth.domain.telegram_auth_request import TelegramAuthRequest
 from auth.domain.user import User, Credential
@@ -38,6 +37,10 @@ class FakeUserRepository:
                     return user
         return None
 
+    def find_by_inviter_id(self, inviter_id: str) -> list[User]:
+        """Return all users who were invited by the given user_id."""
+        return [u for u in self._storage.values() if u.inviter_id == inviter_id]
+
     def save(self, user: User) -> None:
         self._storage[user.user_id] = user
 
@@ -47,29 +50,6 @@ class FakeUserRepository:
 
     def restore(self, snapshot: dict[str, User]) -> None:
         """Restore storage from a snapshot."""
-        self._storage = snapshot
-
-
-class FakeInviteCodeRepository:
-    """In-memory InviteCodeRepository used within FakeUnitOfWork."""
-
-    def __init__(self) -> None:
-        self._storage: dict[str, InviteCode] = {}  # keyed by code string
-
-    def find_by_code(self, code: str) -> InviteCode | None:
-        return self._storage.get(code.strip().upper())
-
-    def save(self, invite: InviteCode) -> None:
-        self._storage[invite.code] = invite
-
-    def save_all(self, invites: list[InviteCode]) -> None:
-        for invite in invites:
-            self.save(invite)
-
-    def snapshot(self) -> dict[str, InviteCode]:
-        return copy.deepcopy(self._storage)
-
-    def restore(self, snapshot: dict[str, InviteCode]) -> None:
         self._storage = snapshot
 
 
@@ -112,24 +92,20 @@ class FakeUnitOfWork:
 
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self.users = FakeUserRepository()
-        self.invite_codes = FakeInviteCodeRepository()
         self.committed = False
         self._user_snapshot: dict[str, User] | None = None
-        self._invite_snapshot: dict[str, InviteCode] | None = None
         self._event_bus = event_bus
         self._pending_events: list[DomainEvent] = []
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.committed = False
         self._user_snapshot = self.users.snapshot()
-        self._invite_snapshot = self.invite_codes.snapshot()
         return self
 
     def __exit__(self, *args: object) -> None:
         if not self.committed:
             self.rollback()
         self._user_snapshot = None
-        self._invite_snapshot = None
 
     def commit(self) -> None:
         self.committed = True
@@ -137,15 +113,11 @@ class FakeUnitOfWork:
             self._event_bus.publish(self._pending_events)
         self._pending_events.clear()
         self._user_snapshot = None
-        self._invite_snapshot = None
 
     def rollback(self) -> None:
         if self._user_snapshot is not None:
             self.users.restore(self._user_snapshot)
             self._user_snapshot = None
-        if self._invite_snapshot is not None:
-            self.invite_codes.restore(self._invite_snapshot)
-            self._invite_snapshot = None
         self._pending_events.clear()
 
     def collect_events(self, events: list[DomainEvent]) -> None:
@@ -166,15 +138,29 @@ class FakePasswordHasher:
 class FakeTokenService:
     """Fake token service: returns a predictable token for testing."""
 
-    def create_access_token(self, user_id: str) -> str:
-        return f"fake-token:{user_id}"
+    def create_access_token(self, user_id: str, status: str = "active") -> str:
+        return f"fake-token:{user_id}:{status}"
 
     def decode_token(self, token: str) -> str:
         """Decode a fake token. Raises ValueError if format is invalid."""
         prefix = "fake-token:"
         if not token.startswith(prefix):
             raise ValueError("Invalid token")
-        return token[len(prefix) :]
+        # format: fake-token:<user_id>:<status>
+        rest = token[len(prefix):]
+        return rest.split(":")[0]
+
+    def decode_token_full(self, token: str) -> dict:
+        """Decode a fake token and return full payload dict."""
+        prefix = "fake-token:"
+        if not token.startswith(prefix):
+            raise ValueError("Invalid token")
+        rest = token[len(prefix):]
+        parts = rest.split(":", 1)
+        return {
+            "user_id": parts[0],
+            "status": parts[1] if len(parts) > 1 else "active",
+        }
 
 
 class FakeOAuthClient:

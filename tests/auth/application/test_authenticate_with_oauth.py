@@ -131,7 +131,7 @@ class TestAuthenticateWithOAuthExistingUserNoGoogleCredential:
         use_case = _make_use_case(uow)
         token = use_case.execute(code="auth-code-123")
 
-        assert token == "fake-token:u1"
+        assert token == "fake-token:u1:active"
 
     def test_preserves_existing_local_credential(self) -> None:
         uow = FakeUnitOfWork()
@@ -175,7 +175,7 @@ class TestAuthenticateWithOAuthExistingUserWithGoogleCredential:
         use_case = _make_use_case(uow)
         token = use_case.execute(code="auth-code-123")
 
-        assert token == "fake-token:u1"
+        assert token == "fake-token:u1:active"
         # Still only one google credential, no duplicates
         assert len([c for c in user.credentials if c.provider == "google"]) == 1
 
@@ -235,7 +235,7 @@ class TestAuthenticateWithOAuthAccountOwnership:
         token = use_case.execute(code="tg-code")
 
         # Must log in User A (the OAuth owner), NOT User B (the email match)
-        assert token == "fake-token:user-a"
+        assert token == "fake-token:user-a:active"
 
     def test_logs_in_oauth_owner_when_no_email_match_exists(self) -> None:
         """OAuth account belongs to User A, no user with that email exists.
@@ -260,7 +260,7 @@ class TestAuthenticateWithOAuthAccountOwnership:
         )
         token = use_case.execute(code="tg-code")
 
-        assert token == "fake-token:user-a"
+        assert token == "fake-token:user-a:active"
         # No new user should be created
         assert uow.users.find_by_email("bob@example.com") is None
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from project_collaboration.domain.product_type import ProductType
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +40,7 @@ class ApplyToProjectRequest(BaseModel):
     desired_role: str
     motivation: str = Field(default="", max_length=2000)
     applicant_skills: list[str] = Field(default_factory=list)
+    need_id: str | None = None
 
 
 class ChangeMemberRoleRequest(BaseModel):
@@ -95,6 +98,7 @@ class ProjectResponse(BaseModel):
     max_members: int | None
     status: str
     created_at: datetime
+    docs_repo_url: str | None = None
     memberships: list[MembershipResponse]
     applications: list[ApplicationResponse]
 
@@ -152,3 +156,158 @@ class FeatureRequestResponse(BaseModel):
     admin_notes: str
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Product schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateProductRequest(BaseModel):
+    """POST /projects/{project_id}/products"""
+
+    product_id: str
+    title: str = Field(min_length=1, max_length=300)
+    product_type: ProductType
+    description: str = Field(default="", max_length=5000)
+    price: float | None = None
+    visibility: str = "public"
+    ref_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_ref_id(self) -> "CreateProductRequest":
+        """course requires cohort ref_id; mentoring requires mentor user ref_id."""
+        if self.product_type.requires_ref_id and not self.ref_id:
+            raise ValueError(
+                f"ref_id is required for product type '{self.product_type.value}'"
+            )
+        return self
+
+
+# ---------------------------------------------------------------------------
+# Fund schemas
+# ---------------------------------------------------------------------------
+
+
+class FundTransactionResponse(BaseModel):
+    transaction_id: str
+    fund_id: str
+    amount: float
+    source: str
+    ref_id: str | None
+    created_at: datetime
+
+
+class FundDistributionResponse(BaseModel):
+    distribution_id: str
+    fund_id: str
+    amount: float
+    initiated_by: str
+    note: str
+    status: str
+    created_at: datetime
+
+
+class FundResponse(BaseModel):
+    fund_id: str | None  # None if fund has not been created yet
+    project_id: str
+    balance: float
+    transactions: list[FundTransactionResponse] = []
+    distributions: list[FundDistributionResponse] = []
+
+
+class DepositRequest(BaseModel):
+    amount: float = Field(gt=0, description="Net amount to deposit (after commission)")
+    source: str = Field(default="manual", max_length=50)
+    ref_id: str | None = None
+
+
+class DistributeRequest(BaseModel):
+    amount: float = Field(gt=0, description="Fixed amount to distribute from the fund")
+    note: str = Field(default="", max_length=1000)
+
+
+class ProductResponse(BaseModel):
+    """Serialized Product entity."""
+
+    product_id: str
+    project_id: str
+    title: str
+    product_type: str
+    description: str
+    price: float | None
+    visibility: str
+    is_active: bool
+    ref_id: str | None
+    created_at: datetime
+
+
+class MarketplaceProductResponse(BaseModel):
+    """Response for GET /marketplace — public active products with project title."""
+
+    product_id: str
+    project_id: str
+    project_title: str
+    title: str
+    product_type: str
+    description: str
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL & sync schemas
+# ---------------------------------------------------------------------------
+
+
+class SetDocsRepoUrlRequest(BaseModel):
+    """PATCH /projects/{project_id}/docs-repo-url"""
+
+    docs_repo_url: str | None = None
+
+
+class DocsSyncResponse(BaseModel):
+    """Response for POST /projects/{project_id}/sync-docs."""
+
+    message: str
+    path: str
+
+
+# ---------------------------------------------------------------------------
+# ProjectNeed schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateProjectNeedRequest(BaseModel):
+    """POST /projects/{project_id}/needs"""
+
+    role: str = Field(description="ProjectRole value, e.g. 'member', 'mentor'")
+    description: str = Field(min_length=1, max_length=2000)
+    skills: list[str] = Field(default_factory=list)
+    slots: int = Field(default=1, ge=1)
+
+
+class ProjectNeedResponse(BaseModel):
+    """Response for ProjectNeed endpoints."""
+
+    need_id: str
+    project_id: str
+    role: str
+    description: str
+    skills: list[str]
+    slots: int
+    status: str
+    created_by: str
+    created_at: datetime
+
+
+class PublicNeedResponse(BaseModel):
+    """Response for GET /needs — global open needs list, includes project title."""
+
+    need_id: str
+    project_id: str
+    project_title: str
+    role: str
+    description: str
+    skills: list[str]
+    slots: int
+    created_at: datetime

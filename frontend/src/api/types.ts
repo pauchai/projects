@@ -24,6 +24,8 @@ export interface UserResponse {
   user_id: string
   email: string
   display_name: string
+  /** Account status: 'pending' for new OAuth users, 'active' after invite code activation */
+  status?: "pending" | "active"
 }
 
 /** POST /auth/login — request body */
@@ -37,10 +39,36 @@ export interface SetPasswordRequest {
   password: string
 }
 
+/** POST /auth/activate — request body */
+export interface ActivateAccountRequest {
+  invite_code: string
+}
+
 /** PATCH /auth/me — request body (both fields optional) */
 export interface UpdateProfileRequest {
   email?: string
   display_name?: string
+}
+
+/** POST /auth/invite-codes — request body */
+export interface UserInviteCodeRequest {
+  scope?: "system" | "project"
+  project_id?: string | null
+  role?: string | null
+}
+
+/** POST /auth/invite-codes — response */
+export interface UserInviteCodeResponse {
+  code_id: string
+  code: string
+  expires_at: string
+  max_uses: number
+  uses_left: number
+  is_active: boolean
+  created_at: string
+  scope: string
+  project_id: string | null
+  role: string | null
 }
 
 /** GET /auth/referrals — a single referred user */
@@ -144,6 +172,7 @@ export interface ProjectResponse {
   max_members: number | null
   status: string
   created_at: string
+  docs_repo_url: string | null
   memberships: MembershipResponse[]
   applications: ApplicationResponse[]
 }
@@ -165,6 +194,7 @@ export interface ApplyToProjectRequest {
   desired_role: string
   motivation?: string
   applicant_skills?: string[]
+  need_id?: string | null
 }
 
 /** PATCH /projects/:id — request body */
@@ -188,6 +218,58 @@ export interface MessageResponse {
 /** API error response shape */
 export interface ApiErrorResponse {
   detail: string
+}
+
+// ---------------------------------------------------------------------------
+// Project Needs
+// ---------------------------------------------------------------------------
+
+/** POST /projects/:id/needs — request body */
+export interface CreateProjectNeedRequest {
+  role: string
+  description: string
+  skills?: string[]
+  slots?: number
+}
+
+/** GET /projects/:id/needs — a single project need */
+export interface ProjectNeedResponse {
+  need_id: string
+  project_id: string
+  role: string
+  description: string
+  skills: string[]
+  slots: number
+  status: string
+  created_by: string
+  created_at: string
+}
+
+/** GET /needs — global open need (includes project title) */
+export interface PublicNeedResponse {
+  need_id: string
+  project_id: string
+  project_title: string
+  role: string
+  description: string
+  skills: string[]
+  slots: number
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace
+// ---------------------------------------------------------------------------
+
+/** GET /marketplace — a single public active product with project title */
+export interface MarketplaceProductResponse {
+  product_id: string
+  project_id: string
+  project_title: string
+  title: string
+  product_type: ProductType
+  description: string
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------
@@ -463,6 +545,7 @@ export interface ModuleResponse {
   module_id: string
   title: string
   master_id: string
+  repo_url: string | null
   topics: TopicResponse[]
   topic_count: number
 }
@@ -477,6 +560,27 @@ export interface AddTopicRequest {
   title: string
   position: number
   description: string
+}
+
+// ---------------------------------------------------------------------------
+// Lessons
+// ---------------------------------------------------------------------------
+
+export interface LessonResponse {
+  lesson_id: string
+  module_id: string
+  title: string
+  position: number
+  topic_id: string | null
+  content_path: string | null
+  homework_path: string | null
+  has_homework: boolean
+  created_at: string
+}
+
+export interface SyncResponse {
+  message: string
+  path: string
 }
 
 // ---------------------------------------------------------------------------
@@ -506,4 +610,266 @@ export interface EarningsSummaryResponse {
   total_pending: number
   total_released: number
   commissions: CommissionResponse[]
+}
+
+// ---------------------------------------------------------------------------
+// Schedule
+// ---------------------------------------------------------------------------
+
+export interface AvailabilitySlotResponse {
+  slot_id: string
+  weekday: number
+  start_time: string
+  end_time: string
+}
+
+export interface CuratorResponse {
+  curator_id: string
+  name: string
+  skills: string[]
+  availability_slots: AvailabilitySlotResponse[]
+}
+
+export interface CreateCuratorRequest {
+  name: string
+  skills?: string[]
+}
+
+export interface AddAvailabilitySlotRequest {
+  weekday: number
+  start_time: string
+  end_time: string
+}
+
+export interface AddAvailabilitySlotResponse {
+  slot_id: string
+}
+
+export interface SubmitConsultationRequestBody {
+  student_name: string
+  request_text: string
+}
+
+export interface ConsultationRequestResponse {
+  request_id: string
+  student_name: string
+  request_text: string
+  status: "pending" | "negotiating" | "confirmed" | "cancelled"
+  recommended_curator_ids: string[]
+}
+
+export interface StartNegotiationResponse {
+  offer_ids: string[]
+}
+
+export interface RespondToOfferRequest {
+  action: "accept" | "decline"
+}
+
+export interface RespondToOfferResponse {
+  offer_id: string
+  status: "accepted" | "declined"
+}
+
+export interface OfferResponse {
+  offer_id: string
+  request_id: string
+  curator_id: string
+  status: "pending" | "accepted" | "declined"
+  student_name: string
+  request_text: string
+}
+
+export interface AssignAppointmentRequest {
+  scheduled_at: string
+}
+
+export interface AppointmentResponse {
+  appointment_id: string
+  request_id: string
+  curator_id: string
+  scheduled_at: string
+  status: "scheduled" | "completed" | "cancelled"
+}
+
+// ---------------------------------------------------------------------------
+// Products
+// ---------------------------------------------------------------------------
+
+export type ProductType =
+  | "course"
+  | "mentoring"
+  | "onboarding"
+  | "donation"
+  | "other"
+
+export type ProductVisibility = "public" | "members_only"
+
+/** POST /projects/:id/products — request body */
+export interface CreateProductRequest {
+  product_id: string
+  title: string
+  product_type: ProductType
+  description?: string
+  price?: number | null
+  visibility?: ProductVisibility
+  ref_id?: string | null
+}
+
+/** GET /projects/:id/products — single product */
+export interface ProductResponse {
+  product_id: string
+  project_id: string
+  title: string
+  product_type: ProductType
+  description: string
+  price: number | null
+  visibility: ProductVisibility
+  is_active: boolean
+  ref_id: string | null
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Fund
+// ---------------------------------------------------------------------------
+
+export interface FundTransactionResponse {
+  transaction_id: string
+  fund_id: string
+  amount: number
+  source: string
+  ref_id: string | null
+  created_at: string
+}
+
+export interface FundDistributionResponse {
+  distribution_id: string
+  fund_id: string
+  amount: number
+  initiated_by: string
+  note: string | null
+  status: string
+  created_at: string
+}
+
+export interface FundResponse {
+  fund_id: string | null
+  project_id: string
+  balance: number
+  transactions?: FundTransactionResponse[]
+  distributions?: FundDistributionResponse[]
+}
+
+export interface DepositRequest {
+  amount: number
+  source: string
+  ref_id?: string | null
+}
+
+export interface DistributeRequest {
+  amount: number
+  note?: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Guarantorship
+// ---------------------------------------------------------------------------
+
+export interface GuaranteeRequestCreate {
+  guarantor_id: string
+  message?: string | null
+}
+
+export interface GuaranteeRequestResponse {
+  request_id: string
+  ward_id: string
+  guarantor_id: string
+  status: "pending" | "accepted" | "rejected"
+  message: string | null
+  created_at: string
+  responded_at: string | null
+  converted_to_guarantorship_id: string | null
+}
+
+export interface GuarantorshipResponse {
+  guarantorship_id: string
+  guarantor_id: string
+  ward_id: string
+  request_id: string
+  created_at: string
+}
+
+export interface DepositCreate {
+  guarantor_id: string
+  amount: number
+  blockchain_ref?: string | null
+}
+
+export interface DepositResponse {
+  deposit_id: string
+  ward_id: string
+  guarantor_id: string
+  amount: number
+  blockchain_ref: string | null
+  created_at: string
+}
+
+export interface PlatformSettingsResponse {
+  required_guarantors_count: number
+  guarantor_ward_limit: number
+  escalation_levels: number
+}
+
+export interface DealCreate {
+  counterparty_id: string
+  amount: number
+}
+
+export interface DealResponse {
+  deal_id: string
+  initiator_id: string
+  counterparty_id: string
+  amount: number
+  status: "pending" | "active" | "completed" | "disputed" | "resolved"
+  created_at: string
+}
+
+export interface ComplaintCreate {
+  deal_id: string
+  against_id: string
+  description: string
+}
+
+export interface ComplaintResponse {
+  complaint_id: string
+  deal_id: string
+  filed_by_id: string
+  against_id: string
+  description: string
+  status: "open" | "voting" | "escalated" | "resolved"
+  verdict: "compensate_initiator" | "compensate_counterparty" | "dismiss" | null
+  voting_deadline: string | null
+  escalation_level: number
+  created_at: string
+}
+
+export interface ZeroCircleCreate {
+  name: string
+  deposit_stub?: number | null
+}
+
+export interface ZeroCircleMemberResponse {
+  user_id: string
+  joined_at: string
+}
+
+export interface ZeroCircleResponse {
+  circle_id: string
+  name: string
+  initiated_by: string
+  status: "open" | "dao_pending" | "closed"
+  deposit_stub: number | null
+  created_at: string
+  members: ZeroCircleMemberResponse[]
 }

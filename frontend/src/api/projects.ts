@@ -2,15 +2,18 @@
  * Projects API functions: CRUD, search, status transitions, applications, members.
  */
 
-import { del, get, patch, post } from "./client"
+import { del, get, getText, patch, post } from "./client"
 import type {
   ApplyToProjectRequest,
   ChangeMemberRoleRequest,
+  CreateProjectNeedRequest,
   CreateProjectRequest,
   MessageResponse,
+  ProjectNeedResponse,
   ProjectResponse,
   ProjectSummaryResponse,
   SearchProjectsParams,
+  SyncResponse,
   UpdateProjectRequest,
 } from "./types"
 
@@ -128,4 +131,54 @@ export function removeMember(
   return del<MessageResponse>(
     `/projects/${projectId}/members/${membershipId}`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Docs repo URL & sync
+// ---------------------------------------------------------------------------
+
+export function setDocsRepoUrl(
+  projectId: string,
+  docsRepoUrl: string | null,
+): Promise<ProjectResponse> {
+  return patch<ProjectResponse>(`/projects/${projectId}/docs-repo-url`, {
+    docs_repo_url: docsRepoUrl,
+  })
+}
+
+export function syncDocsVolume(projectId: string): Promise<SyncResponse> {
+  return post<SyncResponse>(`/projects/${projectId}/sync-docs`, {})
+}
+
+export function getDocsFile(projectId: string, filePath: string): Promise<string> {
+  return getText(`/projects/${projectId}/docs/${filePath}`)
+}
+
+export function getDocsTree(projectId: string): Promise<{ files: string[] }> {
+  return get<{ files: string[] }>(`/projects/${projectId}/docs`)
+}
+
+// ---------------------------------------------------------------------------
+// Project Needs
+// ---------------------------------------------------------------------------
+
+/** GET /projects/:id/needs — list open needs for a project */
+export function getProjectNeeds(projectId: string): Promise<ProjectNeedResponse[]> {
+  return get<ProjectNeedResponse[]>(`/projects/${projectId}/needs`)
+}
+
+/** POST /projects/:id/needs — create a new need */
+export function createProjectNeed(
+  projectId: string,
+  data: CreateProjectNeedRequest,
+): Promise<ProjectNeedResponse> {
+  return post<ProjectNeedResponse>(`/projects/${projectId}/needs`, data)
+}
+
+/** PATCH /projects/:id/needs/:needId/close — close a need */
+export function closeProjectNeed(
+  projectId: string,
+  needId: string,
+): Promise<MessageResponse> {
+  return patch<MessageResponse>(`/projects/${projectId}/needs/${needId}/close`, {})
 }

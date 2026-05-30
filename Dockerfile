@@ -24,6 +24,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install git (required for content volume sync)
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && git config --global --add safe.directory '*'
+
 # Copy installed dependencies from builder
 COPY --from=builder /root/.cache/pip /root/.cache/pip
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

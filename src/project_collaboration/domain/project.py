@@ -47,6 +47,7 @@ class Project:
         owner_id: str,
         required_skills: list[SkillTag],
         max_members: int | None = None,
+        docs_repo_url: str | None = None,
     ) -> None:
         if len(title) < MIN_TITLE_LENGTH or len(title) > MAX_TITLE_LENGTH:
             raise ValueError(
@@ -63,6 +64,7 @@ class Project:
         self.owner_id = owner_id
         self.required_skills = list(required_skills)
         self.max_members = max_members
+        self.docs_repo_url = docs_repo_url
         self.status = ProjectStatus.DRAFT
         self.created_at: datetime = datetime.now(timezone.utc)
         self.previous_status: ProjectStatus | None = None
@@ -180,6 +182,7 @@ class Project:
         desired_role: ProjectRole,
         motivation: str,
         applicant_skills: list[SkillTag],
+        need_id: str | None = None,
     ) -> None:
         """Submit an application to join this project."""
         if self.status != ProjectStatus.RECRUITING:
@@ -205,6 +208,7 @@ class Project:
             desired_role=desired_role,
             motivation=motivation,
             applicant_skills=applicant_skills,
+            need_id=need_id,
         )
         self.applications.append(form)
         self._emit(

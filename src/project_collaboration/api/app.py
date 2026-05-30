@@ -56,17 +56,31 @@ from cohort_learning.infrastructure.sqlalchemy_unit_of_work import (
 )
 from partnership.api.dependencies import set_event_bus as set_partnership_event_bus
 from partnership.api.routes.earnings import router as earnings_router
-from partnership.application.calculate_curation_commission import (
-    CalculateCurationCommissionUseCase,
+from community.api.router import router as community_router
+from schedule.api.routes.schedule import router as schedule_router
+from partnership.application.calculate_curation_commission import (    CalculateCurationCommissionUseCase,
 )
 from partnership.application.sagas.cohort_graduation_saga import CohortGraduationSaga
 from partnership.infrastructure.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork as PartnershipSqlAlchemyUnitOfWork,
 )
 import partnership.infrastructure.orm  # noqa: F401 — registers Partnership ORM mappings
+import schedule.infrastructure.orm  # noqa: F401 — registers Schedule ORM mappings
+from guarantorship.infrastructure.orm import register_mappers as _register_guarantorship_mappers
+from guarantorship.api.routes.guarantorships import circles_router as zero_circles_router
+from guarantorship.api.routes.guarantorships import router as guarantorships_router
+from guarantorship.api.routes.deposits import router as deposits_router
+from guarantorship.api.routes.deals import router as deals_router
+from guarantorship.api.routes.complaints import router as complaints_router
+from guarantorship.api.routes.platform_settings import router as platform_settings_router
 from project_collaboration.api.dependencies import AuthenticationError
 from project_collaboration.api.routes.features import router as features_router
+from project_collaboration.api.routes.fund import router as fund_router
+from project_collaboration.api.routes.marketplace import router as marketplace_router
+from project_collaboration.api.routes.needs import router as needs_router
+from project_collaboration.api.routes.products import router as products_router
 from project_collaboration.api.routes.projects import router as projects_router
+from project_collaboration.api.routes.internal import router as internal_router
 from project_collaboration.infrastructure.database import (
     get_engine,
     get_session_factory,
@@ -86,6 +100,9 @@ CORS_ORIGINS: list[str] = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run Alembic migrations on startup and wire up the EventBus."""
+    # Register ORM mappers before any DB operations
+    _register_guarantorship_mappers()
+
     engine = get_engine()
     run_migrations(engine)
     session_factory = get_session_factory(engine)
@@ -220,6 +237,11 @@ def create_app() -> FastAPI:
     app.include_router(credentials_router)
     app.include_router(oauth_router)
     app.include_router(projects_router)
+    app.include_router(internal_router)
+    app.include_router(needs_router)
+    app.include_router(marketplace_router)
+    app.include_router(products_router)
+    app.include_router(fund_router)
     app.include_router(features_router)
     app.include_router(cohorts_router)
     app.include_router(modules_router)
@@ -228,6 +250,14 @@ def create_app() -> FastAPI:
     app.include_router(rewards_router)
     app.include_router(earnings_router)
     app.include_router(telegram_router)
+    app.include_router(schedule_router)
+    app.include_router(guarantorships_router)
+    app.include_router(zero_circles_router)
+    app.include_router(deposits_router)
+    app.include_router(deals_router)
+    app.include_router(complaints_router)
+    app.include_router(platform_settings_router)
+    app.include_router(community_router)
 
     return app
 

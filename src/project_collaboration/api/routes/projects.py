@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import os
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from project_collaboration.api.dependencies import get_current_user_id, get_uow
 from project_collaboration.api.schemas import (
     ApplyToProjectRequest,
     ChangeMemberRoleRequest,
+    CreateProjectNeedRequest,
     CreateProjectRequest,
+    DocsSyncResponse,
     MessageResponse,
+    ProjectNeedResponse,
     ProjectResponse,
     ProjectSummaryResponse,
+    SetDocsRepoUrlRequest,
     UpdateProjectRequest,
 )
 from project_collaboration.application.apply_to_project import ApplyToProjectUseCase
@@ -22,7 +30,12 @@ from project_collaboration.application.change_project_status import (
     ResumeProjectUseCase,
     SuspendProjectUseCase,
 )
+from project_collaboration.application.close_project_need import CloseProjectNeedUseCase
 from project_collaboration.application.create_project import CreateProjectUseCase
+from project_collaboration.application.create_project_need import (
+    CreateProjectNeedCommand,
+    CreateProjectNeedUseCase,
+)
 from project_collaboration.application.manage_member import (
     ChangeMemberRoleUseCase,
     RemoveMemberUseCase,
@@ -60,6 +73,7 @@ def _project_to_response(project: Project) -> ProjectResponse:
         max_members=project.max_members,
         status=project.status.value,
         created_at=project.created_at,
+        docs_repo_url=getattr(project, "docs_repo_url", None),
         memberships=[
             {
                 "membership_id": m.membership_id,
@@ -217,6 +231,7 @@ def apply_to_project(
         desired_role=ProjectRole(body.desired_role),
         motivation=body.motivation,
         applicant_skills=[SkillTag(s) for s in body.applicant_skills],
+        need_id=body.need_id,
     )
     return MessageResponse(message="Application submitted")
 
@@ -361,3 +376,249 @@ def cancel_project(
     use_case = CancelProjectUseCase(uow)
     use_case.execute(project_id=project_id, caller_id=caller_id)
     return MessageResponse(message="Project cancelled")
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL & sync helpers
+# ---------------------------------------------------------------------------
+
+
+def _docs_volume_path(project_id: str) -> Path:
+    base = Path(os.environ.get("VOLUMES_BASE_PATH", "./volumes"))
+    return base / "projects" / project_id
+
+
+def _safe_docs_file(volume: Path, rel_path: str) -> Path:
+    """Resolve a relative path inside a docs volume; raise 400 on path traversal."""
+    target = (volume / rel_path).resolve()
+    if not str(target).startswith(str(volume.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return target
+
+
+# ---------------------------------------------------------------------------
+# Docs repo URL management
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{project_id}/docs-repo-url", response_model=ProjectResponse)
+def set_docs_repo_url(
+    project_id: str,
+    body: SetDocsRepoUrlRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> ProjectResponse:
+    """Set or update the docs git repo URL for a project.
+
+    Only the project owner may update this field.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        if not project.is_owner(caller_id):
+            raise HTTPException(status_code=403, detail="Only the project owner may set docs_repo_url")
+        project.docs_repo_url = body.docs_repo_url
+        u.projects.save(project)
+        u.commit()
+        return _project_to_response(project)
+
+
+# ---------------------------------------------------------------------------
+# Docs git sync
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{project_id}/sync-docs", response_model=DocsSyncResponse)
+def sync_docs_volume(
+    project_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> DocsSyncResponse:
+    """Clone or pull the project's git docs repo into the local volume."""
+    from cohort_learning.infrastructure.git_sync import GitVolumeSync  # noqa: PLC0415
+
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        if not project.is_owner(caller_id):
+            raise HTTPException(status_code=403, detail="Only the project owner may trigger a sync")
+        docs_repo_url = getattr(project, "docs_repo_url", None)
+        if not docs_repo_url:
+            raise HTTPException(status_code=422, detail=f"Project '{project_id}' has no docs_repo_url configured")
+
+    base = Path(os.environ.get("VOLUMES_BASE_PATH", "./volumes"))
+    syncer = GitVolumeSync(volumes_base_path=base)
+    try:
+        volume_path = syncer.sync_project(project_id=project_id, repo_url=docs_repo_url)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return DocsSyncResponse(message="sync complete", path=str(volume_path))
+
+
+# ---------------------------------------------------------------------------
+# Docs file tree (listing)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id}/docs")
+def get_docs_tree(
+    project_id: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> dict:
+    """Return a sorted list of all files in the project docs volume.
+
+    Paths are relative to the volume root, e.g. ``["README.md", "guides/setup.md"]``.
+    Ignores hidden files and the ``.git`` directory.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    volume = _docs_volume_path(project_id)
+    if not volume.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Docs volume not found — trigger a sync first",
+        )
+
+    files: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(volume):
+        # Skip hidden dirs (including .git) in-place so os.walk won't descend into them
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        rel_dir = Path(dirpath).relative_to(volume)
+        for filename in sorted(filenames):
+            if filename.startswith("."):
+                continue
+            rel_file = rel_dir / filename
+            files.append(str(rel_file))
+
+    return {"files": files}
+
+
+# ---------------------------------------------------------------------------
+# Docs file serving (Markdown)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id}/docs/{file_path:path}", response_class=PlainTextResponse)
+def get_docs_file(
+    project_id: str,
+    file_path: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> str:
+    """Return raw file content (Markdown) from the project's local docs volume.
+
+    ``file_path`` is relative to the volume root, e.g. ``README.md``.
+    Path traversal attempts are rejected.
+    """
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    volume = _docs_volume_path(project_id)
+    if not volume.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Docs volume not found — trigger a sync first",
+        )
+
+    target = _safe_docs_file(volume, file_path)
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"File '{file_path}' not found in docs volume")
+
+    return target.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Project Needs endpoints
+# ---------------------------------------------------------------------------
+
+
+def _need_to_response(need: object) -> ProjectNeedResponse:
+    return ProjectNeedResponse(
+        need_id=need.need_id,  # type: ignore[attr-defined]
+        project_id=need.project_id,  # type: ignore[attr-defined]
+        role=need.role.value,  # type: ignore[attr-defined]
+        description=need.description,  # type: ignore[attr-defined]
+        skills=need.skills,  # type: ignore[attr-defined]
+        slots=need.slots,  # type: ignore[attr-defined]
+        status=need.status.value,  # type: ignore[attr-defined]
+        created_by=need.created_by,  # type: ignore[attr-defined]
+        created_at=need.created_at,  # type: ignore[attr-defined]
+    )
+
+
+@router.get("/{project_id}/needs", response_model=list[ProjectNeedResponse])
+def list_project_needs(
+    project_id: str,
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> list[ProjectNeedResponse]:
+    """List all open/filled needs for a project. Public endpoint."""
+    with uow as u:
+        project = u.projects.find_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+        needs = u.needs.find_by_project_id(project_id)
+    return [_need_to_response(n) for n in needs]
+
+
+@router.post("/{project_id}/needs", response_model=ProjectNeedResponse, status_code=201)
+def create_project_need(
+    project_id: str,
+    body: CreateProjectNeedRequest,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> ProjectNeedResponse:
+    """Post a new open position. Any active project member can create one."""
+    try:
+        role = ProjectRole(body.role)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid role '{body.role}'")
+
+    use_case = CreateProjectNeedUseCase(uow)
+    try:
+        need_id = use_case.execute(
+            CreateProjectNeedCommand(
+                project_id=project_id,
+                caller_id=caller_id,
+                role=role,
+                description=body.description,
+                skills=body.skills,
+                slots=body.slots,
+            )
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    with uow as u:
+        need = u.needs.find_by_id(need_id)
+    return _need_to_response(need)
+
+
+@router.patch("/{project_id}/needs/{need_id}/close", response_model=MessageResponse)
+def close_project_need(
+    project_id: str,
+    need_id: str,
+    caller_id: str = Depends(get_current_user_id),
+    uow: SqlAlchemyUnitOfWork = Depends(get_uow),
+) -> MessageResponse:
+    """Close an open project need."""
+    use_case = CloseProjectNeedUseCase(uow)
+    try:
+        use_case.execute(need_id=need_id, caller_id=caller_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return MessageResponse(message="Need closed successfully")
